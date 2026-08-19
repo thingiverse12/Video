@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skolbladet – Nyhetsblad för skolan</title>
+<link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:wght@700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-icon">📰</div>
+        <div>
+          <h1>Skolbladet</h1>
+          <p>Nyhetsblad för skolan</p>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnNew">+ Nytt nyhetsblad</button>
+    </div>
+
+    <div class="sidebar-search">
+      <input id="searchInput" type="text" placeholder="Sök nyhetsblad...">
+    </div>
+
+    <div class="sidebar-list-wrap">
+      <div class="sidebar-label">DINA NYHETSBREV <span id="countBadge">0</span></div>
+      <div id="list" class="news-list"></div>
+      <div id="emptyList" class="empty-list">
+        <p>Inga nyhetsblad än.<br>Klicka på <b>Nytt nyhetsblad</b> för att komma igång!</p>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="info-box">
+        <b>Tips:</b> Alla blad sparas automatiskt i webbläsaren. Du kan skriva ut eller spara som PDF när som helst.
+      </div>
+      <button class="btn btn-ghost btn-small" id="btnExportAll">⬇ Exportera alla (JSON)</button>
+      <label class="btn btn-ghost btn-small" style="cursor:pointer">
+        ⬆ Importera
+        <input type="file" id="importAll" accept=".json" hidden>
+      </label>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <!-- Topbar -->
+    <div class="topbar">
+      <button class="icon-btn mobile-only" id="btnMenu">☰</button>
+      <div class="topbar-tabs">
+        <button class="tab active" data-tab="editor">✏️ Redigera</button>
+        <button class="tab" data-tab="preview">👁️ Förhandsgranska</button>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" id="btnDuplicate">Duplicera</button>
+        <button class="btn btn-ghost" id="btnHtml">⬇ HTML</button>
+        <button class="btn btn-dark" id="btnPrint">🖨️ Skriv ut / Spara PDF</button>
+      </div>
+    </div>
+
+    <!-- Editor View -->
+    <div id="viewEditor" class="view">
+      <div class="editor-grid">
+        <!-- Left form -->
+        <div class="editor-form">
+          <div class="card">
+            <h3>Grundinformation</h3>
+            <label>Skolans namn
+              <input id="inpSchool" type="text" placeholder="T.ex. Solbackaskolan">
+            </label>
+            <div class="row2">
+              <label>Titel på nyhetsbladet
+                <input id="inpTitle" type="text" placeholder="T.ex. Veckobrev v.34">
+              </label>
+              <label>Datum / Nummer
+                <input id="inpDate" type="text" placeholder="T.ex. 19 augusti 2026">
+              </label>
+            </div>
+            <div class="row2">
+              <label>Årskurs / Avdelning
+                <input id="inpClass" type="text" placeholder="T.ex. Åk 4-6 eller Fritids">
+              </label>
+              <label>Ansvarig utgivare
+                <input id="inpAuthor" type="text" placeholder="T.ex. Rektor Anna">
+              </label>
+            </div>
+            <label>Ingress / Hälsning
+              <textarea id="inpIngress" rows="3" placeholder="Kort introduktion som visas överst..."></textarea>
+            </label>
+            <label>Tema-färg
+              <div class="color-row">
+                <button class="color-dot active" data-color="#0f5ab5" style="background:#0f5ab5"></button>
+                <button class="color-dot" data-color="#0a7a42" style="background:#0a7a42"></button>
+                <button class="color-dot" data-color="#b45309" style="background:#b45309"></button>
+                <button class="color-dot" data-color="#7c3aed" style="background:#7c3aed"></button>
+                <button class="color-dot" data-color="#be123c" style="background:#be123c"></button>
+                <button class="color-dot" data-color="#0e7490" style="background:#0e7490"></button>
+              </div>
+            </label>
+            <label>Mall
+              <select id="inpTemplate">
+                <option value="modern">Modern – ren och luftig</option>
+                <option value="classic">Klassisk – tidningskänsla</option>
+                <option value="colorful">Färgglad – för yngre barn</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Artiklar & Nyheter</h3>
+              <button class="btn btn-primary btn-small" id="btnAddArticle">+ Lägg till artikel</button>
+            </div>
+            <p class="muted">Dra för att ändra ordning. Varje artikel kan ha bild, rubrik och text.</p>
+            <div id="articlesEditor"></div>
+          </div>
+
+          <div class="card">
+            <h3>Sidfot</h3>
+            <label>Kontakt & info längst ner
+              <textarea id="inpFooter" rows="2" placeholder="T.ex. Solbackaskolan | Skolgatan 12 | 070-123 45 67 | info@solbacka.se"></textarea>
+            </label>
+            <div class="danger-zone">
+              <button class="btn btn-danger btn-small" id="btnDelete">🗑 Radera detta blad</button>
+              <span class="muted">Går inte att ångra</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right live preview mini -->
+        <div class="editor-preview-col">
+          <div class="mini-preview-label">Live-förhandsvisning</div>
+          <div id="miniPreview" class="paper mini"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview View (full paper) -->
+    <div id="viewPreview" class="view hidden">
+      <div class="preview-toolbar">
+        <div class="preview-hint">Så här ser det ut vid utskrift. Klicka <b>Skriv ut / Spara PDF</b> för att spara.</div>
+        <div class="zoom-controls">
+          <button class="icon-btn" id="zoomOut">−</button>
+          <span id="zoomLabel">100%</span>
+          <button class="icon-btn" id="zoomIn">+</button>
+        </div>
+      </div>
+      <div id="previewWrap" class="preview-wrap">
+        <div id="fullPreview" class="paper"></div>
+      </div>
+    </div>
+
+    <!-- Welcome / empty state -->
+    <div id="viewWelcome" class="view hidden">
+      <div class="welcome">
+        <div class="welcome-icon">🎓</div>
+        <h2>Välkommen till Skolbladet!</h2>
+        <p>Här skapar ni snygga nyhetsblad för skolan på några minuter.<br>Välj en mall, skriv artiklarna och skriv ut som PDF.</p>
+        <div class="welcome-cards">
+          <div class="wcard"><b>1.</b> Klicka <b>Nytt nyhetsblad</b></div>
+          <div class="wcard"><b>2.</b> Fyll i titel, artiklar och bilder</div>
+          <div class="wcard"><b>3.</b> Klicka <b>Skriv ut / Spara PDF</b></div>
+        </div>
+        <button class="btn btn-primary btn-large" id="btnWelcomeNew">Skapa mitt första blad →</button>
+        <div class="welcome-examples">
+          <p class="muted">Exempel att utgå ifrån:</p>
+          <div class="example-row">
+            <button class="example-btn" data-example="veckobrev">Veckobrev</button>
+            <button class="example-btn" data-example="event">Skolfest & Event</button>
+            <button class="example-btn" data-example="matsedel">Matsedel & Info</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Hidden print container -->
+<div id="printContainer" class="print-only"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
