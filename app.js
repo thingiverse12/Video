@@ -122,5 +122,16 @@ document.getElementById("btnMenu").addEventListener("click",()=>document.getElem
 document.getElementById("btnExportAll").addEventListener("click",()=>{if(!state.length) return alert("Inga blad");const b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="nlv-bergnaset.json";a.click();URL.revokeObjectURL(a.href)});
 document.getElementById("importAll").addEventListener("change",e=>{const f=e.target.files[0];if(!f) return;const r=new FileReader();r.onload=()=>{try{const arr=JSON.parse(r.result);if(!Array.isArray(arr)) throw new Error();state=arr;save();currentId=state[0]?.id||null;render()}catch{alert("Kunde inte läsa filen")}};r.readAsText(f)});
 document.querySelectorAll(".example-btn").forEach(b=>b.addEventListener("click",()=>createNew(examples[b.dataset.example])));
+// snyggt intro – auto-hide efter 2.2s, klick för att stänga direkt
+(function(){
+  const intro=document.getElementById("intro");
+  if(!intro) return;
+  let closed=false;
+  function close(){ if(closed) return; closed=true; intro.classList.add("hide"); setTimeout(()=>{intro.style.display="none"},900); }
+  intro.addEventListener("click", close);
+  setTimeout(close, 2200);
+  // om man trycker ESC
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape") close(); });
+})();
 if(state.length===0) render(); else render();
 listEl.addEventListener("click",()=>{if(innerWidth<=760) document.getElementById("sidebar").classList.remove("open")});
