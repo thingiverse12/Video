@@ -122,16 +122,193 @@ document.getElementById("btnMenu").addEventListener("click",()=>document.getElem
 document.getElementById("btnExportAll").addEventListener("click",()=>{if(!state.length) return alert("Inga blad");const b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="nlv-bergnaset.json";a.click();URL.revokeObjectURL(a.href)});
 document.getElementById("importAll").addEventListener("change",e=>{const f=e.target.files[0];if(!f) return;const r=new FileReader();r.onload=()=>{try{const arr=JSON.parse(r.result);if(!Array.isArray(arr)) throw new Error();state=arr;save();currentId=state[0]?.id||null;render()}catch{alert("Kunde inte läsa filen")}};r.readAsText(f)});
 document.querySelectorAll(".example-btn").forEach(b=>b.addEventListener("click",()=>createNew(examples[b.dataset.example])));
-// snyggt intro – auto-hide efter 2.2s, klick för att stänga direkt
+// ===== CINEMATIC INTRO – premium, preserves logo exactly =====
 (function(){
-  const intro=document.getElementById("intro");
+  const intro = document.getElementById("intro");
   if(!intro) return;
-  let closed=false;
-  function close(){ if(closed) return; closed=true; intro.classList.add("hide"); setTimeout(()=>{intro.style.display="none"},900); }
+  const stage = document.getElementById("logoStage");
+  const beam = document.getElementById("introBeam");
+  const flash = document.getElementById("introFlash");
+  const canvas = document.getElementById("particles");
+  let closed=false, audioCtx=null, atmosphereNodes=null;
+
+  // particles
+  const ctx = canvas.getContext("2d");
+  let DPR = Math.min(2, window.devicePixelRatio||1);
+  let particles = [];
+  function resize(){
+    canvas.width = innerWidth * DPR;
+    canvas.height = innerHeight * DPR;
+    canvas.style.width = innerWidth+"px";
+    canvas.style.height = innerHeight+"px";
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  resize(); addEventListener("resize", resize);
+  for(let i=0;i<90;i++) particles.push({
+    x: Math.random()*innerWidth,
+    y: Math.random()*innerHeight,
+    r: Math.random()*1.4 + .3,
+    vx: (Math.random()-.5)*.18,
+    vy: (Math.random()-.5)*.18,
+    a: Math.random()*.5 + .15,
+    tw: Math.random()*Math.PI*2
+  });
+  let raf;
+  function tick(t){
+    if(closed && intro.classList.contains("hide")) return;
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    for(const p of particles){
+      p.x += p.vx; p.y += p.vy; p.tw += 0.008;
+      if(p.x< -10) p.x = innerWidth+10; if(p.x> innerWidth+10) p.x = -10;
+      if(p.y< -10) p.y = innerHeight+10; if(p.y> innerHeight+10) p.y = -10;
+      const alpha = p.a * (0.75 + Math.sin(p.tw)*0.25) * 0.9;
+      // faint light around center
+      const dx = p.x - innerWidth/2, dy = p.y - innerHeight/2;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      const centerBoost = Math.max(0, 1 - dist/900) * .35;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${alpha*(0.7+centerBoost)})`;
+      // subtle glow for some
+      if(p.r>1.1){
+        ctx.shadowColor = "rgba(255,255,255,.6)";
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else ctx.fill();
+    }
+    // very light center glow haze
+    const g = ctx.createRadialGradient(innerWidth/2, innerHeight/2, 0, innerWidth/2, innerHeight/2, 520);
+    g.addColorStop(0, "rgba(255,255,255,0.03)");
+    g.addColorStop(1, "transparent");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,innerWidth,innerHeight);
+    raf = requestAnimationFrame(tick);
+  }
+  tick();
+
+  // audio
+  function ensureAudio(){
+    if(audioCtx) return audioCtx;
+    try{
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    }catch(e){ return null; }
+    return audioCtx;
+  }
+  function playAtmosphere(){
+    const ac = ensureAudio(); if(!ac) return;
+    if(atmosphereNodes) return;
+    const now = ac.currentTime;
+    const master = ac.createGain(); master.gain.value = 0; master.connect(ac.destination);
+    // low drone
+    const osc1 = ac.createOscillator(); osc1.type="sine"; osc1.frequency.value=46;
+    const osc2 = ac.createOscillator(); osc2.type="sine"; osc2.frequency.value=91.5;
+    const f = ac.createBiquadFilter(); f.type="lowpass"; f.frequency.value=700; f.Q.value=0.7;
+    const g = ac.createGain(); g.gain.value=0;
+    osc1.connect(f); osc2.connect(f); f.connect(g); g.connect(master);
+    osc1.start(); osc2.start();
+    // subtle air (filtered noise via buffer)
+    const buf = ac.createBuffer(1, ac.sampleRate*2, ac.sampleRate);
+    const ch = buf.getChannelData(0);
+    for(let i=0;i<ch.length;i++) ch[i] = (Math.random()*2-1)*0.12;
+    const src = ac.createBufferSource(); src.buffer=buf; src.loop=true;
+    const hp = ac.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=800;
+    const airG = ac.createGain(); airG.gain.value=0;
+    src.connect(hp); hp.connect(airG); airG.connect(master); src.start();
+    // fade in
+    master.gain.linearRampToValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0, now); airG.gain.linearRampToValueAtTime(0, now);
+    master.gain.linearRampToValueAtTime(0.22, now+1.2);
+    g.gain.linearRampToValueAtTime(0.55, now+1.2);
+    airG.gain.linearRampToValueAtTime(0.04, now+1.4);
+    // very slow shimmer
+    const lfo = ac.createOscillator(); lfo.frequency.value=0.07;
+    const lfoG = ac.createGain(); lfoG.gain.value=12;
+    lfo.connect(lfoG); lfoG.connect(f.frequency); lfo.start();
+    atmosphereNodes = {master, g, airG, osc1, osc2, src};
+  }
+  function stopAtmosphere(fade=0.8){
+    if(!audioCtx||!atmosphereNodes) return;
+    const now = audioCtx.currentTime;
+    atmosphereNodes.master.gain.linearRampToValueAtTime(0, now+fade);
+    setTimeout(()=>{ try{atmosphereNodes.osc1.stop(); atmosphereNodes.osc2.stop(); atmosphereNodes.src.stop();}catch(e){} atmosphereNodes=null; }, (fade+0.3)*1000);
+  }
+  function playImpact(){
+    const ac = ensureAudio(); if(!ac) return;
+    if(ac.state==="suspended") ac.resume();
+    const now = ac.currentTime;
+    // sub boom
+    const o = ac.createOscillator(); o.type="sine"; o.frequency.setValueAtTime(120, now); o.frequency.exponentialRampToValueAtTime(28, now+0.42);
+    const g = ac.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.95, now+0.02); g.gain.exponentialRampToValueAtTime(0.001, now+0.65);
+    const f = ac.createBiquadFilter(); f.type="lowpass"; f.frequency.value=180;
+    o.connect(f); f.connect(ac.destination); o.start(now); o.stop(now+0.7);
+    // wide noise hit + high shimmer
+    const len = Math.floor(ac.sampleRate*0.35);
+    const buf = ac.createBuffer(1,len,ac.sampleRate);
+    const ch2 = buf.getChannelData(0);
+    for(let i=0;i<len;i++) ch2[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.2);
+    const src2 = ac.createBufferSource(); src2.buffer=buf;
+    const hp2 = ac.createBiquadFilter(); hp2.type="highpass"; hp2.frequency.value=1200;
+    const g2 = ac.createGain(); g2.gain.setValueAtTime(0,now); g2.gain.linearRampToValueAtTime(0.42, now+0.015); g2.gain.exponentialRampToValueAtTime(0.001, now+0.45);
+    src2.connect(hp2); hp2.connect(g2); g2.connect(ac.destination); src2.start(now);
+    // bright chime
+    const o2 = ac.createOscillator(); o2.type="sine"; o2.frequency.value=880;
+    const g3 = ac.createGain(); g3.gain.setValueAtTime(0,now); g3.gain.linearRampToValueAtTime(0.18, now+0.02); g3.gain.exponentialRampToValueAtTime(0.001, now+0.9);
+    o2.connect(g3); g3.connect(ac.destination); o2.start(now); o2.stop(now+0.95);
+  }
+
+  function close(){
+    if(closed) return; closed=true;
+    cancelAnimationFrame(raf);
+    // impact if not already done
+    if(!flash.classList.contains("go")){
+      flash.classList.add("go");
+      playImpact();
+    }
+    stopAtmosphere(0.5);
+    intro.classList.add("hide");
+    setTimeout(()=>{ intro.style.display="none"; }, 950);
+  }
+
+  // timeline – premium cinematic
+  // 0ms: black, particles already, start atmosphere (try)
+  playAtmosphere();
+  // if autoplay blocked, start on first interaction
+  const kickAudio = ()=>{ if(audioCtx && audioCtx.state==="suspended") audioCtx.resume(); playAtmosphere(); };
+  intro.addEventListener("pointerdown", kickAudio, {once:true});
+  window.addEventListener("keydown", kickAudio, {once:true});
+
+  // 650ms: beam sweep + start logo reveal (soft, sharpens)
+  setTimeout(()=>{
+    if(closed) return;
+    beam.classList.add("go");
+    stage.classList.add("reveal");
+  }, 650);
+
+  // 2200ms: dolly in begins (slow camera move closer) while fully bright
+  setTimeout(()=>{
+    if(closed) return;
+    stage.classList.add("dolly");
+  }, 2200);
+
+  // hold centered 3.5s–5.8s (do nothing – particles + glow)
+
+  // 5800ms: impact flash + illuminate
+  setTimeout(()=>{
+    if(closed) return;
+    stage.classList.add("impact");
+    flash.classList.add("go");
+    playImpact();
+    // haptic if available
+    if(navigator.vibrate) navigator.vibrate(35);
+  }, 5800);
+
+  // 6800ms: fade to black
+  setTimeout(()=>{ if(!closed) close(); }, 7100);
+
+  // skip on click / ESC / space
   intro.addEventListener("click", close);
-  setTimeout(close, 2200);
-  // om man trycker ESC
-  document.addEventListener("keydown", e=>{ if(e.key==="Escape") close(); });
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape"||e.key===" "||e.key==="Enter") close(); });
 })();
 if(state.length===0) render(); else render();
 listEl.addEventListener("click",()=>{if(innerWidth<=760) document.getElementById("sidebar").classList.remove("open")});
