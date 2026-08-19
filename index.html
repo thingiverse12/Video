@@ -5,147 +5,171 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NLVs nyhetsblad – NLV Bergnäset</title>
 <link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 </head>
 <body>
-<!-- CINEMATIC INTRO – premium, uses logo exactly as is -->
+<!-- ENTRY CINEMATIC INTRO – only once per session -->
 <div id="intro" class="intro" aria-label="NLV intro">
   <canvas id="particles"></canvas>
   <div class="intro-vignette"></div>
   <div class="intro-beam" id="introBeam"></div>
-  
   <div class="intro-center">
     <div class="intro-logo-stage" id="logoStage">
       <img src="nlv-logo.png" alt="NLV" id="introLogo" class="intro-logo">
       <div class="intro-reflection" aria-hidden="true"><img src="nlv-logo.png" alt=""></div>
     </div>
   </div>
-
   <div class="intro-flash" id="introFlash"></div>
-  <div class="intro-skip">Klicka eller tryck ESC för att hoppa över • Ljud på 🔊</div>
+  <div class="intro-skip">Klicka eller ESC för att hoppa över</div>
 </div>
 
-<div class="bg"></div>
 <div class="app">
+  <!-- DARK PREMIUM SIDEBAR -->
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="logo">
-        <div class="logo-icon">N</div>
+    <div class="sidebar-top">
+      <div class="brand">
+        <img src="nlv-logo.png" alt="NLV" class="brand-logo">
         <div>
-          <h1>NLV <span>Bergnäset</span></h1>
-          <p>NLVs NYHETSBLAD • LULEÅ</p>
+          <div class="brand-title">NLV Bergnäset</div>
+          <div class="brand-sub">NLVs NYHETSBLAD</div>
         </div>
+        <span class="brand-dot"></span>
       </div>
-      <button class="btn btn-primary btn-block" id="btnNew">+ Nytt nyhetsblad</button>
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-        <span class="school-badge">📍 Bergnäset</span>
-        <span class="school-badge" style="background:#fff;color:#0E1525;border:1px solid #E5E7EB">Redigeringsläge</span>
-      </div>
+      <button class="btn btn-gold" id="btnNew">＋ Nytt blad</button>
     </div>
-    <div class="sidebar-search">
-      <span class="search-icon">⌕</span>
-      <input id="searchInput" type="text" placeholder="Sök nyhetsblad...">
+
+    <div class="search-wrap">
+      <span class="search-ic">⌕</span>
+      <input id="searchInput" type="text" placeholder="Sök blad, datum, titel…">
     </div>
-    <div class="sidebar-list-wrap">
-      <div class="sidebar-label">ARKIV <span id="countBadge">0</span></div>
+
+    <div class="nav-section">
+      <div class="nav-label">DITT ARKIV <span id="countBadge">0</span></div>
       <div id="list" class="news-list"></div>
-      <div id="emptyList" class="empty-list">Inga blad än.<br>Skapa ditt första ovan.</div>
-    </div>
-    <div class="sidebar-footer">
-      <div class="info-box">
-        <b>NLV Bergnäset:</b> Bladen sparas automatiskt. Klicka <b>Skriv ut / PDF</b> för en tryckfärdig PDF.
+      <div id="emptyList" class="empty">
+        <div class="empty-ic">🗞️</div>
+        <b>Inga blad än</b>
+        <p>Skapa ditt första NLV-blad så hamnar det här.</p>
       </div>
-      <div class="footer-actions">
-        <button class="btn btn-ghost btn-small" id="btnExportAll">⬇ Exportera</button>
-        <label class="btn btn-ghost btn-small" style="cursor:pointer">⬆ Importera <input type="file" id="importAll" accept=".json" hidden></label>
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="tip">
+        <b>Tips</b> — Allt sparas direkt i webbläsaren. Skriv ut som PDF när du är klar.
+      </div>
+      <div class="bottom-actions">
+        <button class="btn btn-dark-sm" id="btnExportAll">⬇ Exportera</button>
+        <label class="btn btn-dark-sm">⬆ Importera<input type="file" id="importAll" accept=".json" hidden></label>
       </div>
     </div>
   </aside>
 
   <main class="main">
-    <div class="topbar">
-      <button class="icon-btn mobile-only" id="btnMenu">☰</button>
-      <div class="topbar-tabs">
-        <button class="tab active" data-tab="editor">Redigera</button>
-        <button class="tab" data-tab="preview">Förhandsgranska</button>
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-btn mobile-only" id="btnMenu">☰</button>
+        <div class="crumb"><span>NLV</span> / Nyhetsblad</div>
+        <div class="tabs">
+          <button class="tab active" data-tab="editor">Redigera</button>
+          <button class="tab" data-tab="preview">Förhandsgranskning</button>
+        </div>
       </div>
-      <div class="topbar-actions">
+      <div class="topbar-right">
         <button class="btn btn-ghost" id="btnDuplicate">Duplicera</button>
-        <button class="btn btn-ghost" id="btnHtml">⬇ HTML</button>
-        <button class="btn btn-dark" id="btnPrint">Skriv ut / PDF</button>
+        <button class="btn btn-ghost" id="btnHtml">HTML</button>
+        <button class="btn btn-primary" id="btnPrint">Skriv ut / PDF</button>
       </div>
-    </div>
+    </header>
 
+    <!-- EDITOR -->
     <div id="viewEditor" class="view">
       <div class="editor-grid">
-        <div class="editor-form">
-          <div class="card">
-            <h3>Grundinformation</h3>
-            <label>Skolans namn <input id="inpSchool" type="text" placeholder="NLV Bergnäset"></label>
-            <div class="row2">
-              <label>Titel <input id="inpTitle" type="text" placeholder="T.ex. Veckobrev Vecka 34"></label>
-              <label>Underrubrik <input id="inpSubtitle" type="text" placeholder="Kort beskrivning under titel"></label>
+        <div class="editor-col">
+          <div class="section">
+            <div class="section-head"><h3>01 — Omslag</h3><span class="section-hint">Titel, ingress och profil</span></div>
+            <label>Skola <input id="inpSchool" type="text" placeholder="NLV Bergnäset"></label>
+            <div class="grid2">
+              <label>Titel <input id="inpTitle" type="text" placeholder="Veckobrev Vecka 34"></label>
+              <label>Underrubrik <input id="inpSubtitle" type="text" placeholder="Kort rad under titeln"></label>
             </div>
-            <div class="row2">
+            <div class="grid2">
               <label>Datum <input id="inpDate" type="text" placeholder="19 augusti 2026"></label>
               <label>Utgåva <input id="inpIssue" type="text" placeholder="Nr 34 • 2026"></label>
             </div>
-            <div class="row2">
+            <div class="grid2">
               <label>Avdelning <input id="inpClass" type="text" placeholder="Åk F–6"></label>
               <label>Ansvarig <input id="inpAuthor" type="text" placeholder="Rektor"></label>
             </div>
-            <label>Ingress <textarea id="inpIngress" rows="3" placeholder="Kort hälsning som visas under rubriken..."></textarea></label>
-            <label>Accentfärg
-              <div class="color-row">
-                <button class="color-dot active" data-color="#0B2A4A" style="background:#0B2A4A" title="NLV Marin"></button>
-                <button class="color-dot" data-color="#0E4A7A" style="background:#0E4A7A"></button>
-                <button class="color-dot" data-color="#1A6B4A" style="background:#1A6B4A"></button>
-                <button class="color-dot" data-color="#7A3A2E" style="background:#7A3A2E"></button>
-                <button class="color-dot" data-color="#6B4EFF" style="background:#6B4EFF"></button>
-                <button class="color-dot" data-color="#0F766E" style="background:#0F766E"></button>
-              </div>
-            </label>
-            <label>Mall <select id="inpTemplate"><option value="modern">Modern – Editorial</option><option value="classic">Klassisk</option><option value="colorful">Färgaccent</option><option value="dark">Mörk</option></select></label>
+            <label>Ingress <textarea id="inpIngress" rows="3" placeholder="Hej alla familjer på NLV Bergnäset…"></textarea></label>
+            <div class="row-between">
+              <label style="flex:1">Färg
+                <div class="color-row">
+                  <button class="color-dot active" data-color="#0B2A4A" style="background:#0B2A4A" title="NLV Marin"></button>
+                  <button class="color-dot" data-color="#143D6B" style="background:#143D6B"></button>
+                  <button class="color-dot" data-color="#1A6B4A" style="background:#1A6B4A"></button>
+                  <button class="color-dot" data-color="#7A3A2E" style="background:#7A3A2E"></button>
+                  <button class="color-dot" data-color="#6B4EFF" style="background:#6B4EFF"></button>
+                  <button class="color-dot" data-color="#C9A86A" style="background:#C9A86A"></button>
+                </div>
+              </label>
+              <label style="width:180px">Mall <select id="inpTemplate"><option value="modern">Modern – Editorial</option><option value="classic">Klassisk</option><option value="colorful">Färgaccent</option><option value="dark">Mörk</option></select></label>
+            </div>
           </div>
 
-          <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">Artiklar</h3><button class="btn btn-primary btn-small" id="btnAddArticle">+ Lägg till</button></div>
-            <p class="muted">Första artikeln blir större. Varje artikel kan ha bild + tagg.</p>
+          <div class="section">
+            <div class="section-head"><h3>02 — Artiklar</h3><button class="btn btn-gold btn-sm" id="btnAddArticle">＋ Lägg till artikel</button></div>
+            <p class="section-hint" style="margin-top:-8px">Första artikeln blir stor (hero). Dra upp/ner för ordning. Bild + tagg ger proffsigare blad.</p>
             <div id="articlesEditor"></div>
           </div>
 
-          <div class="card">
-            <h3>Sidfot</h3>
-            <label>Kontakt <textarea id="inpFooter" rows="2" placeholder="NLV Bergnäset • 0920-45 30 00"></textarea></label>
-            <div class="danger-zone"><button class="btn btn-danger btn-small" id="btnDelete">Radera blad</button><span class="muted">Går ej ångra</span></div>
+          <div class="section">
+            <div class="section-head"><h3>03 — Sidfot</h3></div>
+            <label>Kontakt <textarea id="inpFooter" rows="2"></textarea></label>
+            <div class="danger"><button class="btn btn-danger btn-sm" id="btnDelete">Radera blad</button><span>Går inte att ångra</span></div>
           </div>
         </div>
-        <div class="editor-preview-col">
-          <div class="mini-preview-label">FÖRHANDSVISNING — TRYCKFÄRDIG A4</div>
-          <div id="miniPreview" class="paper mini"></div>
+
+        <div class="preview-col">
+          <div class="preview-sticky">
+            <div class="preview-label">LIVE • TRYCKFÄRDIG A4</div>
+            <div id="miniPreview" class="paper mini"></div>
+            <div class="preview-note">Ser exakt ut som din PDF. Bilder beskärs snyggt automatiskt.</div>
+          </div>
         </div>
       </div>
     </div>
 
+    <!-- PREVIEW -->
     <div id="viewPreview" class="view hidden">
-      <div class="preview-toolbar">
-        <div style="font-size:12px;color:#64748B">A4 • 760px • Utskrift behåller all styling.</div>
-        <div class="zoom-controls"><button class="icon-btn" id="zoomOut">−</button><span id="zoomLabel" style="font-size:12px;font-weight:600">100%</span><button class="icon-btn" id="zoomIn">+</button></div>
+      <div class="preview-bar">
+        <span>A4 • Skala</span>
+        <div class="zoom"><button class="icon-btn" id="zoomOut">−</button><b id="zoomLabel">100%</b><button class="icon-btn" id="zoomIn">＋</button></div>
       </div>
       <div id="previewWrap" class="preview-wrap"><div id="fullPreview" class="paper"></div></div>
     </div>
 
+    <!-- WELCOME -->
     <div id="viewWelcome" class="view hidden">
       <div class="welcome">
-        <div class="welcome-badge">NLV BERGNÄSET — LULEÅ</div>
-        <h2>NLVs nyhetsblad<br><span class="gradient-text" style="font-weight:900">för NLV Bergnäset</span></h2>
-        <p style="color:#475569;line-height:1.6">Skapa tryckfärdiga nyhetsblad med tidningskänsla. Snyggt på skärm, perfekt på papper.</p>
-        <div class="welcome-cards"><div class="wcard">1. Skapa blad</div><div class="wcard">2. Skriv artiklar</div><div class="wcard">3. Spara som PDF</div></div>
-        <button class="btn btn-primary btn-large" id="btnWelcomeNew">Skapa mitt första blad →</button>
-        <div style="margin-top:18px"><p class="muted">Börja från mall:</p><div class="example-row"><button class="example-btn" data-example="veckobrev">Veckobrev</button><button class="example-btn" data-example="event">Höstfest</button><button class="example-btn" data-example="matsedel">Matsedel</button><button class="example-btn" data-example="norrsken">Norrsken</button></div></div>
+        <div class="welcome-logo"><img src="nlv-logo.png" alt="NLV"></div>
+        <h1>NLVs nyhetsblad</h1>
+        <p>Byggt för <b>NLV Bergnäset</b> — skapa tidnings-snygga blad på minuter. Redigera, förhandsgranska, skriv ut.</p>
+        <button class="btn btn-primary btn-lg" id="btnWelcomeNew">Skapa mitt första blad →</button>
+        <div class="templates">
+          <div class="tpl-label">Börja från mall</div>
+          <div class="tpl-grid">
+            <button class="tpl" data-example="veckobrev"><span>📚</span><b>Veckobrev</b><small>Trygg start</small></button>
+            <button class="tpl" data-example="event"><span>🎉</span><b>Höstfest</b><small>Program & loppis</small></button>
+            <button class="tpl" data-example="matsedel"><span>🥗</span><b>Matsedel</b><small>September</small></button>
+            <button class="tpl" data-example="norrsken"><span>🌌</span><b>Norrsken</b><small>Tema rymden</small></button>
+          </div>
+        </div>
       </div>
     </div>
   </main>
 </div>
+
 <div id="printContainer" class="print-only"></div>
 <script src="app.js"></script>
 </body>
