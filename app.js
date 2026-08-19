@@ -122,10 +122,17 @@ document.getElementById("btnMenu").addEventListener("click",()=>document.getElem
 document.getElementById("btnExportAll").addEventListener("click",()=>{if(!state.length) return alert("Inga blad");const b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="nlv-bergnaset.json";a.click();URL.revokeObjectURL(a.href)});
 document.getElementById("importAll").addEventListener("change",e=>{const f=e.target.files[0];if(!f) return;const r=new FileReader();r.onload=()=>{try{const arr=JSON.parse(r.result);if(!Array.isArray(arr)) throw new Error();state=arr;save();currentId=state[0]?.id||null;render()}catch{alert("Kunde inte läsa filen")}};r.readAsText(f)});
 document.querySelectorAll(".example-btn").forEach(b=>b.addEventListener("click",()=>createNew(examples[b.dataset.example])));
-// ===== CINEMATIC INTRO – premium, preserves logo exactly =====
+// ===== CINEMATIC INTRO – premium, preserves logo exactly – ONLY ON ENTRY =====
 (function(){
   const intro = document.getElementById("intro");
   if(!intro) return;
+  // Visa bara när man är på väg in – inte varje reload. Hoppa över om redan sett denna session.
+  try{
+    if(sessionStorage.getItem("nlvIntroSeen")==="1"){
+      intro.style.display="none";
+      return;
+    }
+  }catch(e){}
   const stage = document.getElementById("logoStage");
   const beam = document.getElementById("introBeam");
   const flash = document.getElementById("introFlash");
@@ -259,6 +266,7 @@ document.querySelectorAll(".example-btn").forEach(b=>b.addEventListener("click",
 
   function close(){
     if(closed) return; closed=true;
+    try{ sessionStorage.setItem("nlvIntroSeen","1"); }catch(e){}
     cancelAnimationFrame(raf);
     // impact if not already done
     if(!flash.classList.contains("go")){
