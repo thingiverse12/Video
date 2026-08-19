@@ -3,147 +3,170 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Skolbladet – Nyhetsblad för skolan</title>
+<title>NLV Bergnäset – Skolbladet</title>
 <link rel="stylesheet" href="style.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=Merriweather:wght@800;900&display=swap" rel="stylesheet">
 </head>
 <body>
+<!-- Animated background orbs -->
+<div class="bg">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+  <div class="grid-pattern"></div>
+</div>
+
 <div class="app">
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="logo">
-        <div class="logo-icon">📰</div>
+        <div class="logo-icon">
+          <span class="logo-emoji">🏔️</span>
+          <span class="logo-pulse"></span>
+        </div>
         <div>
-          <h1>Skolbladet</h1>
-          <p>Nyhetsblad för skolan</p>
+          <h1>NLV <span>Bergnäset</span></h1>
+          <p>✦ SKOLBLADET • Nyhetsblad</p>
         </div>
       </div>
-      <button class="btn btn-primary btn-block" id="btnNew">+ Nytt nyhetsblad</button>
+      <button class="btn btn-primary btn-block btn-shine" id="btnNew">
+        <span class="btn-sparkle">✨</span> Nytt nyhetsblad
+      </button>
+      <div class="school-badge">
+        <span>📍</span> Luleå • Bergnäset
+        <span class="live-dot"></span> LIVE
+      </div>
     </div>
 
     <div class="sidebar-search">
+      <span class="search-icon">🔍</span>
       <input id="searchInput" type="text" placeholder="Sök nyhetsblad...">
     </div>
 
     <div class="sidebar-list-wrap">
-      <div class="sidebar-label">DINA NYHETSBREV <span id="countBadge">0</span></div>
+      <div class="sidebar-label">DINA BLAD <span id="countBadge">0</span></div>
       <div id="list" class="news-list"></div>
       <div id="emptyList" class="empty-list">
-        <p>Inga nyhetsblad än.<br>Klicka på <b>Nytt nyhetsblad</b> för att komma igång!</p>
+        <div class="empty-illustration">📭</div>
+        <p>Inga blad än.<br>Skapa ditt första mästerverk!</p>
       </div>
     </div>
 
     <div class="sidebar-footer">
       <div class="info-box">
-        <b>Tips:</b> Alla blad sparas automatiskt i webbläsaren. Du kan skriva ut eller spara som PDF när som helst.
+        <b>💡 Tips NLV:</b> Alla blad sparas automatiskt. Tryck <b>Skriv ut</b> för att få en snygg PDF att dela med föräldrar!
       </div>
-      <button class="btn btn-ghost btn-small" id="btnExportAll">⬇ Exportera alla (JSON)</button>
-      <label class="btn btn-ghost btn-small" style="cursor:pointer">
-        ⬆ Importera
-        <input type="file" id="importAll" accept=".json" hidden>
-      </label>
+      <div class="footer-actions">
+        <button class="btn btn-ghost btn-small" id="btnExportAll">⬇ Exportera</button>
+        <label class="btn btn-ghost btn-small" style="cursor:pointer">
+          ⬆ Importera <input type="file" id="importAll" accept=".json" hidden>
+        </label>
+      </div>
     </div>
   </aside>
 
   <!-- Main -->
   <main class="main">
-    <!-- Topbar -->
-    <div class="topbar">
+    <div class="topbar glass">
       <button class="icon-btn mobile-only" id="btnMenu">☰</button>
       <div class="topbar-tabs">
-        <button class="tab active" data-tab="editor">✏️ Redigera</button>
-        <button class="tab" data-tab="preview">👁️ Förhandsgranska</button>
+        <button class="tab active" data-tab="editor"><span>✏️</span> Redigera</button>
+        <button class="tab" data-tab="preview"><span>👁️</span> Förhandsgranska</button>
       </div>
       <div class="topbar-actions">
-        <button class="btn btn-ghost" id="btnDuplicate">Duplicera</button>
+        <button class="btn btn-ghost" id="btnDuplicate">⎘ Duplicera</button>
         <button class="btn btn-ghost" id="btnHtml">⬇ HTML</button>
-        <button class="btn btn-dark" id="btnPrint">🖨️ Skriv ut / Spara PDF</button>
+        <button class="btn btn-dark btn-glow" id="btnPrint">🖨️ Skriv ut / PDF</button>
       </div>
     </div>
 
     <!-- Editor View -->
     <div id="viewEditor" class="view">
       <div class="editor-grid">
-        <!-- Left form -->
         <div class="editor-form">
-          <div class="card">
-            <h3>Grundinformation</h3>
+          <div class="card card-animated">
+            <div class="card-glow"></div>
+            <h3><span class="h-icon">🎨</span> Grundinformation</h3>
             <label>Skolans namn
-              <input id="inpSchool" type="text" placeholder="T.ex. Solbackaskolan">
+              <input id="inpSchool" type="text" placeholder="NLV Bergnäset">
             </label>
             <div class="row2">
               <label>Titel på nyhetsbladet
                 <input id="inpTitle" type="text" placeholder="T.ex. Veckobrev v.34">
               </label>
               <label>Datum / Nummer
-                <input id="inpDate" type="text" placeholder="T.ex. 19 augusti 2026">
+                <input id="inpDate" type="text" placeholder="19 augusti 2026">
               </label>
             </div>
             <div class="row2">
               <label>Årskurs / Avdelning
-                <input id="inpClass" type="text" placeholder="T.ex. Åk 4-6 eller Fritids">
+                <input id="inpClass" type="text" placeholder="T.ex. Åk 4-6">
               </label>
               <label>Ansvarig utgivare
-                <input id="inpAuthor" type="text" placeholder="T.ex. Rektor Anna">
+                <input id="inpAuthor" type="text" placeholder="Rektor Maria">
               </label>
             </div>
             <label>Ingress / Hälsning
-              <textarea id="inpIngress" rows="3" placeholder="Kort introduktion som visas överst..."></textarea>
+              <textarea id="inpIngress" rows="3" placeholder="Hej alla elever och föräldrar på NLV Bergnäset!"></textarea>
             </label>
-            <label>Tema-färg
+            <label>Tema-färg <span class="muted"> – välj NLV:s känsla</span>
               <div class="color-row">
-                <button class="color-dot active" data-color="#0f5ab5" style="background:#0f5ab5"></button>
-                <button class="color-dot" data-color="#0a7a42" style="background:#0a7a42"></button>
-                <button class="color-dot" data-color="#b45309" style="background:#b45309"></button>
-                <button class="color-dot" data-color="#7c3aed" style="background:#7c3aed"></button>
-                <button class="color-dot" data-color="#be123c" style="background:#be123c"></button>
-                <button class="color-dot" data-color="#0e7490" style="background:#0e7490"></button>
+                <button class="color-dot active" data-color="#0b5cff" style="background:#0b5cff" title="NLV Blå"></button>
+                <button class="color-dot" data-color="#0ea5e9" style="background:#0ea5e9" title="Fjällblå"></button>
+                <button class="color-dot" data-color="#10b981" style="background:#10b981" title="Skog"></button>
+                <button class="color-dot" data-color="#f59e0b" style="background:#f59e0b" title="Bergsguld"></button>
+                <button class="color-dot" data-color="#ef4444" style="background:#ef4444" title="Norrsken"></button>
+                <button class="color-dot" data-color="#8b5cf6" style="background:#8b5cf6" title="Lila"></button>
+                <button class="color-dot" data-color="#06b6d4" style="background:#06b6d4" title="Isblå"></button>
               </div>
             </label>
             <label>Mall
               <select id="inpTemplate">
-                <option value="modern">Modern – ren och luftig</option>
-                <option value="classic">Klassisk – tidningskänsla</option>
-                <option value="colorful">Färgglad – för yngre barn</option>
+                <option value="modern">✦ Modern – NLV Clean</option>
+                <option value="classic">📰 Klassisk – Tidning</option>
+                <option value="colorful">🎉 Färgglad – Party</option>
+                <option value="dark">🌌 Mörk – Bergnatt</option>
               </select>
             </label>
           </div>
 
-          <div class="card">
+          <div class="card card-animated" style="animation-delay:.08s">
+            <div class="card-glow"></div>
             <div class="card-head">
-              <h3>Artiklar & Nyheter</h3>
-              <button class="btn btn-primary btn-small" id="btnAddArticle">+ Lägg till artikel</button>
+              <h3><span class="h-icon">📰</span> Artiklar & Nyheter</h3>
+              <button class="btn btn-primary btn-small btn-shine" id="btnAddArticle">+ Lägg till artikel</button>
             </div>
-            <p class="muted">Dra för att ändra ordning. Varje artikel kan ha bild, rubrik och text.</p>
+            <p class="muted">Varje artikel kan ha bild. Klicka upp/ner för att sortera.</p>
             <div id="articlesEditor"></div>
           </div>
 
-          <div class="card">
-            <h3>Sidfot</h3>
+          <div class="card card-animated" style="animation-delay:.16s">
+            <div class="card-glow"></div>
+            <h3><span class="h-icon">🔗</span> Sidfot</h3>
             <label>Kontakt & info längst ner
-              <textarea id="inpFooter" rows="2" placeholder="T.ex. Solbackaskolan | Skolgatan 12 | 070-123 45 67 | info@solbacka.se"></textarea>
+              <textarea id="inpFooter" rows="2" placeholder="NLV Bergnäset • Bergnäset, Luleå • 0920-45 30 00 • bergnaset@skolalulea.se"></textarea>
             </label>
             <div class="danger-zone">
-              <button class="btn btn-danger btn-small" id="btnDelete">🗑 Radera detta blad</button>
+              <button class="btn btn-danger btn-small" id="btnDelete">🗑 Radera blad</button>
               <span class="muted">Går inte att ångra</span>
             </div>
           </div>
         </div>
 
-        <!-- Right live preview mini -->
         <div class="editor-preview-col">
-          <div class="mini-preview-label">Live-förhandsvisning</div>
+          <div class="mini-preview-label"><span class="pulse-dot"></span> LIVE FÖRHANDSVISNING — NLV Bergnäset</div>
           <div id="miniPreview" class="paper mini"></div>
+          <div class="preview-tip">💡 Ser exakt ut som din PDF!</div>
         </div>
       </div>
     </div>
 
-    <!-- Preview View (full paper) -->
+    <!-- Preview View -->
     <div id="viewPreview" class="view hidden">
-      <div class="preview-toolbar">
-        <div class="preview-hint">Så här ser det ut vid utskrift. Klicka <b>Skriv ut / Spara PDF</b> för att spara.</div>
+      <div class="preview-toolbar glass">
+        <div class="preview-hint">🔍 Så här ser det ut på papper — klicka <b>Skriv ut / PDF</b> för att spara!</div>
         <div class="zoom-controls">
           <button class="icon-btn" id="zoomOut">−</button>
           <span id="zoomLabel">100%</span>
@@ -155,24 +178,30 @@
       </div>
     </div>
 
-    <!-- Welcome / empty state -->
+    <!-- Welcome -->
     <div id="viewWelcome" class="view hidden">
       <div class="welcome">
-        <div class="welcome-icon">🎓</div>
-        <h2>Välkommen till Skolbladet!</h2>
-        <p>Här skapar ni snygga nyhetsblad för skolan på några minuter.<br>Välj en mall, skriv artiklarna och skriv ut som PDF.</p>
-        <div class="welcome-cards">
-          <div class="wcard"><b>1.</b> Klicka <b>Nytt nyhetsblad</b></div>
-          <div class="wcard"><b>2.</b> Fyll i titel, artiklar och bilder</div>
-          <div class="wcard"><b>3.</b> Klicka <b>Skriv ut / Spara PDF</b></div>
+        <div class="welcome-badge">🏔️ NLV BERGNÄSET • LULEÅ</div>
+        <div class="welcome-icon-wrap">
+          <div class="welcome-icon">🎓</div>
+          <div class="welcome-ring"></div>
+          <div class="welcome-ring2"></div>
         </div>
-        <button class="btn btn-primary btn-large" id="btnWelcomeNew">Skapa mitt första blad →</button>
+        <h2>NLV Bergnäset<br><span class="gradient-text">Skolbladet</span></h2>
+        <p>Skapa <b>askola</b> nyhetsblad på sekunder. Snygga animationer, snygg print och redo att delas med föräldrar & elever.</p>
+        <div class="welcome-cards">
+          <div class="wcard"><span>①</span> Skapa blad</div>
+          <div class="wcard"><span>②</span> Skriv & lägg till bilder</div>
+          <div class="wcard"><span>③</span> Skriv ut som PDF ✨</div>
+        </div>
+        <button class="btn btn-primary btn-large btn-shine btn-glow" id="btnWelcomeNew">Skapa mitt första NLV-blad →</button>
         <div class="welcome-examples">
-          <p class="muted">Exempel att utgå ifrån:</p>
+          <p class="muted">Börja från en snygg mall:</p>
           <div class="example-row">
-            <button class="example-btn" data-example="veckobrev">Veckobrev</button>
-            <button class="example-btn" data-example="event">Skolfest & Event</button>
-            <button class="example-btn" data-example="matsedel">Matsedel & Info</button>
+            <button class="example-btn" data-example="veckobrev">📚 Veckobrev</button>
+            <button class="example-btn" data-example="event">🎉 Höstfest</button>
+            <button class="example-btn" data-example="matsedel">🥗 Matsedel</button>
+            <button class="example-btn" data-example="norrsken">🌌 Norrsken</button>
           </div>
         </div>
       </div>
@@ -180,9 +209,8 @@
   </main>
 </div>
 
-<!-- Hidden print container -->
 <div id="printContainer" class="print-only"></div>
-
+<div id="confetti"></div>
 <script src="app.js"></script>
 </body>
 </html>
