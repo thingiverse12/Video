@@ -65,7 +65,7 @@ function paperHTML(c){
  const d=new Date(c.updatedAt||Date.now());const day=d.getDate();const mon=d.toLocaleDateString("sv-SE",{month:"short"}).toUpperCase().replace(".","");
  return `<div class="paper-inner" style="--accent:${c.color}">
   <div class="paper-topline"></div>
-  <div class="paper-topbar"><span style="display:flex;align-items:center;gap:8px"><img src="nlv-logo.png" alt="NLV" style="width:28px;height:18px;object-fit:contain;background:#0E1525;border-radius:4px;padding:2px"> NLV BERGNÄSET • LULEÅ</span><span>${esc(c.issue)} — ${esc(c.date)}</span><span>${esc(c.className).toUpperCase()}</span></div>
+  <div class="paper-topbar"><span style="display:flex;align-items:center;gap:8px"><img src="nlv-logo.png" alt="NLV" style="width:28px;height:18px;object-fit:contain;background:#0E1525;border-radius:4px;padding:2px"> NLVs NYHETSBLAD • BERGNÄSET</span><span>${esc(c.issue)} — ${esc(c.date)}</span><span>${esc(c.className).toUpperCase()}</span></div>
   <header class="paper-header">
     <div style="display:flex;gap:14px;align-items:flex-start">
       <img src="nlv-logo.png" alt="NLV" class="paper-logo">
@@ -93,8 +93,8 @@ function paperHTML(c){
     `).join("")}
   </div>
   <footer class="paper-footer">
-    <div><b>${esc(c.school)}</b> <small>— ${esc(c.footer)}</small></div>
-    <div style="display:flex;gap:10px;align-items:center"><span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.12em;opacity:.7">TRYCKFÄRDIG PDF • A4</span><div class="footer-qr">◫</div></div>
+    <div><b>NLVs nyhetsblad</b> <small>— ${esc(c.school)} • ${esc(c.footer)}</small></div>
+    <div style="display:flex;gap:10px;align-items:center"><span style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.12em;opacity:.7">NLVs NYHETSBLAD • A4</span><div class="footer-qr">◫</div></div>
   </footer>
  </div>`;
 }
