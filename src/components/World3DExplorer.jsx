@@ -1,8 +1,10 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { 
   User, Bird, Orbit, Compass, Zap, Eye, Volume2, 
-  VolumeX, Maximize2, Shield, Heart, Sparkles, Navigation 
+  VolumeX, Maximize2, Shield, Heart, Sparkles, Navigation,
+  Swords, Flame, Award, Crosshair, Map, Plus, ChevronRight,
+  Info
 } from 'lucide-react';
 import { audio } from '../utils/audio';
 
@@ -16,29 +18,41 @@ export default function World3DExplorer({
   timeOfDay,
   weather,
   isSwedish,
-  onSyncTower
+  onSyncTower,
+  onOpenMap
 }) {
   const mountRef = useRef(null);
+
+  // Gameplay state
   const [controlMode, setControlMode] = useState('third_person'); // 'third_person' | 'eagle' | 'orbit'
+  const [isMounted, setIsMounted] = useState(false); // Horse / Mount mode
   const [hudStats, setHudStats] = useState({
-    fps: 60,
     speed: 0,
     altitude: 20,
     stamina: 100,
     health: 100,
-    nearestPoi: null
+    heading: 0,
+    nearbyPoi: null,
+    distToNearby: 0
   });
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
+  const [combatSlashActive, setCombatSlashActive] = useState(false);
+  const [nearbyInteractivePoi, setNearbyInteractivePoi] = useState(null);
 
   // References to keep across render loops
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
   const playerMeshRef = useRef(null);
+  const horseMeshRef = useRef(null);
+  const swordSlashRef = useRef(null);
   const terrainMeshRef = useRef(null);
   const waterMeshRef = useRef(null);
   const weatherParticlesRef = useRef(null);
+  const monstersRef = useRef([]);
+
   const controlsStateRef = useRef({
     forward: false,
     backward: false,
@@ -46,83 +60,107 @@ export default function World3DExplorer({
     right: false,
     sprint: false,
     jump: false,
+    attack: false,
+    mount: false,
     yaw: 0,
-    pitch: 0.3,
-    distance: 18,
+    pitch: 0.25,
+    distance: 16,
     isMouseDown: false,
     lastMouseX: 0,
     lastMouseY: 0
   });
 
-  // World size in 3D units: 1000 x 1000 (matching 2D map 0..1000)
-  // Height function for terrain
-  const getTerrainHeight = (wx, wy) => {
-    // Center at 500, 500
+  // Terrain heightmap math (World size: 1000 x 1000)
+  const getTerrainHeight = useCallback((wx, wy) => {
     const x = (wx - 500) / 10;
     const y = (wy - 500) / 10;
 
     let h = 0;
-    // Base continental slope
     const distFromCenter = Math.sqrt(x * x + y * y);
     if (distFromCenter > 45) {
       h -= (distFromCenter - 45) * 1.5;
     }
 
-    // Northern Mountain Range (Frostfall)
+    // Northern Mountain Range (Frostfall Peaks)
     if (wy < 300) {
       const mFactor = Math.max(0, (300 - wy) / 300);
-      h += Math.sin(x * 0.15) * Math.cos(y * 0.15) * 25 * mFactor;
-      h += Math.sin(x * 0.3 + 1.2) * 12 * mFactor;
-      h += Math.cos(y * 0.4) * 8 * mFactor;
-      h += 35 * mFactor;
+      h += Math.sin(x * 0.15) * Math.cos(y * 0.15) * 28 * mFactor;
+      h += Math.sin(x * 0.3 + 1.2) * 14 * mFactor;
+      h += Math.cos(y * 0.4) * 9 * mFactor;
+      h += 38 * mFactor;
     }
 
     // Volcanic Crags (Embermaw - South East)
     if (wx > 600 && wy > 500) {
       const eFactor = Math.min(1, ((wx - 600) + (wy - 500)) / 600);
-      h += Math.sin(x * 0.2) * Math.sin(y * 0.2) * 18 * eFactor + 20 * eFactor;
+      h += Math.sin(x * 0.2) * Math.sin(y * 0.2) * 20 * eFactor + 22 * eFactor;
     }
 
     // Desert Dunes (Solis - North East)
     if (wx > 600 && wy < 500) {
       const dFactor = (wx - 600) / 400;
-      h += Math.sin(x * 0.15 + y * 0.1) * 8 * dFactor + 12 * dFactor;
+      h += Math.sin(x * 0.15 + y * 0.1) * 9 * dFactor + 12 * dFactor;
     }
 
-    // Shadowfen Marshes (South West - low and flat)
+    // Shadowfen Marshes (South West)
     if (wx < 450 && wy > 600) {
-      h *= 0.3;
-      h += Math.sin(x * 0.1) * 2;
+      h *= 0.25;
+      h += Math.sin(x * 0.1) * 2.5;
     }
 
     // Whisperwood rolling hills (West)
     if (wx < 350 && wy > 300 && wy < 600) {
-      h += Math.sin(x * 0.12) * Math.cos(y * 0.12) * 10 + 8;
+      h += Math.sin(x * 0.12) * Math.cos(y * 0.12) * 11 + 9;
     }
 
-    // Central Eldoria River / Lake depression
+    // Central Eldoria River / Lake
     const riverDist = Math.abs(wx - 480);
     if (riverDist < 30 && wy > 350 && wy < 700) {
-      h -= (30 - riverDist) * 0.3;
+      h -= (30 - riverDist) * 0.35;
     }
 
     return Math.max(-10, h);
-  };
+  }, []);
 
+  // Attack Trigger
+  const triggerAttack = useCallback(() => {
+    setCombatSlashActive(true);
+    audio.playSwordSlash();
+    setTimeout(() => setCombatSlashActive(false), 300);
+  }, []);
+
+  // Toggle Mount (Horse)
+  const toggleMount = useCallback(() => {
+    setIsMounted(prev => {
+      const next = !prev;
+      audio.playFastTravel();
+      return next;
+    });
+  }, []);
+
+  // Initialize Three.js Scene
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
 
-    // 1. Scene & Camera Setup
     const width = container.clientWidth;
     const height = container.clientHeight;
 
+    // 1. Scene & Camera
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0c1220);
-    scene.fog = new THREE.FogExp2(0x0c1220, 0.0035);
+    
+    // Sky color based on time of day
+    const isNight = timeOfDay < 6 || timeOfDay > 20;
+    const isSunset = (timeOfDay >= 18 && timeOfDay <= 20) || (timeOfDay >= 5 && timeOfDay <= 7);
+    
+    let skyColor = isNight ? 0x050914 : isSunset ? 0x7c2d12 : 0x0284c7;
+    let fogColor = isNight ? 0x080f20 : isSunset ? 0x451a03 : 0x38bdf8;
+    
+    scene.background = new THREE.Color(skyColor);
+    scene.fog = new THREE.FogExp2(fogColor, 0.0032);
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(60, width / height, 0.5, 2000);
+    const camera = new THREE.PerspectiveCamera(60, width / height, 0.5, 2500);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -133,25 +171,53 @@ export default function World3DExplorer({
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // 2. Lighting Setup
-    const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.45);
-    scene.add(ambientLight);
+    // 2. Lighting System
+    const hemiLight = new THREE.HemisphereLight(
+      isNight ? 0x1e293b : 0xe0f2fe, 
+      isNight ? 0x020617 : 0x334155, 
+      isNight ? 0.4 : 0.7
+    );
+    scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0xffedd5, 1.2);
-    sunLight.position.set(200, 350, 200);
+    const sunAngle = ((timeOfDay - 6) / 18) * Math.PI;
+    const sunX = Math.cos(sunAngle) * 450;
+    const sunY = Math.sin(sunAngle) * 350 + 20;
+    const sunZ = 200;
+
+    const sunLight = new THREE.DirectionalLight(
+      isNight ? 0x93c5fd : isSunset ? 0xfb923c : 0xffedd5, 
+      isNight ? 0.4 : 1.3
+    );
+    sunLight.position.set(sunX, Math.max(40, sunY), sunZ);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 10;
-    sunLight.shadow.camera.far = 800;
-    sunLight.shadow.camera.left = -250;
-    sunLight.shadow.camera.right = 250;
-    sunLight.shadow.camera.top = 250;
-    sunLight.shadow.camera.bottom = -250;
+    sunLight.shadow.camera.far = 1000;
+    sunLight.shadow.camera.left = -300;
+    sunLight.shadow.camera.right = 300;
+    sunLight.shadow.camera.top = 300;
+    sunLight.shadow.camera.bottom = -300;
     scene.add(sunLight);
 
-    // 3. Procedural 3D Terrain Construction
-    const terrainRes = 120;
+    // Stars at night
+    if (isNight) {
+      const starGeo = new THREE.BufferGeometry();
+      const starCount = 800;
+      const starPositions = new Float32Array(starCount * 3);
+      for (let i = 0; i < starCount * 3; i += 3) {
+        starPositions[i] = (Math.random() - 0.5) * 2000;
+        starPositions[i + 1] = Math.random() * 800 + 200;
+        starPositions[i + 2] = (Math.random() - 0.5) * 2000;
+      }
+      starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+      const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, transparent: true, opacity: 0.85 });
+      const stars = new THREE.Points(starGeo, starMat);
+      scene.add(stars);
+    }
+
+    // 3. Terrain Geometry & Multi-Biome Shading
+    const terrainRes = 130;
     const terrainGeo = new THREE.PlaneGeometry(1000, 1000, terrainRes, terrainRes);
     terrainGeo.rotateX(-Math.PI / 2);
 
@@ -159,47 +225,45 @@ export default function World3DExplorer({
     const colorAttr = new Float32Array(posAttr.count * 3);
 
     for (let i = 0; i < posAttr.count; i++) {
-      const vx = posAttr.getX(i) + 500; // Map to 0..1000
+      const vx = posAttr.getX(i) + 500;
       const vz = posAttr.getZ(i) + 500;
       const vy = getTerrainHeight(vx, vz);
       posAttr.setY(i, vy);
 
-      // Vertex Biome Color Blending
-      let r = 0.2, g = 0.5, b = 0.2; // default meadow green
+      let r = 0.22, g = 0.55, b = 0.22;
 
       if (vy < 0.5) {
-        // Sand / Shoreline
-        r = 0.76; g = 0.70; b = 0.50;
+        // Sand Shore
+        r = 0.82; g = 0.75; b = 0.52;
       } else if (vz < 300) {
-        // Frostfall Peaks: Snow / Glacier
-        const snowAmt = Math.min(1, Math.max(0, (vy - 15) / 25));
+        // Frostfall Peaks
+        const snowAmt = Math.min(1, Math.max(0, (vy - 12) / 25));
         r = THREE.MathUtils.lerp(0.35, 0.95, snowAmt);
-        g = THREE.MathUtils.lerp(0.45, 0.97, snowAmt);
+        g = THREE.MathUtils.lerp(0.45, 0.98, snowAmt);
         b = THREE.MathUtils.lerp(0.55, 1.0, snowAmt);
       } else if (vx > 600 && vz > 500) {
-        // Embermaw: Obsidian rock with red magma tint
+        // Embermaw Volcanic
         r = 0.22 + Math.sin(vx * 0.05) * 0.05;
         g = 0.12;
         b = 0.12;
         if (vy < 10) {
-          // Magma glow
-          r = 0.95; g = 0.35; b = 0.05;
+          r = 0.98; g = 0.35; b = 0.05; // Magma Glow
         }
       } else if (vx > 600 && vz < 500) {
-        // Solis: Golden desert sand
-        r = 0.88; g = 0.72; b = 0.35;
+        // Solis Desert
+        r = 0.90; g = 0.75; b = 0.38;
       } else if (vx < 450 && vz > 600) {
-        // Shadowfen: Murky swamp moss
-        r = 0.22; g = 0.32; b = 0.25;
+        // Shadowfen Swamps
+        r = 0.20; g = 0.34; b = 0.26;
       } else if (vx < 350) {
-        // Whisperwood: Deep forest emerald
-        r = 0.12; g = 0.42; b = 0.18;
+        // Whisperwood Forest
+        r = 0.10; g = 0.44; b = 0.16;
       } else {
-        // Eldoria: Lush grass with stone elevation
+        // Eldoria
         if (vy > 25) {
-          r = 0.45; g = 0.45; b = 0.45; // Mountain stone
+          r = 0.48; g = 0.48; b = 0.48;
         } else {
-          r = 0.28; g = 0.58; b = 0.25; // Grass
+          r = 0.28; g = 0.62; b = 0.25;
         }
       }
 
@@ -230,9 +294,9 @@ export default function World3DExplorer({
     const waterMat = new THREE.MeshStandardMaterial({
       color: 0x0284c7,
       roughness: 0.1,
-      metalness: 0.7,
+      metalness: 0.8,
       transparent: true,
-      opacity: 0.75
+      opacity: 0.8
     });
     const waterMesh = new THREE.Mesh(waterGeo, waterMat);
     waterMesh.position.y = 1.0;
@@ -248,43 +312,48 @@ export default function World3DExplorer({
       const py = getTerrainHeight(poi.x, poi.y);
 
       if (poi.type === 'city') {
-        // Valencrest / Jotunheim / Obsidian Castle Keep
+        // Valencrest Castle Keep & Towers
         const castleGroup = new THREE.Group();
         castleGroup.position.set(px, py, pz);
 
-        // Keep
-        const keepGeo = new THREE.BoxGeometry(16, 22, 16);
+        const keepGeo = new THREE.BoxGeometry(18, 24, 18);
         const stoneMat = new THREE.MeshStandardMaterial({ 
           color: poi.region === 'embermaw' ? 0x27272a : poi.region === 'frostfall' ? 0x93c5fd : 0xd4d4d8,
           roughness: 0.6 
         });
         const keep = new THREE.Mesh(keepGeo, stoneMat);
-        keep.position.y = 11;
+        keep.position.y = 12;
         keep.castShadow = true;
         castleGroup.add(keep);
 
-        // 4 Corner Towers
-        const towerGeo = new THREE.CylinderGeometry(3.5, 4, 28, 8);
-        const roofGeo = new THREE.ConeGeometry(4.2, 8, 8);
+        const towerGeo = new THREE.CylinderGeometry(3.8, 4.2, 30, 8);
+        const roofGeo = new THREE.ConeGeometry(4.6, 9, 8);
         const roofMat = new THREE.MeshStandardMaterial({ 
           color: poi.region === 'embermaw' ? 0xd97706 : poi.region === 'frostfall' ? 0x38bdf8 : 0x2563eb 
         });
 
-        [[-9, -9], [9, -9], [-9, 9], [9, 9]].forEach(([tx, tz]) => {
+        [[-10, -10], [10, -10], [-10, 10], [10, 10]].forEach(([tx, tz]) => {
           const tower = new THREE.Mesh(towerGeo, stoneMat);
-          tower.position.set(tx, 14, tz);
+          tower.position.set(tx, 15, tz);
           tower.castShadow = true;
           castleGroup.add(tower);
 
           const roof = new THREE.Mesh(roofGeo, roofMat);
-          roof.position.set(tx, 32, tz);
+          roof.position.set(tx, 34, tz);
           castleGroup.add(roof);
         });
 
-        // Golden Spire Beacon
-        const spireLight = new THREE.PointLight(0xfbbf24, 2, 40);
-        spireLight.position.set(0, 35, 0);
-        castleGroup.add(spireLight);
+        // Golden Sky Pillar
+        const lightPillarGeo = new THREE.CylinderGeometry(0.8, 1.6, 180, 8);
+        const lightPillarMat = new THREE.MeshBasicMaterial({
+          color: 0xfbbf24,
+          transparent: true,
+          opacity: 0.35,
+          side: THREE.DoubleSide
+        });
+        const lightPillar = new THREE.Mesh(lightPillarGeo, lightPillarMat);
+        lightPillar.position.y = 90;
+        castleGroup.add(lightPillar);
 
         landmarksGroup.add(castleGroup);
 
@@ -293,85 +362,96 @@ export default function World3DExplorer({
         const towerGroup = new THREE.Group();
         towerGroup.position.set(px, py, pz);
 
-        const towerPillarGeo = new THREE.CylinderGeometry(2, 3, 32, 8);
+        const towerPillarGeo = new THREE.CylinderGeometry(2.5, 3.5, 36, 8);
         const towerMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 });
         const pillar = new THREE.Mesh(towerPillarGeo, towerMat);
-        pillar.position.y = 16;
+        pillar.position.y = 18;
         towerGroup.add(pillar);
 
-        // Lookout Platform
-        const platformGeo = new THREE.CylinderGeometry(6, 6, 2, 8);
+        const platformGeo = new THREE.CylinderGeometry(6.5, 6.5, 2, 8);
         const platMat = new THREE.MeshStandardMaterial({ color: 0x451a03 });
         const plat = new THREE.Mesh(platformGeo, platMat);
-        plat.position.y = 32;
+        plat.position.y = 36;
         towerGroup.add(plat);
 
-        // Floating Mystical Rune Crystal on top
-        const crystalGeo = new THREE.OctahedronGeometry(2.5, 0);
+        // Floating Mystical Rune Crystal
+        const crystalGeo = new THREE.OctahedronGeometry(3.0, 0);
         const crystalMat = new THREE.MeshStandardMaterial({
           color: 0xa855f7,
           emissive: 0x9333ea,
-          emissiveIntensity: 0.9,
+          emissiveIntensity: 1.0,
           roughness: 0.2
         });
         const crystal = new THREE.Mesh(crystalGeo, crystalMat);
-        crystal.position.y = 38;
+        crystal.position.y = 42;
         crystal.name = 'viewpointCrystal';
         towerGroup.add(crystal);
+
+        // Light Beam into sky
+        const beamGeo = new THREE.CylinderGeometry(0.6, 1.2, 160, 8);
+        const beamMat = new THREE.MeshBasicMaterial({
+          color: 0xa855f7,
+          transparent: true,
+          opacity: 0.4,
+          side: THREE.DoubleSide
+        });
+        const beam = new THREE.Mesh(beamGeo, beamMat);
+        beam.position.y = 90;
+        towerGroup.add(beam);
 
         landmarksGroup.add(towerGroup);
 
       } else if (poi.type === 'fast_travel') {
-        // Fast Travel Rune Obelisk with Sky Light Beam
-        const obeliskGroup = new THREE.Group();
-        obeliskGroup.position.set(px, py, pz);
+        // Fast Travel Obelisk
+        const obGroup = new THREE.Group();
+        obGroup.position.set(px, py, pz);
 
-        const obGeo = new THREE.BoxGeometry(2, 14, 2);
+        const obGeo = new THREE.BoxGeometry(2.5, 16, 2.5);
         const obMat = new THREE.MeshStandardMaterial({ 
           color: 0x38bdf8, 
           emissive: 0x0284c7, 
-          emissiveIntensity: 0.6 
+          emissiveIntensity: 0.8 
         });
         const obelisk = new THREE.Mesh(obGeo, obMat);
-        obelisk.position.y = 7;
-        obeliskGroup.add(obelisk);
+        obelisk.position.y = 8;
+        obGroup.add(obelisk);
 
-        // Light Beam into sky
-        const beamGeo = new THREE.CylinderGeometry(0.6, 1.2, 120, 8);
+        const beamGeo = new THREE.CylinderGeometry(0.8, 1.4, 200, 8);
         const beamMat = new THREE.MeshBasicMaterial({
           color: 0x38bdf8,
           transparent: true,
-          opacity: 0.35,
+          opacity: 0.45,
           side: THREE.DoubleSide
         });
         const beam = new THREE.Mesh(beamGeo, beamMat);
-        beam.position.y = 65;
-        obeliskGroup.add(beam);
+        beam.position.y = 100;
+        obGroup.add(beam);
 
-        landmarksGroup.add(obeliskGroup);
+        landmarksGroup.add(obGroup);
 
       } else if (poi.type === 'dungeon' || poi.type === 'boss') {
         // Dungeon Portal / Dragon Roost
         const dgGroup = new THREE.Group();
         dgGroup.position.set(px, py, pz);
 
-        const portalRingGeo = new THREE.TorusGeometry(5, 1, 8, 24);
+        const portalRingGeo = new THREE.TorusGeometry(6, 1.2, 8, 24);
         const portalMat = new THREE.MeshStandardMaterial({
           color: poi.type === 'boss' ? 0xef4444 : 0x8b5cf6,
           emissive: poi.type === 'boss' ? 0xdc2626 : 0x7c3aed,
-          emissiveIntensity: 0.8
+          emissiveIntensity: 0.9
         });
         const portal = new THREE.Mesh(portalRingGeo, portalMat);
-        portal.position.y = 6;
+        portal.position.y = 7;
+        portal.name = 'dungeonPortal';
         dgGroup.add(portal);
 
         landmarksGroup.add(dgGroup);
       }
     });
 
-    // 6. Procedural Instanced 3D Forests / Trees
+    // 6. Instanced 3D Forest Trees
     const treeTrunkGeo = new THREE.CylinderGeometry(0.4, 0.7, 4, 5);
-    const treeConeGeo = new THREE.ConeGeometry(2.5, 7, 5);
+    const treeConeGeo = new THREE.ConeGeometry(2.6, 7.5, 5);
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3e2723 });
     const leafGreenMat = new THREE.MeshStandardMaterial({ color: 0x166534, flatShading: true });
     const leafSnowMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, flatShading: true });
@@ -379,14 +459,12 @@ export default function World3DExplorer({
 
     const treesGroup = new THREE.Group();
 
-    // Place trees based on biomes
-    for (let i = 0; i < 180; i++) {
+    for (let i = 0; i < 220; i++) {
       const tx = (Math.random() * 900) + 50;
       const tz = (Math.random() * 900) + 50;
       const ty = getTerrainHeight(tx, tz);
 
-      // Skip underwater or very steep peaks
-      if (ty < 2 || ty > 70) continue;
+      if (ty < 2 || ty > 75) continue;
 
       const tGroup = new THREE.Group();
       tGroup.position.set(tx - 500, ty, tz - 500);
@@ -398,14 +476,14 @@ export default function World3DExplorer({
       let leafMat = leafGreenMat;
       if (tz < 320) leafMat = leafSnowMat;
       else if (tx > 600 && tz < 500) leafMat = leafPalmMat;
-      else if (tx > 600 && tz > 500) continue; // no trees in magma
+      else if (tx > 600 && tz > 500) continue;
 
       const leaves = new THREE.Mesh(treeConeGeo, leafMat);
-      leaves.position.y = 6;
+      leaves.position.y = 6.2;
       leaves.castShadow = true;
       tGroup.add(leaves);
 
-      const s = 0.7 + Math.random() * 0.6;
+      const s = 0.75 + Math.random() * 0.6;
       tGroup.scale.set(s, s, s);
       treesGroup.add(tGroup);
     }
@@ -413,77 +491,128 @@ export default function World3DExplorer({
     scene.add(treesGroup);
     scene.add(landmarksGroup);
 
-    // 7. Playable 3D Character Model (Knight with Cape & Helmet)
+    // 7. Character Model (Knight with Armor, Visor, Animated Cape & Runic Sword)
     const playerGroup = new THREE.Group();
     
     // Body Armor
-    const bodyGeo = new THREE.BoxGeometry(1.2, 1.8, 0.8);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
+    const bodyGeo = new THREE.BoxGeometry(1.3, 1.9, 0.85);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.85, roughness: 0.25 });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 1.6;
+    body.position.y = 1.7;
     body.castShadow = true;
     playerGroup.add(body);
 
-    // Helmet & Visor
-    const helmGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+    // Helmet & Glowing Blue Visor
+    const helmGeo = new THREE.BoxGeometry(0.95, 0.95, 0.95);
     const helmMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9, roughness: 0.2 });
     const helm = new THREE.Mesh(helmGeo, helmMat);
-    helm.position.y = 2.9;
+    helm.position.y = 3.0;
     helm.castShadow = true;
     playerGroup.add(helm);
 
-    const visorGeo = new THREE.BoxGeometry(0.7, 0.2, 0.2);
+    const visorGeo = new THREE.BoxGeometry(0.75, 0.2, 0.25);
     const visorMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     const visor = new THREE.Mesh(visorGeo, visorMat);
-    visor.position.set(0, 2.9, 0.45);
+    visor.position.set(0, 3.0, 0.48);
     playerGroup.add(visor);
 
-    // Golden Knight Cape
-    const capeGeo = new THREE.BoxGeometry(1.0, 1.6, 0.15);
+    // Gold / Amber Knight Cape
+    const capeGeo = new THREE.BoxGeometry(1.1, 1.8, 0.15);
     const capeMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 });
     const cape = new THREE.Mesh(capeGeo, capeMat);
-    cape.position.set(0, 1.4, -0.45);
-    cape.rotation.x = 0.15;
+    cape.position.set(0, 1.5, -0.48);
+    cape.name = 'playerCape';
     playerGroup.add(cape);
 
-    // Glowing Sword on back
-    const swordGeo = new THREE.BoxGeometry(0.15, 2.4, 0.4);
-    const swordMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.7 });
-    const sword = new THREE.Mesh(swordGeo, swordMat);
-    sword.position.set(0.6, 2.0, -0.4);
-    sword.rotation.z = -0.4;
-    playerGroup.add(sword);
+    // Glowing Runic Sword
+    const swordGroup = new THREE.Group();
+    const swordBladeGeo = new THREE.BoxGeometry(0.18, 2.6, 0.35);
+    const swordBladeMat = new THREE.MeshStandardMaterial({ 
+      color: 0x38bdf8, 
+      emissive: 0x0284c7, 
+      emissiveIntensity: 0.85 
+    });
+    const swordBlade = new THREE.Mesh(swordBladeGeo, swordBladeMat);
+    swordBlade.position.y = 1.3;
+    swordGroup.add(swordBlade);
 
-    // Position player
+    const hiltGeo = new THREE.BoxGeometry(0.6, 0.15, 0.2);
+    const hiltMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9 });
+    const hilt = new THREE.Mesh(hiltGeo, hiltMat);
+    swordGroup.add(hilt);
+
+    swordGroup.position.set(0.65, 1.6, 0.4);
+    swordGroup.name = 'playerSword';
+    playerGroup.add(swordGroup);
+
+    // Sword Arc Slash Effect (Crescent Mesh)
+    const slashGeo = new THREE.RingGeometry(1.8, 2.6, 16, 1, 0, Math.PI * 0.8);
+    const slashMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide
+    });
+    const slashMesh = new THREE.Mesh(slashGeo, slashMat);
+    slashMesh.rotation.x = Math.PI / 2;
+    slashMesh.position.set(0, 1.8, 1.2);
+    slashMesh.name = 'slashEffect';
+    playerGroup.add(slashMesh);
+    swordSlashRef.current = slashMesh;
+
+    // Horse Mount Model (Hidden initially unless mounted)
+    const horseGroup = new THREE.Group();
+    const horseBodyGeo = new THREE.BoxGeometry(1.6, 1.8, 3.2);
+    const horseMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.7 });
+    const horseBody = new THREE.Mesh(horseBodyGeo, horseMat);
+    horseBody.position.y = 1.6;
+    horseGroup.add(horseBody);
+
+    const horseNeckGeo = new THREE.BoxGeometry(1.0, 2.0, 1.2);
+    const horseNeck = new THREE.Mesh(horseNeckGeo, horseMat);
+    horseNeck.position.set(0, 2.6, 1.4);
+    horseNeck.rotation.x = -0.4;
+    horseGroup.add(horseNeck);
+
+    const horseHeadGeo = new THREE.BoxGeometry(0.9, 0.9, 1.4);
+    const horseHead = new THREE.Mesh(horseHeadGeo, horseMat);
+    horseHead.position.set(0, 3.4, 2.0);
+    horseGroup.add(horseHead);
+
+    horseGroup.visible = false;
+    playerGroup.add(horseGroup);
+    horseMeshRef.current = horseGroup;
+
+    // Initial position
     const pInitY = getTerrainHeight(playerPos.x, playerPos.y);
     playerGroup.position.set(playerPos.x - 500, pInitY, playerPos.y - 500);
     scene.add(playerGroup);
     playerMeshRef.current = playerGroup;
 
-    // 8. Weather Particle Systems in 3D
-    const particleCount = 600;
+    // 8. 3D Weather Particle Systems
+    const particleCount = 700;
     const particleGeo = new THREE.BufferGeometry();
     const particlePos = new Float32Array(particleCount * 3);
 
     for (let i = 0; i < particleCount * 3; i += 3) {
-      particlePos[i] = (Math.random() - 0.5) * 400;
-      particlePos[i + 1] = Math.random() * 150;
-      particlePos[i + 2] = (Math.random() - 0.5) * 400;
+      particlePos[i] = (Math.random() - 0.5) * 450;
+      particlePos[i + 1] = Math.random() * 160;
+      particlePos[i + 2] = (Math.random() - 0.5) * 450;
     }
 
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
     const particleMat = new THREE.PointsMaterial({
-      size: 1.5,
-      color: 0xbae6fd,
+      size: weather === 'snow' ? 2.5 : 1.6,
+      color: weather === 'ashfall' ? 0xf97316 : weather === 'snow' ? 0xffffff : 0xbae6fd,
       transparent: true,
-      opacity: 0.6
+      opacity: 0.7
     });
 
     const weatherParticles = new THREE.Points(particleGeo, particleMat);
     scene.add(weatherParticles);
     weatherParticlesRef.current = weatherParticles;
 
-    // 9. Input & Control Event Listeners
+    // 9. Input & Controls Event Handlers
     const handleKeyDown = (e) => {
       const key = e.key.toLowerCase();
       if (key === 'w' || key === 'arrowup') controlsStateRef.current.forward = true;
@@ -493,9 +622,25 @@ export default function World3DExplorer({
       if (key === 'shift') controlsStateRef.current.sprint = true;
       if (key === ' ' || key === 'space') controlsStateRef.current.jump = true;
 
+      // H Key for Horse Mount
+      if (key === 'h') {
+        toggleMount();
+      }
+
+      // J Key or Left Click for Attack
+      if (key === 'j' || key === 'k') {
+        triggerAttack();
+      }
+
       // E Key to interact with nearest tower / POI
       if (key === 'e') {
-        checkInteractNearby();
+        checkInteract();
+      }
+
+      // M Key to open 2D Map
+      if (key === 'm') {
+        onOpenMap();
+        audio.playClick();
       }
     };
 
@@ -510,6 +655,10 @@ export default function World3DExplorer({
     };
 
     const handlePointerDown = (e) => {
+      // Left click attack if not dragging heavily
+      if (e.button === 0) {
+        triggerAttack();
+      }
       controlsStateRef.current.isMouseDown = true;
       controlsStateRef.current.lastMouseX = e.clientX;
       controlsStateRef.current.lastMouseY = e.clientY;
@@ -523,10 +672,10 @@ export default function World3DExplorer({
       controlsStateRef.current.lastMouseX = e.clientX;
       controlsStateRef.current.lastMouseY = e.clientY;
 
-      controlsStateRef.current.yaw -= dx * 0.005;
+      controlsStateRef.current.yaw -= dx * 0.0045;
       controlsStateRef.current.pitch = Math.max(
         -0.2, 
-        Math.min(1.4, controlsStateRef.current.pitch + dy * 0.005)
+        Math.min(1.3, controlsStateRef.current.pitch + dy * 0.0045)
       );
     };
 
@@ -536,8 +685,8 @@ export default function World3DExplorer({
 
     const handleWheel3D = (e) => {
       controlsStateRef.current.distance = Math.max(
-        6, 
-        Math.min(70, controlsStateRef.current.distance + e.deltaY * 0.04)
+        5, 
+        Math.min(65, controlsStateRef.current.distance + e.deltaY * 0.035)
       );
     };
 
@@ -548,7 +697,6 @@ export default function World3DExplorer({
     window.addEventListener('mouseup', handlePointerUp);
     container.addEventListener('wheel', handleWheel3D, { passive: true });
 
-    // Handle Window Resize
     const handleResize = () => {
       if (!container || !renderer || !camera) return;
       const nw = container.clientWidth;
@@ -559,13 +707,8 @@ export default function World3DExplorer({
     };
     window.addEventListener('resize', handleResize);
 
-    // 10. Main 3D Render & Physics Loop
-    let lastTime = performance.now();
-    let velocityY = 0;
-    let isGrounded = true;
-    let animId;
-
-    const checkInteractNearby = () => {
+    // 10. Check Proximity Interactions
+    const checkInteract = () => {
       const p = playerMeshRef.current;
       if (!p) return;
       const wx = p.position.x + 500;
@@ -573,7 +716,7 @@ export default function World3DExplorer({
 
       pois.forEach(poi => {
         const d = Math.hypot(poi.x - wx, poi.y - wy);
-        if (d < 30) {
+        if (d < 35) {
           if (poi.type === 'viewpoint' && !poi.completed) {
             triggerSyncSequence(poi);
           } else {
@@ -592,7 +735,7 @@ export default function World3DExplorer({
         step += 2;
         setSyncProgress(step);
         controlsStateRef.current.yaw += 0.08;
-        controlsStateRef.current.pitch = 0.6;
+        controlsStateRef.current.pitch = 0.55;
         if (step >= 100) {
           clearInterval(syncInterval);
           setIsSyncing(false);
@@ -601,6 +744,13 @@ export default function World3DExplorer({
         }
       }, 30);
     };
+
+    // 11. Main 3D Game Loop
+    let lastTime = performance.now();
+    let velocityY = 0;
+    let isGrounded = true;
+    let animId;
+    let runTicker = 0;
 
     const animate = (currentTime) => {
       animId = requestAnimationFrame(animate);
@@ -611,16 +761,19 @@ export default function World3DExplorer({
       const player = playerMeshRef.current;
       const controls = controlsStateRef.current;
 
-      // Animate Water Plane Sine Waves
+      // Animate Water Plane Ripples
       if (waterMeshRef.current) {
         waterMeshRef.current.position.y = 1.0 + Math.sin(currentTime * 0.002) * 0.35;
       }
 
-      // Rotate viewpoint crystals
+      // Rotate Viewpoint Crystals & Portals
       scene.traverse(obj => {
         if (obj.name === 'viewpointCrystal') {
           obj.rotation.y += delta * 1.5;
-          obj.position.y = 38 + Math.sin(currentTime * 0.003) * 0.8;
+          obj.position.y = 42 + Math.sin(currentTime * 0.003) * 0.8;
+        }
+        if (obj.name === 'dungeonPortal') {
+          obj.rotation.z += delta * 1.0;
         }
       });
 
@@ -628,21 +781,20 @@ export default function World3DExplorer({
       if (weatherParticlesRef.current) {
         const pAttr = weatherParticlesRef.current.geometry.attributes.position;
         for (let i = 1; i < pAttr.count * 3; i += 3) {
-          pAttr.array[i] -= delta * (weather === 'storm' ? 80 : 35);
+          pAttr.array[i] -= delta * (weather === 'storm' ? 85 : 38);
           if (pAttr.array[i] < 0) {
-            pAttr.array[i] = 120;
+            pAttr.array[i] = 140;
           }
         }
         pAttr.needsUpdate = true;
       }
 
-      // Player Movement Logic
+      // Handle Character Movement & Physics
       if (player && controlMode === 'third_person') {
-        const moveSpeed = controls.sprint ? 35 : 18;
+        const baseSpeed = isMounted ? (controls.sprint ? 55 : 35) : (controls.sprint ? 34 : 18);
         let moveX = 0;
         let moveZ = 0;
 
-        // Direction relative to camera yaw
         const forwardX = -Math.sin(controls.yaw);
         const forwardZ = -Math.cos(controls.yaw);
         const rightX = Math.cos(controls.yaw);
@@ -667,29 +819,34 @@ export default function World3DExplorer({
 
         const moveLen = Math.hypot(moveX, moveZ);
         if (moveLen > 0) {
-          moveX = (moveX / moveLen) * moveSpeed * delta;
-          moveZ = (moveZ / moveLen) * moveSpeed * delta;
+          runTicker += delta * (isMounted ? 14 : 10);
+          moveX = (moveX / moveLen) * baseSpeed * delta;
+          moveZ = (moveZ / moveLen) * baseSpeed * delta;
 
           player.position.x += moveX;
           player.position.z += moveZ;
 
-          // Keep in bounds
           player.position.x = Math.max(-480, Math.min(480, player.position.x));
           player.position.z = Math.max(-480, Math.min(480, player.position.z));
 
-          // Rotate character towards movement direction
           player.rotation.y = Math.atan2(moveX, moveZ);
+
+          // Cape wavy animation
+          const capeObj = player.getObjectByName('playerCape');
+          if (capeObj) {
+            capeObj.rotation.x = 0.3 + Math.sin(runTicker) * 0.15;
+          }
         }
 
         // Jump & Gravity
         const groundHeight = getTerrainHeight(player.position.x + 500, player.position.z + 500);
 
         if (controls.jump && isGrounded) {
-          velocityY = 16;
+          velocityY = isMounted ? 20 : 16;
           isGrounded = false;
         }
 
-        velocityY -= 38 * delta; // Gravity
+        velocityY -= 38 * delta;
         player.position.y += velocityY * delta;
 
         if (player.position.y <= groundHeight) {
@@ -698,10 +855,10 @@ export default function World3DExplorer({
           isGrounded = true;
         }
 
-        // Update Camera to follow player smoothly
+        // Camera Follow
         const camDist = controls.distance;
         const camTargetX = player.position.x;
-        const camTargetY = player.position.y + 2.5;
+        const camTargetY = player.position.y + (isMounted ? 3.5 : 2.5);
         const camTargetZ = player.position.z;
 
         const camX = camTargetX + Math.sin(controls.yaw) * Math.cos(controls.pitch) * camDist;
@@ -711,37 +868,56 @@ export default function World3DExplorer({
         camera.position.set(camX, camY, camZ);
         camera.lookAt(camTargetX, camTargetY, camTargetZ);
 
-        // Update player coordinates back to 2D map
+        // Update state to 2D
         const curWx = Math.round(player.position.x + 500);
         const curWz = Math.round(player.position.z + 500);
-        const headingDeg = (controls.yaw * (180 / Math.PI)) % 360;
+        const headingDeg = Math.round((controls.yaw * (180 / Math.PI) + 360) % 360);
 
         if (moveLen > 0) {
           onUpdatePlayerPos({ x: curWx, y: curWz, heading: headingDeg });
         }
 
-        // HUD updates
-        setHudStats(prev => ({
-          ...prev,
-          speed: Math.round(moveLen > 0 ? (controls.sprint ? 32 : 16) : 0),
-          altitude: Math.round(player.position.y)
-        }));
+        // Check nearest POI for HUD
+        let closestPoi = null;
+        let minDist = 9999;
+        pois.forEach(poi => {
+          const d = Math.hypot(poi.x - curWx, poi.y - curWz);
+          if (d < minDist) {
+            minDist = d;
+            closestPoi = poi;
+          }
+        });
+
+        if (minDist < 35) {
+          setNearbyInteractivePoi(closestPoi);
+        } else {
+          setNearbyInteractivePoi(null);
+        }
+
+        setHudStats({
+          speed: Math.round(moveLen > 0 ? baseSpeed : 0),
+          altitude: Math.round(player.position.y),
+          stamina: 100,
+          health: 100,
+          heading: headingDeg,
+          nearbyPoi: closestPoi,
+          distToNearby: Math.round(minDist * 10)
+        });
 
       } else if (player && controlMode === 'eagle') {
-        // Eagle Flight Navigation
-        const flySpeed = controls.sprint ? 70 : 40;
+        const flySpeed = controls.sprint ? 75 : 45;
         const forwardX = -Math.sin(controls.yaw);
         const forwardZ = -Math.cos(controls.yaw);
 
         player.position.x += forwardX * flySpeed * delta;
         player.position.z += forwardZ * flySpeed * delta;
-        player.position.y = Math.max(35, player.position.y + (controls.pitch - 0.3) * flySpeed * delta);
+        player.position.y = Math.max(30, player.position.y + (controls.pitch - 0.25) * flySpeed * delta);
 
         player.rotation.y = controls.yaw + Math.PI;
 
-        const camX = player.position.x + Math.sin(controls.yaw) * 12;
-        const camY = player.position.y + 5;
-        const camZ = player.position.z + Math.cos(controls.yaw) * 12;
+        const camX = player.position.x + Math.sin(controls.yaw) * 14;
+        const camY = player.position.y + 6;
+        const camZ = player.position.z + Math.cos(controls.yaw) * 14;
 
         camera.position.set(camX, camY, camZ);
         camera.lookAt(player.position.x, player.position.y, player.position.z);
@@ -749,6 +925,16 @@ export default function World3DExplorer({
         const curWx = Math.round(player.position.x + 500);
         const curWz = Math.round(player.position.z + 500);
         onUpdatePlayerPos({ x: curWx, y: curWz, heading: controls.yaw * (180 / Math.PI) });
+      }
+
+      // Animate Sword Slash Mesh
+      if (swordSlashRef.current) {
+        if (combatSlashActive) {
+          swordSlashRef.current.material.opacity = 0.85;
+          swordSlashRef.current.rotation.z += delta * 15;
+        } else {
+          swordSlashRef.current.material.opacity = 0;
+        }
       }
 
       renderer.render(scene, camera);
@@ -767,41 +953,92 @@ export default function World3DExplorer({
         container.removeChild(renderer.domElement);
       }
     };
-  }, [controlMode, weather]);
+  }, [controlMode, weather, timeOfDay, isMounted, combatSlashActive, getTerrainHeight, pois, onSelectPoi, onSyncTower, onUpdatePlayerPos, toggleMount, triggerAttack, onOpenMap]);
 
-  // Sync player position prop if teleported / fast-traveled externally
+  // Sync mount visibility
+  useEffect(() => {
+    if (horseMeshRef.current) {
+      horseMeshRef.current.visible = isMounted;
+    }
+  }, [isMounted]);
+
+  // Teleport player if position changed externally
   useEffect(() => {
     if (playerMeshRef.current) {
       const py = getTerrainHeight(playerPos.x, playerPos.y);
       playerMeshRef.current.position.set(playerPos.x - 500, py, playerPos.y - 500);
     }
-  }, [playerPos.x, playerPos.y]);
+  }, [playerPos.x, playerPos.y, getTerrainHeight]);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-slate-950 select-none">
-      {/* 3D WebGL Canvas Container */}
+      {/* 3D WebGL Canvas Viewport */}
       <div ref={mountRef} className="w-full h-full cursor-crosshair" />
 
-      {/* Top 3D Control Mode Switcher */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md border border-amber-500/30 rounded-xl p-1.5 shadow-2xl">
+      {/* Top Center Compass Bar (Skyrim / Witcher style) */}
+      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none flex flex-col items-center">
+        <div className="relative w-80 h-8 bg-slate-950/80 backdrop-blur-md border border-amber-500/30 rounded-full flex items-center justify-center overflow-hidden shadow-2xl px-4">
+          <div className="absolute w-0.5 h-full bg-amber-400 z-10" />
+          
+          {/* Rotating Compass Tape */}
+          <div 
+            style={{ transform: `translateX(${-hudStats.heading * 1.5}px)` }}
+            className="flex items-center gap-10 text-xs font-mono font-bold text-slate-400 whitespace-nowrap transition-transform duration-75"
+          >
+            <span>N</span>
+            <span className="text-[10px] text-slate-600">45°</span>
+            <span className="text-amber-300">Ö / E</span>
+            <span className="text-[10px] text-slate-600">135°</span>
+            <span>S</span>
+            <span className="text-[10px] text-slate-600">225°</span>
+            <span className="text-amber-300">V / W</span>
+            <span className="text-[10px] text-slate-600">315°</span>
+            <span>N</span>
+          </div>
+        </div>
+
+        {/* Active Objective Pill */}
+        {activeWaypoint && (
+          <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-medium backdrop-blur-md shadow-lg">
+            <Compass className="w-3.5 h-3.5 text-amber-400 animate-spin-slow" />
+            <span>{isSwedish ? "Mål: " : "Target: "}</span>
+            <b className="text-white">{isSwedish ? activeWaypoint.name : activeWaypoint.nameEn}</b>
+          </div>
+        )}
+      </div>
+
+      {/* Top 3D Control Switcher: Foot / Horse / Eagle */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-slate-950/85 backdrop-blur-md border border-amber-500/30 rounded-2xl p-1.5 shadow-2xl">
         <button
-          onClick={() => { setControlMode('third_person'); audio.playClick(); }}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
-            controlMode === 'third_person' 
+          onClick={() => { setControlMode('third_person'); setIsMounted(false); audio.playClick(); }}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+            controlMode === 'third_person' && !isMounted
               ? 'bg-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/20' 
-              : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
           }`}
         >
           <User className="w-4 h-4" />
-          <span>{isSwedish ? "Tredjeperson" : "Third Person"}</span>
+          <span>{isSwedish ? "Till fots" : "On Foot"}</span>
         </button>
 
         <button
-          onClick={() => { setControlMode('eagle'); audio.playClick(); }}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
+          onClick={() => { setControlMode('third_person'); toggleMount(); }}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+            isMounted
+              ? 'bg-amber-400 text-slate-950 font-bold shadow-lg shadow-amber-400/20' 
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <Award className="w-4 h-4" />
+          <span>{isSwedish ? "Rid Häst (H)" : "Ride Mount (H)"}</span>
+        </button>
+
+        <button
+          onClick={() => { setControlMode('eagle'); setIsMounted(false); audio.playClick(); }}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
             controlMode === 'eagle' 
               ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/20' 
-              : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Bird className="w-4 h-4" />
@@ -809,46 +1046,86 @@ export default function World3DExplorer({
         </button>
       </div>
 
-      {/* Top Compass & Objective Banner */}
-      <div className="absolute top-6 left-6 z-20 flex flex-col gap-2">
-        <div className="bg-slate-900/85 backdrop-blur-md border border-slate-700/80 rounded-xl p-3 shadow-xl max-w-xs">
-          <div className="flex items-center gap-2 text-xs text-amber-400 font-bold font-serif mb-1">
-            <Compass className="w-4 h-4 animate-spin-slow" />
-            <span>{isSwedish ? "Aktivt Mål" : "Active Objective"}</span>
+      {/* Proximity Interaction Prompt (e.g. Near Castles, Viewpoints, Dungeons) */}
+      {nearbyInteractivePoi && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 animate-in fade-in zoom-in-95 duration-150">
+          <button
+            onClick={() => {
+              if (nearbyInteractivePoi.type === 'viewpoint' && !nearbyInteractivePoi.completed) {
+                onSyncTower(nearbyInteractivePoi);
+              } else {
+                onSelectPoi(nearbyInteractivePoi);
+              }
+              audio.playMarkerSelect();
+            }}
+            className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-amber-500 text-slate-950 font-bold text-sm shadow-2xl shadow-amber-500/30 hover:bg-amber-400 hover:scale-105 transition-all border-2 border-white/40"
+          >
+            <kbd className="px-2 py-0.5 rounded bg-slate-950 text-amber-300 font-mono text-xs">E</kbd>
+            <span>
+              {nearbyInteractivePoi.type === 'viewpoint' && !nearbyInteractivePoi.completed
+                ? (isSwedish ? `Synkronisera ${nearbyInteractivePoi.name}` : `Synchronize ${nearbyInteractivePoi.nameEn}`)
+                : (isSwedish ? `Utforska ${nearbyInteractivePoi.name}` : `Explore ${nearbyInteractivePoi.nameEn}`)}
+            </span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* 3D Keyboard & Controls HUD */}
+      <div className="absolute bottom-6 left-6 z-20 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-2xl p-4 text-xs text-slate-300 shadow-2xl flex flex-col gap-2 max-w-xs">
+        <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+          <span>{isSwedish ? "🎮 3D Spelkontroller" : "🎮 3D Controls"}</span>
+          <span className="text-[10px] text-slate-500 font-mono">60 FPS</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-[11px]">
+          <div className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono text-[10px]">W A S D</kbd>
+            <span className="text-slate-400">{isSwedish ? "Gå" : "Walk"}</span>
           </div>
-          <div className="text-xs text-slate-200 truncate">
-            {activeWaypoint ? (isSwedish ? activeWaypoint.name : activeWaypoint.nameEn) : (isSwedish ? "Ingen waypoint vald" : "No waypoint selected")}
+
+          <div className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono text-[10px]">Vänsterklick</kbd>
+            <span className="text-slate-400">{isSwedish ? "Svärdshugg" : "Attack"}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono text-[10px]">H</kbd>
+            <span className="text-slate-400">{isSwedish ? "Häst" : "Mount"}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono text-[10px]">Mellanslag</kbd>
+            <span className="text-slate-400">{isSwedish ? "Hoppa" : "Jump"}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono text-[10px]">M</kbd>
+            <span className="text-slate-400">{isSwedish ? "Öppna Karta" : "Open Map"}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono text-[10px]">Musdrag</kbd>
+            <span className="text-slate-400">{isSwedish ? "Kamera" : "Camera"}</span>
           </div>
         </div>
       </div>
 
-      {/* 3D Keyboard Guide Overlay */}
-      <div className="absolute bottom-6 left-6 z-20 bg-slate-900/85 backdrop-blur-md border border-slate-800 rounded-xl p-3.5 text-xs text-slate-300 shadow-2xl flex flex-col gap-1.5">
-        <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-0.5">
-          {isSwedish ? "3D Kontroller" : "3D Controls"}
-        </div>
-        <div className="flex items-center gap-2">
-          <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono text-[10px]">W A S D</kbd>
-          <span className="text-slate-400">{isSwedish ? "Förflytta karaktär" : "Move Character"}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono text-[10px]">Shift</kbd>
-          <span className="text-slate-400">{isSwedish ? "Sprinta / Flyg snabbt" : "Sprint / Fast Fly"}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono text-[10px]">Mellanslag</kbd>
-          <span className="text-slate-400">{isSwedish ? "Hoppa" : "Jump"}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono text-[10px]">Musdrag</kbd>
-          <span className="text-slate-400">{isSwedish ? "Rotera kamera" : "Rotate Camera"}</span>
-        </div>
-      </div>
-
-      {/* Bottom Right HUD: Health, Stamina & Speed */}
+      {/* Bottom Right RPG Status Bars & Quick Actions */}
       <div className="absolute bottom-6 right-6 z-20 flex flex-col items-end gap-2">
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 shadow-2xl flex flex-col gap-2 w-48">
-          {/* Health Bar */}
+        
+        {/* Attack Sword Action Button (Mobile / Clickable) */}
+        <button
+          onClick={triggerAttack}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white font-bold text-xs shadow-xl shadow-red-600/30 active:scale-95 transition-all"
+        >
+          <Swords className="w-4 h-4" />
+          <span>{isSwedish ? "Hugg Svärd (Klick / J)" : "Sword Slash (J)"}</span>
+        </button>
+
+        {/* Health & Stamina Panel */}
+        <div className="bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col gap-2.5 w-52">
+          {/* Health */}
           <div>
             <div className="flex items-center justify-between text-[11px] text-red-400 font-bold mb-1">
               <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5 fill-red-500" /> HP</span>
@@ -859,11 +1136,11 @@ export default function World3DExplorer({
             </div>
           </div>
 
-          {/* Stamina Bar */}
+          {/* Stamina */}
           <div>
             <div className="flex items-center justify-between text-[11px] text-emerald-400 font-bold mb-1">
               <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5 fill-emerald-500" /> Uthållighet</span>
-              <span>100%</span>
+              <span>{isMounted ? "150%" : "100%"}</span>
             </div>
             <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-emerald-600 to-teal-400 w-full rounded-full" />
@@ -871,14 +1148,14 @@ export default function World3DExplorer({
           </div>
 
           {/* Stats Readout */}
-          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800">
-            <span>Hastighet: <b className="text-amber-300">{hudStats.speed} km/h</b></span>
+          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-1.5 border-t border-slate-800">
+            <span>Fart: <b className="text-amber-300">{hudStats.speed} km/h</b></span>
             <span>Höjd: <b className="text-cyan-300">{hudStats.altitude} m</b></span>
           </div>
         </div>
       </div>
 
-      {/* Viewpoint Synchronization Cinematic Overlay */}
+      {/* Tower Synchronization Cinematic 360 Spin */}
       {isSyncing && (
         <div className="absolute inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-300">
           <div className="relative flex flex-col items-center">

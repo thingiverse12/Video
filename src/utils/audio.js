@@ -3,7 +3,7 @@ class SoundEngine {
   constructor() {
     this.ctx = null;
     this.isMuted = false;
-    this.volume = 0.5;
+    this.volume = 0.6;
     this.ambientGain = null;
     this.sfxGain = null;
     this.ambientNodes = [];
@@ -22,11 +22,11 @@ class SoundEngine {
       this.masterGain.connect(this.ctx.destination);
 
       this.ambientGain = this.ctx.createGain();
-      this.ambientGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+      this.ambientGain.gain.setValueAtTime(0.25, this.ctx.currentTime);
       this.ambientGain.connect(this.masterGain);
 
       this.sfxGain = this.ctx.createGain();
-      this.sfxGain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+      this.sfxGain.gain.setValueAtTime(0.65, this.ctx.currentTime);
       this.sfxGain.connect(this.masterGain);
     }
 
@@ -97,13 +97,58 @@ class SoundEngine {
     });
   }
 
+  // Play Sword Slash Whoosh + Metallic Ring
+  playSwordSlash() {
+    if (this.isMuted) return;
+    this.init();
+    const t = this.ctx.currentTime;
+
+    // Whoosh
+    const noiseBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.2, this.ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < output.length; i++) {
+      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.04));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(800, t);
+    filter.frequency.exponentialRampToValueAtTime(2800, t + 0.08);
+    filter.frequency.exponentialRampToValueAtTime(400, t + 0.18);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.3, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(this.sfxGain);
+    noise.start(t);
+
+    // Blade Clink / Tone
+    const osc = this.ctx.createOscillator();
+    const toneGain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1200, t);
+    osc.frequency.exponentialRampToValueAtTime(600, t + 0.15);
+
+    toneGain.gain.setValueAtTime(0.15, t);
+    toneGain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+
+    osc.connect(toneGain);
+    toneGain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.22);
+  }
+
   // Play Fast Travel Warp Sound
   playFastTravel() {
     if (this.isMuted) return;
     this.init();
     const t = this.ctx.currentTime;
     
-    // Whoosh / sweep
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     
@@ -116,7 +161,6 @@ class SoundEngine {
     gain.gain.linearRampToValueAtTime(0.3, t + 0.5);
     gain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
 
-    // Filter
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'bandpass';
     filter.frequency.setValueAtTime(300, t);
@@ -269,7 +313,7 @@ class SoundEngine {
         if (node.stop) node.stop();
         if (node.disconnect) node.disconnect();
       } catch (e) {
-        // ignore already stopped
+        // ignore
       }
     });
     this.ambientNodes = [];

@@ -30,7 +30,7 @@ export default function App() {
   });
 
   // UI & Gameplay State
-  const [viewMode, setViewMode] = useState('2d'); // '2d' | '3d'
+  const [viewMode, setViewMode] = useState('3d'); // Defaults to '3d' mode!
   const [selectedPoi, setSelectedPoi] = useState(null);
   const [playerPos, setPlayerPos] = useState({ x: 480, y: 520, heading: 0 });
   const [activeWaypoint, setActiveWaypoint] = useState(null);
@@ -262,6 +262,7 @@ export default function App() {
           weather={weather}
           isSwedish={isSwedish}
           onSyncTower={handleSyncTower}
+          onOpenMap={() => setViewMode('2d')}
         />
       )}
 
