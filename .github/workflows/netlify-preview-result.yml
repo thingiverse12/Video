@@ -1,0 +1,45 @@
+name: Read Netlify preview result
+
+'on':
+  push:
+    branches:
+      - arena/01a0dde8-video
+    paths:
+      - .github/netlify-preview-recovery.json
+      - .github/workflows/netlify-preview-result.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  result:
+    if: >-
+      github.repository == 'thingiverse12/Video' &&
+      github.ref == 'refs/heads/arena/01a0dde8-video' &&
+      contains(github.event.head_commit.message, '[netlify-result]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - name: Read the requested result identity
+        id: requested
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const request=JSON.parse(readFileSync('.github/netlify-preview-recovery.json','utf8'));
+          if(!/^\d+$/.test(request.runId)) throw new Error('Invalid run identifier');
+          appendFileSync(process.env.GITHUB_OUTPUT,`run=${request.runId}\nartifact=netlify-preview-${request.runId}\n`);
+          JS
+      - name: Download the encrypted result on the GitHub runner
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ steps.requested.outputs.artifact }}
+          run-id: ${{ steps.requested.outputs.run }}
+          github-token: ${{ github.token }}
+          path: .netlify/recovered-result
+      - name: Return only the encrypted envelope through check annotations
+        run: node scripts/emit-netlify-result.mjs .netlify/recovered-result/private.enc.json

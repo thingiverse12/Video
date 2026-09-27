@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { sealPreviewResult, publicPreviewDetails } from './netlify-preview-envelope.mjs';
+import { emitEncryptedResult } from './emit-netlify-result.mjs';
 
 const repository = 'thingiverse12/Video';
 const branch = 'arena/01a0dde8-video';
@@ -34,7 +35,9 @@ function main() {
   };
   // Preserve even failed/partial CLI output for the owner, but NEVER log it:
   // Netlify's JSON output can contain a bearer claim token and a password.
-  writeFileSync(`${out}/private.enc.json`, JSON.stringify(sealPreviewResult({ ...identity, exitCode: result.status, stdout, stderr, error: result.error?.message ?? null }, recipient), null, 2) + '\n');
+  const envelope = sealPreviewResult({ ...identity, exitCode: result.status, stdout, stderr, error: result.error?.message ?? null }, recipient);
+  writeFileSync(`${out}/private.enc.json`, JSON.stringify(envelope, null, 2) + '\n');
+  emitEncryptedResult(envelope);
 
   let deployed = null;
   if (result.status === 0 && !result.error) {

@@ -10,6 +10,7 @@ name: Netlify preview
       - .github/workflows/netlify-preview.yml
       - scripts/deploy-netlify-preview.mjs
       - scripts/netlify-preview-envelope.mjs
+      - scripts/emit-netlify-result.mjs
   workflow_dispatch:
 
 permissions:
