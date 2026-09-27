@@ -22,6 +22,8 @@ for (const privateValue of [fixture.claim_url, fixture.password, 'test-only-priv
 const publicData = publicPreviewDetails(fixture);
 assert.deepEqual(Object.keys(publicData).sort(), ['deployId', 'siteId', 'siteUrl']);
 assert.equal(publicData.siteUrl, 'https://test-fixture.netlify.app/');
+assert.equal(publicPreviewDetails({ ...fixture, site_url: 'http://test-fixture.netlify.app' }).siteUrl, 'https://test-fixture.netlify.app/');
+assert.throws(() => publicPreviewDetails({ ...fixture, site_url: 'http://example.com' }));
 assert.ok(!JSON.stringify(publicData).includes('private-value'));
 const changed = structuredClone(sealed);
 const bytes = Buffer.from(changed.ciphertext, 'base64'); bytes[0] ^= 1;

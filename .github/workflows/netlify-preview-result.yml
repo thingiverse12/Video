@@ -43,3 +43,5 @@ jobs:
           path: .netlify/recovered-result
       - name: Return only the encrypted envelope through check annotations
         run: node scripts/emit-netlify-result.mjs .netlify/recovered-result/private.enc.json
+      - name: Verify the existing published preview over HTTPS
+        run: node scripts/check-netlify-preview.mjs

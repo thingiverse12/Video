@@ -35,9 +35,13 @@ export function openPreviewResult(envelope, privateKeyPem) {
 export function publicPreviewDetails(result) {
   const site = new URL(result.site_url);
   const claim = new URL(result.claim_url);
-  if (site.protocol !== 'https:' || !/^[a-z0-9-]+\.netlify\.app$/i.test(site.hostname) || site.username || site.password || site.port || site.search || site.hash || site.pathname !== '/') throw new Error('Unexpected preview URL');
+  if (!['https:', 'http:'].includes(site.protocol) || !/^[a-z0-9-]+\.netlify\.app$/i.test(site.hostname) || site.username || site.password || site.port || site.search || site.hash || site.pathname !== '/') throw new Error('Unexpected preview URL');
   if (claim.protocol !== 'https:' || claim.hostname !== 'app.netlify.com' || !claim.pathname.startsWith('/drop/') || claim.username || claim.password || claim.port || !new URLSearchParams(claim.hash.slice(1)).get('drop_token')) throw new Error('Unexpected Netlify claim URL');
   if (typeof result.site_id !== 'string' || typeof result.deploy_id !== 'string') throw new Error('Missing deployment identifiers');
+  // Netlify's anonymous API can return its legacy http URL even though the
+  // netlify.app endpoint has HTTPS. Never downgrade TLS: normalize this known
+  // platform hostname to HTTPS after validating it.
+  site.protocol = 'https:';
   // Explicit allowlist: no claim URL, claim command, password or token.
   return { siteUrl: site.href, siteId: result.site_id, deployId: result.deploy_id };
 }
