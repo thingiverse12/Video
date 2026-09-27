@@ -16,3 +16,6 @@ test-results/
 
 # Generated, downloadable deployment packages
 deploy-packages/
+
+# Vercel project linkage and pulled local environment data
+.vercel/

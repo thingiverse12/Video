@@ -100,52 +100,32 @@ npm run build       # TypeScript-kontroll och produktionsbygge
 npm run preview     # Förhandsvisa produktionsbygget
 ```
 
-## Netlify
+## Vercel — aktuell målplattform
 
-Spelet kan publiceras som en **statisk React/Vite-webbplats** med en fast HTTPS-adress. Det kräver inga Netlify Functions, databaser eller hemliga miljövariabler. Det publika bygget innehåller spelet, de lokala teckensnitten och övriga webbresurser; utvecklingsverktyg och installerade agent-skills publiceras inte.
+Projektet förbereds nu för **Vercel** i stället för Netlify, enligt [Vercels installationsguide](https://vercel.com/get-started.md).
 
-`netlify.toml` anger:
+- `vercel.json` använder Vite, bygger med `npm run build` och publicerar `dist`. SPA-omskrivning och svarshuvuden är konfigurerade utan att blockera inbäddade förhandsvisningar.
+- `.vercel/`, lokala miljöfiler, privata arbetsfiler och byggresultat ska inte läggas i Git. `.vercelignore` begränsar uppladdningen till det som behövs för webbbygget.
+- `npm run setup:vercel` återställer Vercel CLI och de fristående skillsen globalt i en ny arbetsmiljö, testar `vercel whoami`/`vercel login` och verifierar ett lokalt bygge. Den sparar endast icke-känslig status i ignorerade `.cache/vercel-setup-status.json`. Arenas globala installationer kan försvinna mellan sessioner; skriptet gör dem repeterbara, inte permanenta.
+- Ingen plugin eller MCP-anslutning påstås vara aktiv i Arena: Bun saknas och Arena är inte en Vercel-godkänd MCP-klient. Skriptet ändrar inga andra agenters MCP-inställningar.
+- Global installation skapar eller länkar inte ett Vercel-projekt och publicerar ingenting. Inloggning och eventuell projekt-/teamlänkning kräver Vercels riktiga godkännandeflöde. Inga lösenord eller personliga token ska lämnas i chatten. Om `vercel login` misslyckas innan en godkännandelänk öppnas är Vercel **inte** färdiginställt; anslutningen till Vercels API måste då fungera först.
+- Vanlig lokal utveckling använder fortsatt `npm run dev`. Spelet behöver inga Vercel Functions, databasnycklar eller hemligheter i webbläsaren.
+- De gamla Netlify-byggflödena och dess plattformsregler är arkiverade under `docs/deployment-archive/netlify/`; de ska inte starta nya Netlify-publiceringar. Den redan skapade Netlify-förhandsvisningen raderas inte av detta byte.
+- Sparade spelframsteg ligger i webbläsarens `localStorage` och följer inte automatiskt med till en annan domän.
 
-- Node.js **22** för Netlifys byggmiljö.
-- Byggkommando **`npm run build`** och publiceringsmapp **`dist`**.
-- SPA-fallback och svarshuvuden via `public/_redirects` och `public/_headers`, som Vite kopierar till `dist`.
-- Grundläggande svarshuvuden utan att blockera inbäddade förhandsvisningar.
-- Valfri Netlify-utvecklingsproxy på port 8888 framför Vite på port 5173. Vanliga Arena-förhandsvisningar kan fortfarande använda `npm run dev` direkt.
+### Koppla spelet från GitHub till Vercel
 
-Netlifys 15 skills finns i `.agents/skills/`; `skills-lock.json` beskriver källan och versionernas innehållshashar. Netlify CLI installeras separat från spelets beroenden. Det lokala byggflödet med CLI kan kontrolleras utan molnanslutning:
+Koden finns på arbetsgrenen [`arena/01a0dde8-video`](https://github.com/thingiverse12/Video/tree/arena/01a0dde8-video). `main` innehåller ännu inte spelet. Så här skapar du en **förhandsvisning** utan att ändra `main`:
 
-```sh
-npm run build:netlify   # Netlify-byggflödet, lokalt/offline; laddar inte upp något
-```
+1. Öppna [Vercel → New Project](https://vercel.com/new), logga in i din egen webbläsare, anslut GitHub om Vercel ber om det och importera `thingiverse12/Video`. Välj Vite, rotkatalogen `./`, byggkommandot `npm run build` och utmatningskatalogen `dist` (värdena finns även i `vercel.json`). Inga miljövariabler behövs.
+2. Vercel väljer normalt `main` som produktionsgren vid import. Den innehåller inte spelet och en första produktionsbyggning därifrån kan därför misslyckas. Öppna då projektets **Deployments → Create Deployment** och välj grenen `arena/01a0dde8-video` för att bygga spelets förhandsversion. Publicera inte `main` som om det vore spelet.
+3. Om du senare uttryckligen vill ha en produktion från arbetsgrenen kan du ändra **Project Settings → Environments → Production → Branch Tracking** till `arena/01a0dde8-video`. Detta är ett separat val; arbetsgrenen blir inte produktion automatiskt.
 
-Vanlig utveckling och Arena-förhandsvisning använder fortsatt **`npm run dev`**. Netlifys valfria utvecklingsproxy kan behöva hämta Edge Functions-miljön från nätet vid första start, även med CLI-flaggan `--offline`; den behövs inte för detta statiska spel. Kör inte proxyserverns Vite-instans och den vanliga Vite-servern samtidigt på port 5173. Ingen serveradapter eller Netlify-Vite-plugin krävs för statisk publicering.
+GitHub-inloggning i Vercels webbläsargränssnitt loggar inte in CLI:t i Arenas arbetsmiljö. En Vercel-URL finns först efter att Vercel faktiskt har byggt och publicerat projektet.
 
-### Repeterbar agentinstallation
+## Netlify — historik (arkiverad)
 
-`npm run setup:netlify` återställer verktygen i en ny arbetsmiljö. Skriptet installerar/uppdaterar Netlify-skills, kontrollerar CLI och installerar det globalt om det saknas, kontrollerar inloggningen och begär en riktig godkännandelänk vid behov. Det fortsätter sedan med lokal byggvalidering även om en tidigare åtgärd misslyckats. **Skriptet skapar ingen webbplats och publicerar ingenting.** Agenten kör det; användaren behöver inte köra terminalkommandon.
-
-En kort statusrapport utan token eller OAuth-länkar sparas i den ignorerade `.cache/netlify-setup-status.json`. Exitkod 0 betyder att de lokala kontrollerna och inloggningen är klara; 4 betyder att webbläsargodkännande väntar; 1 betyder att någon åtgärd fortfarande är blockerad. Om anslutningen till `api.netlify.com` bryts före TLS-handskakningen kan ingen godkännandelänk skapas. Certifikatkontrollen ska inte stängas av; nätverksanslutningen måste fungera innan inloggningen kan slutföras.
-
-### Förhandsversion via GitHub Actions
-
-När arbetsmiljön inte når Netlifys API kan den godkända arbetsgrenen byggas på GitHubs servrar. `.github/workflows/netlify-preview.yml` är begränsad till **`arena/01a0dde8-video`** i det här repot. Den ändrar inte `main`, använder inga Netlify-kontohemligheter och skriver inte över en befintlig produktionssajt.
-
-- En avsiktlig förhandsvisning begärs genom `.github/netlify-preview-request.json` och en commit märkt **`[netlify-preview]`**. Vanliga speländringar utlöser inte nya anonyma sajter av misstag.
-- GitHub installerar beroenden, testar hanteringen av privata resultat, bygger `dist` och kör den verifierade Netlify CLI-versionen 27.10.0 med `--allow-anonymous --no-build`.
-- Det är en **tillfällig** Netlify-förhandsvisning. Den måste kopplas till användarens Netlify-konto inom 60 minuter för att behållas. Netlifys eventuella förhandslösenord och ägandelänk lämnas privat till användaren.
-- Länken som ger äganderätt får aldrig hamna i offentliga byggloggar. CLI-svaret krypteras med RSA-OAEP/SHA-256 och AES-256-GCM innan det sparas som en kortlivad Actions-artifact. Den krypterade behållaren kan också hämtas via GitHub-checknotiser om artifact-lagringen inte kan nås. Ett separat återhämtningsflöde hämtar en tidigare behållare utan att publicera igen. Bara mottagarens **publika** nyckel finns i Git. Den privata nyckeln förvaras utanför repot i agentens arbetsmiljö.
-- Jobbet har läsrättighet till repo-innehållet och en tidsgräns på åtta minuter. Tredjepartsactions är låsta till verifierade commit-SHA:er. Ett fel ger ingen påhittad deploylänk; det privata felsvaret kan granskas av mottagaren.
-
-SPA-regler och svarshuvuden finns i `public/_redirects` och `public/_headers`, som kopieras till `dist` vid bygget. Därmed följer de med även en anonym publicering eller ett uppladdat byggpaket. `npm run test:deploy` testar krypteringen lokalt utan någon riktig publicering.
-
-### Nästa steg till en publicerad länk
-
-1. Agenten kontrollerar CLI-inloggningen och skapar vid behov en Netlify-godkännandelänk. Användaren godkänner den i sin webbläsare; lösenord och API-token ska inte lämnas i chatten.
-2. Välj en befintlig Netlify-webbplats eller godkänn att en ny skapas för spelet.
-3. Efter användarens godkännande kan agenten publicera ett utkast från det lokala bygget. Ett Netlify-utkast har också en tillgänglig URL; produktion publiceras bara efter uttryckligt godkännande.
-4. Git-baserad automatisk publicering är valfri. Appfiler och konfiguration behöver först vara committade och pushade från arbetsgrenen — en lokal, osparad Git-ändring följer inte med när Netlify klonar GitHub-repot. Ett CLI-utkast kan däremot använda arbetskatalogens aktuella bygge.
-
-CLI-publicering görs uttryckligen från `dist`, efter ett lyckat bygge. `.netlify/` och lokala `.env`-filer är ignorerade i Git. Sparade spelframsteg ligger fortfarande i webbläsarens `localStorage`: de flyttas **inte automatiskt** från Arenas förhandsvisningsdomän till en ny Netlify-adress.
+Tidigare Netlify-konfiguration, förhandsarbetsflöden och plattformsregler finns i `docs/deployment-archive/netlify/`. De aktiva GitHub Actions-arbetsflödena för Netlify är borttagna på Vercel-arbetsgrenen. Den gamla Netlify-förhandsvisningen påverkas inte av ändringen, men den är inte en Vercel-deploy. För nya publiceringar är Vercel den valda plattformen.
 
 ## Det går att göra
 
