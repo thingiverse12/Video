@@ -1,0 +1,126 @@
+/* A phone is an input device, not a narrow viewport. The class is set from
+   touch capability (and updated if touch becomes available at runtime). */
+.app.touch-device .is-playing .touch-controls { display: block; }
+.app.touch-device .is-playing .control-hud { display: none; }
+.app.touch-device .is-playing .touch-toggle { display: none; }
+
+@media (orientation: portrait) {
+  .app.touch-device .game-stage { min-height: min(610px, calc(100dvh - 117px)); }
+}
+
+/* Landscape phones: the old 600px stage minimum put the controls below the
+   screen. Keep the whole game, including thumb controls, inside the viewport. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .app.touch-device { height: 100dvh; overflow: hidden; }
+  .app.touch-device .site-header {
+    height: calc(40px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
+    gap: 4px;
+  }
+  .app.touch-device .brand { gap: 5px; }
+  .app.touch-device .brand-emblem { width: 25px; height: 27px; border-radius: 6px; }
+  .app.touch-device .brand-emblem>svg { width: 19px; height: 19px; }
+  .app.touch-device .brand-wordmark { font-size: 16px; white-space: nowrap; }
+  .app.touch-device .brand-wordmark>span { font-size: 14px; }
+  .app.touch-device .brand-wordmark small,
+  .app.touch-device .version-tag,
+  .app.touch-device .header-divider { display: none; }
+  .app.touch-device .main-nav { margin-left: auto; gap: 0; }
+  .app.touch-device .main-nav>button { min-width: 37px; padding: 0 8px; justify-content: center; }
+  .app.touch-device .main-nav>button:first-child { display: none; }
+  .app.touch-device .main-nav>button>span { display: none; }
+  .app.touch-device .main-nav>button>svg { display: block; width: 17px; height: 17px; }
+  .app.touch-device .main-nav>button.active:after { bottom: 3px; left: 8px; right: 8px; }
+  .app.touch-device .header-tools { gap: 0; }
+  .app.touch-device .header-tools .icon-button { width: 34px; min-width: 34px; height: 34px; }
+  .app.touch-device .header-tools .icon-button>svg { width: 16px; height: 16px; }
+  .app.touch-device .main-content {
+    padding: 0 max(5px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(5px, env(safe-area-inset-left));
+  }
+  .app.touch-device .game-stage,
+  .app.touch-device.is-fullscreen .game-stage {
+    height: calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: 0;
+    border-radius: 9px;
+  }
+  .app.touch-device .site-footer { display: none; }
+
+  .app.touch-device .location-hud { top: 8px; left: 10px; gap: 6px; }
+  .app.touch-device .location-icon { width: 25px; height: 25px; }
+  .app.touch-device .location-hud strong { font-size: 10px; }
+  .app.touch-device .location-hud small { font-size: 6px; }
+  .app.touch-device .resources-hud { top: 7px; right: 9px; padding: 6px 8px; gap: 7px; }
+  .app.touch-device .is-intro .character-card,
+  .app.touch-device .is-intro .intro-control,
+  .app.touch-device .is-intro .location-hud,
+  .app.touch-device .weather-hud,
+  .app.touch-device .objective-card,
+  .app.touch-device .minimap,
+  .app.touch-device .fullscreen-button,
+  .app.touch-device .store-teaser { display: none; }
+  .app.touch-device .welcome-panel {
+    left: 22px; top: 50%; transform: translateY(-50%);
+    width: min(330px, calc(100% - 180px));
+  }
+  .app.touch-device .welcome-panel h1 { font-size: clamp(37px, 9dvh, 49px); }
+  .app.touch-device .welcome-panel>p { font-size: 10px; line-height: 1.45; margin-top: 8px; }
+  .app.touch-device .welcome-eyebrow { font-size: 7px; margin-bottom: 8px; }
+  .app.touch-device .welcome-badges { margin-top: 10px; }
+  .app.touch-device .start-button { margin-top: 12px; min-height: 42px; height: 42px; }
+  .app.touch-device .welcome-footnote { margin-top: 5px; }
+
+  .app.touch-device .is-playing .character-card {
+    top: 43px; right: 10px; bottom: auto; left: auto;
+    width: 132px; padding: 5px; gap: 5px; border-radius: 8px;
+  }
+  .app.touch-device .character-portrait { width: 29px; height: 29px; }
+  .app.touch-device .character-info { gap: 0; }
+  .app.touch-device .character-info strong { font-size: 17px; }
+  .app.touch-device .character-info small,
+  .app.touch-device .character-info>.equipment-status,
+  .app.touch-device .character-switch .keycap { display: none; }
+  .app.touch-device .character-switch { margin-left: auto; }
+  .app.touch-device .is-playing .d-pad {
+    left: 11px; bottom: 9px; width: clamp(88px, 28dvh, 108px); height: clamp(88px, 28dvh, 108px);
+  }
+  .app.touch-device .is-playing .touch-actions { right: 10px; bottom: 11px; gap: 7px; }
+  .app.touch-device .touch-actions>button,
+  .app.touch-device .touch-actions .touch-sprint { width: 48px; height: 48px; }
+  .app.touch-device .is-playing .interact-prompt {
+    right: 10px; left: auto; bottom: 74px; transform: none;
+    max-width: min(220px, calc(100% - 155px));
+    font-size: 9px; white-space: normal; padding: 6px 8px;
+  }
+  .app.touch-device .is-playing .speedometer { left: 132px; bottom: 14px; }
+  .app.touch-device .is-playing .speedometer strong { font-size: 25px; }
+  .app.touch-device .is-playing .home-hud,
+  .app.touch-device .is-playing .shop-hud {
+    top: 76px; bottom: auto; left: 10px; width: min(190px, 32vw);
+    max-height: calc(100% - 195px); overflow: hidden; padding: 7px;
+  }
+  .app.touch-device .is-playing .hunting-controls {
+    right: 10px; left: auto; bottom: 70px; transform: none;
+  }
+  .app.touch-device .is-playing .hunting-controls button { min-height: 38px; padding: 6px 8px; }
+  .app.touch-device .is-playing .hunting-steps { display: none; }
+  .app.touch-device .is-aiming .character-card { display: none; }
+  .app.touch-device .is-aiming .hunting-panel {
+    top: auto; right: auto; bottom: 9px; left: 50%; transform: translateX(-50%);
+    width: min(240px, calc(100% - 280px)); padding: 7px 9px;
+  }
+  .app.touch-device .is-aiming .hunting-panel>strong { font-size: 16px; margin: 0; }
+  .app.touch-device .is-aiming .hunting-panel>p,
+  .app.touch-device .is-aiming .hunting-panel>small,
+  .app.touch-device .is-aiming .hunting-kicker { display: none; }
+  .app.touch-device .is-aiming .shot-feedback { margin-top: 2px; font-size: 9px; }
+  .app.touch-device .toast-stack { top: 48px; width: 220px; max-width: 40%; }
+
+  .app.touch-device .modal-backdrop { padding: 8px max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left)); }
+  .app.touch-device .modal { width: min(100%, 880px); max-height: calc(100dvh - 16px); }
+  .app.touch-device .modal-header { padding: 15px 20px 10px; }
+  .app.touch-device .modal-header h2 { font-size: 27px; }
+  .app.touch-device .modal-close { top: 8px; right: 8px; }
+  .app.touch-device .mission-list { grid-template-columns: repeat(2, minmax(0,1fr)); padding: 0 16px 16px; }
+  .app.touch-device .mission-art { min-height: 120px; }
+  .app.touch-device .world-map { min-height: 220px; }
+}

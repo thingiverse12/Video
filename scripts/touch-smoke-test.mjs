@@ -134,6 +134,7 @@ try {
   await move(1, await centre('.d-pad')); await stopped();
   assert.equal(await page.locator('.d-pad button[aria-pressed="true"]').count(), 0);
   await move(1, { x: padBox.x + padBox.width - 18, y: padBox.y + 18 });
+  await page.waitForFunction(() => document.querySelector('.pad-up')?.getAttribute('aria-pressed') === 'true');
   assert.equal(await page.locator('.pad-up').getAttribute('aria-pressed'), 'true');
   assert.equal(await page.locator('.pad-right').getAttribute('aria-pressed'), 'true');
   await move(1, { x: 190, y: 440 });

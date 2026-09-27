@@ -100,32 +100,20 @@ npm run build       # TypeScript-kontroll och produktionsbygge
 npm run preview     # Förhandsvisa produktionsbygget
 ```
 
-## Vercel — aktuell målplattform
+## Netlify — aktuell målplattform
 
-Projektet förbereds nu för **Vercel** i stället för Netlify, enligt [Vercels installationsguide](https://vercel.com/get-started.md).
+Spelet är en statisk React/Vite-webbplats. `netlify.toml` anger Node.js 22, `npm run build` och publiceringsmappen `dist`. SPA-fallback och svarshuvuden finns i `public/_redirects` respektive `public/_headers` och följer med i det färdiga bygget. Vanlig lokal förhandsvisning körs fortsatt med `npm run dev`.
 
-- `vercel.json` använder Vite, bygger med `npm run build` och publicerar `dist`. SPA-omskrivning och svarshuvuden är konfigurerade utan att blockera inbäddade förhandsvisningar.
-- `.vercel/`, lokala miljöfiler, privata arbetsfiler och byggresultat ska inte läggas i Git. `.vercelignore` begränsar uppladdningen till det som behövs för webbbygget.
-- `npm run setup:vercel` återställer Vercel CLI och de fristående skillsen globalt i en ny arbetsmiljö, testar `vercel whoami`/`vercel login` och verifierar ett lokalt bygge. Den sparar endast icke-känslig status i ignorerade `.cache/vercel-setup-status.json`. Arenas globala installationer kan försvinna mellan sessioner; skriptet gör dem repeterbara, inte permanenta.
-- Ingen plugin eller MCP-anslutning påstås vara aktiv i Arena: Bun saknas och Arena är inte en Vercel-godkänd MCP-klient. Skriptet ändrar inga andra agenters MCP-inställningar.
-- Global installation skapar eller länkar inte ett Vercel-projekt och publicerar ingenting. Inloggning och eventuell projekt-/teamlänkning kräver Vercels riktiga godkännandeflöde. Inga lösenord eller personliga token ska lämnas i chatten. Om `vercel login` misslyckas innan en godkännandelänk öppnas är Vercel **inte** färdiginställt; anslutningen till Vercels API måste då fungera först.
-- Vanlig lokal utveckling använder fortsatt `npm run dev`. Spelet behöver inga Vercel Functions, databasnycklar eller hemligheter i webbläsaren.
-- De gamla Netlify-byggflödena och dess plattformsregler är arkiverade under `docs/deployment-archive/netlify/`; de ska inte starta nya Netlify-publiceringar. Den redan skapade Netlify-förhandsvisningen raderas inte av detta byte.
-- Sparade spelframsteg ligger i webbläsarens `localStorage` och följer inte automatiskt med till en annan domän.
+- `npm run setup:netlify` återställer de fristående Netlify-skillsen och CLI i en ny arbetsmiljö, försöker begära ett riktigt webbläsargodkännande och verifierar ett offlinebygge. Skriptet skapar **ingen** webbplats eller deploy. Ingen token, privat nyckel eller lösenord ska skickas i chatten.
+- `npm run build:netlify` kontrollerar bygget med Netlify CLI utan att ladda upp något. `.netlify/`, lokala miljöfiler och `dist/` är uteslutna ur Git. Vercel-konfigurationen används inte längre.
+- Koden ligger på arbetsgrenen [`arena/01a0dde8-video`](https://github.com/thingiverse12/Video/tree/arena/01a0dde8-video). `main` innehåller ännu inte spelet. Vid [GitHub-import i Netlify](https://app.netlify.com/start): välj just **arbetsgrenen** före publicering, bygg med `npm run build` och publicera `dist`. Koppla GitHub och välj Netlify-konto i Netlifys egen webbläsare. Att vara inloggad på GitHub i Arena loggar inte in Netlify CLI.
+- En tidigare tillfällig [Netlify-förhandsvisning](https://zesty-gingersnap-557008.netlify.app/) finns på nätet, men det är **inte verifierat** att den har övertagits eller innehåller de senaste mobiländringarna. Den tidigare ägandelänken har löpt ut och ska inte återanvändas. Ingen ny publicering påstås ha skett vid plattformsbytet.
+- De gamla engångsflödena för anonym Netlify-publicering ligger fortfarande arkiverade i `docs/deployment-archive/netlify/`. De startas **inte automatiskt** av vanliga GitHub-pushar. Nya Git-baserade deployer bör kopplas till ett konto i Netlify-gränssnittet.
+- Sparade spelframsteg ligger i webbläsarens `localStorage` och flyttas inte automatiskt mellan adresser.
 
-### Koppla spelet från GitHub till Vercel
+## Vercel — tidigare konfiguration
 
-Koden finns på arbetsgrenen [`arena/01a0dde8-video`](https://github.com/thingiverse12/Video/tree/arena/01a0dde8-video). `main` innehåller ännu inte spelet. Så här skapar du en **förhandsvisning** utan att ändra `main`:
-
-1. Öppna [Vercel → New Project](https://vercel.com/new), logga in i din egen webbläsare, anslut GitHub om Vercel ber om det och importera `thingiverse12/Video`. Välj Vite, rotkatalogen `./`, byggkommandot `npm run build` och utmatningskatalogen `dist` (värdena finns även i `vercel.json`). Inga miljövariabler behövs.
-2. Vercel väljer normalt `main` som produktionsgren vid import. Den innehåller inte spelet och en första produktionsbyggning därifrån kan därför misslyckas. Öppna då projektets **Deployments → Create Deployment** och ange `https://github.com/thingiverse12/Video/tree/arena/01a0dde8-video` som Git-referens för att bygga spelets förhandsversion. Publicera inte `main` som om det vore spelet.
-3. Om du senare uttryckligen vill ha en produktion från arbetsgrenen kan du ändra **Project Settings → Environments → Production → Branch Tracking** till `arena/01a0dde8-video`. Detta är ett separat val; arbetsgrenen blir inte produktion automatiskt.
-
-GitHub-inloggning i Vercels webbläsargränssnitt loggar inte in CLI:t i Arenas arbetsmiljö. En Vercel-URL finns först efter att Vercel faktiskt har byggt och publicerat projektet.
-
-## Netlify — historik (arkiverad)
-
-Tidigare Netlify-konfiguration, förhandsarbetsflöden och plattformsregler finns i `docs/deployment-archive/netlify/`. De aktiva GitHub Actions-arbetsflödena för Netlify är borttagna på Vercel-arbetsgrenen. Den gamla Netlify-förhandsvisningen påverkas inte av ändringen, men den är inte en Vercel-deploy. För nya publiceringar är Vercel den valda plattformen.
+Vercel-konfigurationen är borttagen från den aktiva arbetsgrenen. Historiken finns kvar i Git om plattformen skulle bli aktuell igen; ingen Vercel-deploy eller fungerande Vercel-inloggning verifierades.
 
 ## Det går att göra
 
@@ -160,7 +148,7 @@ Tidigare Netlify-konfiguration, förhandsarbetsflöden och plattformsregler finn
 | Dra med musen | Rotera kameran |
 | Scrolla | Zooma |
 
-Touchkontroller visas automatiskt på pekskärmar efter spelstart. De går också att aktivera i **Spelguide**. Håll en pil och glid med tummen för att ändra riktning; mitten stannar. Håll inne touchknappen **Spring** med andra fingret för att springa; i bilen är samma knapp en broms. Välj **Lagom** under Inställningar för lägre upplösning och utan dynamiska skuggor på långsammare enheter.
+Spelet känner av mobil och pekstyrning även när telefonen hålls **liggande**: touchkontrollerna och grafikläget **Lagom** aktiveras automatiskt. I liggande läge ryms spelbilden och båda tumkontrollerna på skärmen utan att sidan behöver rullas; vid rotation avbryts eventuella nedtryckta knappar säkert. På dator finns mus och tangentbord kvar, och touchknappar kan aktiveras manuellt i **Spelguide**. Håll en pil och glid med tummen för att ändra riktning; mitten stannar. Håll inne touchknappen **Spring** med andra fingret för att springa; i bilen är samma knapp en broms.
 
 ## Sparning
 
