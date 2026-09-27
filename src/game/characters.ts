@@ -1,0 +1,242 @@
+import * as THREE from 'three';
+import { box, ellipsoid, makeTextTexture, mesh, roundedBox, smoothMaterial } from './primitives';
+import { mergeStaticMeshes } from './optimize';
+import { contactShadow } from './look';
+
+export type CharacterKind = 'leif' | 'billy' | 'tony' | 'bailiff' | 'shopkeeper';
+export interface CharacterModel {
+  root: THREE.Group;
+  body: THREE.Group;
+  arms: THREE.Group[];
+  legs: THREE.Group[];
+  head: THREE.Group;
+  eyes: THREE.Group[];
+  gait: { phase: number; blend: number };
+}
+
+function stitch(parent: THREE.Object3D, points: number[][], radius: number, color: string) {
+  const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p as [number, number, number])));
+  const object = mesh(new THREE.TubeGeometry(curve, 10, radius, 5, false), smoothMaterial(color));
+  parent.add(object);
+  return object;
+}
+
+function fabric(base: string, stripe: string, plaid = true) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = base; ctx.fillRect(0, 0, 128, 128);
+  if (plaid) {
+    ctx.fillStyle = stripe;
+    for (let i = 0; i < 128; i += 32) {
+      ctx.globalAlpha = 0.35; ctx.fillRect(i, 0, 9, 128); ctx.fillRect(0, i, 128, 9);
+      ctx.globalAlpha = 0.65; ctx.fillRect(i + 15, 0, 1.5, 128); ctx.fillRect(0, i + 15, 128, 1.5);
+    }
+  }
+  ctx.globalAlpha = 0.11; ctx.fillStyle = '#fff1d5';
+  for (let i = 0; i < 128; i += 4) ctx.fillRect(i, 0, 1, 128);
+  ctx.globalAlpha = 0.08; ctx.fillStyle = '#202820';
+  for (let i = 0; i < 128; i += 4) ctx.fillRect(0, i, 128, 1);
+  // Tiny crossed fibres keep the checks readable without a plastic-looking surface.
+  ctx.globalAlpha = .075;
+  for (let y = 0; y < 128; y += 2) for (let x = y % 4; x < 128; x += 4) {
+    ctx.fillStyle = (x + y) % 8 ? '#fff4d9' : '#243b30'; ctx.fillRect(x, y, 1, 1);
+  }
+  const map = new THREE.CanvasTexture(canvas); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = 4;
+  return new THREE.MeshStandardMaterial({ map, bumpMap: map, bumpScale: .009, roughness: 0.93 });
+}
+
+/** Rounded, articulated miniature figures. Clothing follows the user's reference;
+ * face geometry, cap seams, fabric, hands and boots are intentionally hand-built. */
+export function createCharacter(kind: CharacterKind): CharacterModel {
+  const leif = kind === 'leif', billy = kind === 'billy', tony = kind === 'tony', suit = kind === 'bailiff', clerk = kind === 'shopkeeper';
+  const skin = leif ? '#dcb38f' : billy ? '#ebcbb5' : tony ? '#c39573' : clerk ? '#c99b78' : '#d4b197';
+  const hair = leif ? '#74533a' : billy ? '#9a784d' : '#67513d';
+  const coat = leif ? '#3e5844' : billy ? '#e7782e' : tony ? '#969054' : clerk ? '#bc4439' : '#3c4c51';
+  const denim = leif ? '#3c4942' : billy ? '#415e6b' : tony ? '#495f68' : '#344349';
+  const shirt = fabric(leif ? '#745840' : '#b5bcb0', leif ? '#363e30' : '#586f62');
+  const outerFabric = fabric(coat, coat, false);
+  const trouserFabric = fabric(denim, denim, false);
+  const root = new THREE.Group(), body = new THREE.Group();
+  root.add(contactShadow(1.7, 1.4, .30), body);
+  roundedBox(body, 0.84, 0.79, 0.50, billy ? shirt : outerFabric, 0, 1.32, 0, 0.18);
+  roundedBox(body, 0.69, 0.23, 0.41, trouserFabric, 0, 0.92, 0, 0.08);
+  ellipsoid(body, skin, 0, 1.78, 0, 0.135, 0.16, 0.135);
+  const legs: THREE.Group[] = [], arms: THREE.Group[] = [];
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Group(); leg.position.set(side * 0.208, 0.94, 0);
+    roundedBox(leg, 0.30, 0.75, 0.35, trouserFabric, 0, -0.32, 0, 0.11);
+    roundedBox(leg, 0.235, 0.19, 0.015, leif ? '#515b51' : '#637e87', 0, -0.32, 0.176, 0.045);
+    stitch(leg, [[side * 0.135, -0.02, 0.03], [side * 0.143, -0.30, 0.02], [side * 0.13, -0.66, 0.02]], 0.007, '#819084');
+    roundedBox(leg, 0.33, 0.28, 0.39, '#514c39', 0, -0.69, 0.012, 0.08);
+    roundedBox(leg, 0.35, 0.24, 0.56, '#3b3c31', 0, -0.80, 0.095, 0.10);
+    roundedBox(leg, 0.355, 0.06, 0.57, '#272e28', 0, -0.915, 0.095, 0.025);
+    for (let j = 0; j < 3; j++) roundedBox(leg, 0.17, 0.018, 0.025, '#908973', 0, -0.694 + j * 0.014, 0.19 - j * 0.07, 0.007);
+    body.add(leg); legs.push(leg);
+
+    const arm = new THREE.Group(); arm.position.set(side * 0.467, 1.59, 0.0);
+    const sleeve = billy ? shirt : outerFabric;
+    roundedBox(arm, 0.31, 0.37, 0.34, sleeve, 0, -0.135, 0, 0.135);
+    const lower = roundedBox(arm, 0.275, 0.36, 0.30, sleeve, 0, -0.43, 0.05, 0.11); lower.rotation.x = -0.12;
+    if (leif) roundedBox(arm, 0.32, 0.14, 0.33, '#a47b4f', 0, 0.004, 0, 0.055);
+    roundedBox(arm, 0.266, 0.09, 0.29, suit ? '#e8e6d8' : leif ? '#344937' : '#899b89', 0, -0.595, 0.071, 0.035);
+    ellipsoid(arm, skin, 0, -0.71, 0.082, 0.134, 0.159, 0.13, 14);
+    ellipsoid(arm, skin, -side * 0.115, -0.677, 0.141, 0.060, 0.089, 0.060, 12);
+    for (let j = 0; j < 3; j++) roundedBox(arm, 0.014, 0.046, 0.010, '#b48463', (j - 1) * 0.05, -0.782, 0.187, 0.004);
+    arm.rotation.z = side * 0.055;
+    body.add(arm); arms.push(arm);
+  }
+  if (leif || billy) {
+    // A real wraparound vest/jacket, so the reference colours also read from behind.
+    roundedBox(body, .77, .68, .095, outerFabric, 0, 1.33, -.252, .06);
+    for (const side of [-1, 1]) roundedBox(body, .11, .61, .43, outerFabric, side * .37, 1.33, -.035, .035);
+    if (leif) roundedBox(body, .74, .17, .025, '#a2794c', 0, 1.59, -.307, .028);
+    for (const side of [-1, 1]) stitch(body, [[side * .29, 1.60, -.306], [side * .29, 1.30, -.308], [side * .27, 1.03, -.302]], .007, leif ? '#768b61' : '#f8b36d');
+    stitch(body, [[-.26, 1.02, -.302], [0, 1.00, -.308], [.26, 1.02, -.302]], .008, leif ? '#6c825c' : '#c45d2d');
+    roundedBox(body, 0.29, 0.65, 0.075, shirt, 0, 1.36, 0.251, 0.026);
+    for (const side of [-1, 1]) {
+      const panel = roundedBox(body, 0.275, 0.67, 0.13, outerFabric, side * 0.275, 1.34, 0.23, 0.055);
+      panel.rotation.y = side * 0.04;
+      const collar = roundedBox(body, 0.20, 0.26, 0.075, leif ? '#58694b' : '#f09b42', side * 0.18, 1.64, 0.258, 0.03);
+      collar.rotation.z = side * 0.42;
+      roundedBox(body, 0.185, 0.18, 0.04, leif ? '#3c523b' : '#cf6f24', side * 0.285, 1.17, 0.309, 0.024);
+      roundedBox(body, 0.195, 0.055, 0.04, leif ? '#62734d' : '#efa24e', side * 0.285, 1.245, 0.323, 0.015);
+      ellipsoid(body, '#c4b581', side * 0.286, 1.243, 0.35, 0.020, 0.019, 0.010, 8);
+      stitch(body, [[side * 0.155, 1.07, 0.315], [side * 0.157, 1.30, 0.317], [side * 0.162, 1.52, 0.304]], 0.008, leif ? '#84916b' : '#f4bb70');
+    }
+    for (let j = 0; j < 5; j++) roundedBox(body, 0.027, 0.055, 0.02, '#a9a483', 0.169, 1.17 + j * 0.067, 0.329, 0.006);
+    roundedBox(body, 0.049, 0.08, 0.025, '#b3b89b', 0.175, 1.30, 0.349, 0.01);
+    if (billy) {
+      ellipsoid(body, '#f2e3b4', 0.285, 1.48, 0.325, 0.063, 0.072, 0.013, 12);
+      stitch(body, [[0.259, 1.444, 0.342], [0.291, 1.507, 0.342], [0.311, 1.445, 0.342]], 0.009, '#4c6160');
+    }
+  }
+  if (suit) {
+    roundedBox(body, 0.27, 0.62, 0.035, '#eee9dc', 0, 1.38, 0.26, 0.02);
+    roundedBox(body, 0.087, 0.43, 0.025, '#a18b53', 0, 1.33, 0.294, 0.012);
+    for (const side of [-1, 1]) roundedBox(body, 0.16, 0.34, 0.055, '#43585b', side * 0.16, 1.57, 0.25, 0.025).rotation.z = side * 0.30;
+    roundedBox(arms[0], 0.40, 0.49, 0.105, '#bfa16b', 0, -0.61, 0.18, 0.025);
+    roundedBox(arms[0], 0.28, 0.31, 0.01, '#f0e5c2', 0, -0.57, 0.24, 0.004);
+    for (let j = 0; j < 4; j++) box(arms[0], 0.18, 0.007, 0.008, '#b0b19a', 0, -0.50 - j * 0.045, 0.25);
+  }
+  if (tony) {
+    roundedBox(body, 0.25, 0.10, 0.05, '#b5b083', 0, 1.69, 0.25, 0.04);
+    roundedBox(body, 0.69, 0.08, 0.44, '#534331', 0, 0.995, 0, 0.03);
+    roundedBox(body, 0.105, 0.10, 0.035, '#cbbd8e', 0, 0.997, 0.233, 0.013);
+  }
+  if (clerk) {
+    roundedBox(body, 0.63, 0.69, 0.052, '#f3ebd8', 0, 1.21, 0.29, 0.065);
+    for (const side of [-1, 1]) roundedBox(body, 0.06, 0.43, 0.05, '#eee4ce', side * 0.20, 1.52, 0.27, 0.016);
+    const label = mesh(new THREE.PlaneGeometry(0.26, 0.16), new THREE.MeshStandardMaterial({ map: makeTextTexture('ICA', '#f3ebd8', '#bb4339', 128, 80), roughness: 1 }));
+    label.position.set(0, 1.43, 0.323); body.add(label);
+    roundedBox(body, 0.29, 0.20, 0.035, '#ded7c4', 0, 1.12, 0.324, 0.018);
+  }
+
+  const head = new THREE.Group(); head.position.set(0, 2.08, 0.015);
+  ellipsoid(head, skin, 0, 0, 0, 0.359, 0.438, 0.326, 28);
+  ellipsoid(head, skin, 0, -.246, .057, .251, .153, .229, 20);
+  ellipsoid(head, skin, -0.22, -0.093, 0.229, 0.12, 0.142, 0.09, 14);
+  ellipsoid(head, skin, 0.22, -0.093, 0.229, 0.12, 0.142, 0.09, 14);
+  for (const side of [-1, 1]) {
+    ellipsoid(head, skin, side * 0.362, -0.009, 0, 0.073, 0.115, 0.076, 14);
+    ellipsoid(head, billy ? '#d9aa95' : '#c18b6c', side * 0.399, -0.005, 0.035, 0.023, 0.058, 0.027, 10);
+    ellipsoid(head, hair, side * 0.321, 0.13, -0.07, 0.05, 0.19, 0.178, 12);
+    stitch(head, [[side * 0.208, 0.125, 0.285], [side * 0.13, leif ? 0.136 : 0.151, 0.322], [side * 0.068, 0.123, 0.324]], leif ? 0.021 : 0.017, hair);
+  }
+  const eyes: THREE.Group[] = [];
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Group(); eye.position.set(side * 0.130, 0.047, 0.303);
+    ellipsoid(eye, '#f1eadd', 0, 0, 0, 0.061, 0.043, 0.032, 14);
+    ellipsoid(eye, leif ? '#67796d' : '#667981', -side * 0.005, -0.001, 0.028, 0.025, 0.030, 0.011, 12);
+    ellipsoid(eye, '#2c3532', -side * 0.005, -0.001, 0.038, 0.012, 0.020, 0.007, 10);
+    ellipsoid(eye, '#fff7e6', -side * 0.009 + 0.006, 0.012, 0.044, 0.007, 0.009, 0.004, 8);
+    head.add(eye); eyes.push(eye);
+  }
+  ellipsoid(head, skin, 0, -0.025, 0.321, 0.061, 0.126, 0.051, 16);
+  ellipsoid(head, billy ? '#dfb49c' : '#d39c74', 0, -0.085, 0.372, 0.070, 0.051, 0.055, 16);
+  for (const side of [-1, 1]) ellipsoid(head, '#a67456', side * 0.037, -0.110, 0.397, 0.011, 0.008, 0.005, 8);
+  if (leif) {
+    const beard = mesh(new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, Math.PI * 0.53, Math.PI * 0.47), smoothMaterial('#76563c'));
+    beard.scale.set(0.371, 0.429, 0.333); head.add(beard);
+    ellipsoid(head, '#c89971', 0, -0.18, 0.31, 0.115, 0.057, 0.026, 14);
+    stitch(head, [[-0.084, -0.153, 0.333], [0, -0.144, 0.354], [0.084, -0.153, 0.333]], 0.021, '#6e4f36');
+    stitch(head, [[-0.066, -0.192, 0.337], [0, -0.199, 0.344], [0.07, -0.190, 0.334]], 0.010, '#6c4b38');
+    for (let j = 0; j < 13; j++) {
+      const a = -0.98 + j * 0.16;
+      ellipsoid(head, '#8d6b46', Math.sin(a) * 0.28, -0.26 - Math.cos(a) * 0.056, Math.cos(a) * 0.268, 0.012, 0.025, 0.009, 6);
+    }
+  } else {
+    stitch(head, [[-0.082, -0.189, 0.300], [0, billy ? -0.218 : -0.20, 0.312], [0.082, -0.185, 0.300]], 0.013, '#945e46');
+    if (billy) roundedBox(head, 0.106, 0.033, 0.013, '#eee3d1', 0, -0.202, 0.314, 0.011);
+    if (tony || clerk) for (const side of [-1, 1]) ellipsoid(head, hair, side * 0.058, -0.152, 0.319, 0.078, 0.036, 0.025, 12).rotation.z = side * 0.10;
+  }
+  if (suit) {
+    for (const side of [-1, 1]) roundedBox(head, 0.165, 0.098, 0.04, smoothMaterial('#394a44', 0.2), side * 0.13, 0.050, 0.343, 0.025);
+    roundedBox(head, 0.09, 0.023, 0.022, '#415348', 0, 0.064, 0.355, 0.008);
+    const hairTop = mesh(new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, 1.1), smoothMaterial(hair));
+    hairTop.scale.set(0.369, 0.43, 0.33); hairTop.position.y = 0.02; head.add(hairTop);
+  }
+  if (leif || billy || clerk) {
+    const cap = new THREE.Group(); cap.position.y = 0.275;
+    const capColor = leif ? '#285c47' : billy ? '#273a45' : '#b84739';
+    const trim = leif ? '#dba24d' : billy ? '#a66c5a' : '#eee0c4';
+    const crown = mesh(new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), smoothMaterial(capColor));
+    crown.scale.set(0.39, 0.247, 0.353); cap.add(crown);
+    const band = mesh(new THREE.CylinderGeometry(0.386, 0.386, 0.044, 28), smoothMaterial(trim)); band.scale.z = 0.91; band.position.y = 0.008; cap.add(band);
+    const shape = new THREE.Shape();
+    shape.moveTo(-0.335, 0.12); shape.quadraticCurveTo(-0.435, 0.51, -0.19, 0.60); shape.quadraticCurveTo(0, 0.68, 0.19, 0.60); shape.quadraticCurveTo(0.435, 0.51, 0.335, 0.12); shape.quadraticCurveTo(0, 0.28, -0.335, 0.12);
+    const brimGeometry = new THREE.ExtrudeGeometry(shape, { depth: 0.030, bevelEnabled: true, bevelSize: 0.009, bevelThickness: 0.008, bevelSegments: 2, steps: 1, curveSegments: 14 });
+    brimGeometry.rotateX(Math.PI / 2);
+    const underside = mesh(brimGeometry, smoothMaterial(trim)); underside.position.set(0, 0.023, 0); cap.add(underside);
+    const top = mesh(brimGeometry.clone(), smoothMaterial(capColor)); top.position.y = 0.044; cap.add(top);
+    stitch(cap, [[-0.32, 0.063, 0.32], [-0.24, 0.063, 0.51], [0, 0.063, 0.58], [0.24, 0.063, 0.51], [0.32, 0.063, 0.32]], 0.006, leif ? '#a8b07a' : '#968578');
+    for (const side of [-1, 1]) stitch(cap, [[side * 0.25, 0.047, 0.263], [side * 0.18, 0.18, 0.17], [0, 0.248, 0]], 0.006, leif ? '#729173' : '#647067');
+    ellipsoid(cap, capColor, 0, 0.248, 0, 0.042, 0.021, 0.041, 12);
+    roundedBox(cap, clerk ? 0.20 : 0.17, 0.068, 0.014, clerk ? '#eee1c9' : leif ? '#c8b981' : '#b98574', 0, 0.12, 0.320, 0.015);
+    if (billy) stitch(cap, [[-0.053, 0.168, 0.279], [0, 0.185, 0.284], [0.058, 0.168, 0.279]], 0.008, '#b58979');
+    cap.rotation.z = leif ? 0.025 : -0.035;
+    head.add(cap);
+  }
+  body.add(head);
+  root.scale.setScalar(1.10);
+  for (const joint of [...arms, ...legs]) mergeStaticMeshes(joint);
+  for (const eye of eyes) mergeStaticMeshes(eye);
+  mergeStaticMeshes(head, new Set(eyes));
+  mergeStaticMeshes(body, new Set([...arms, ...legs, head]));
+  return { root, body, arms, legs, head, eyes, gait: { phase: 0, blend: 0 } };
+}
+
+export function createShoppingBag() {
+  const root = new THREE.Group();
+  roundedBox(root, 0.43, 0.50, 0.27, '#f1e5c9', 0, -0.23, 0, 0.035);
+  stitch(root, [[-0.12, 0.02, 0.025], [-0.11, 0.17, 0.025], [0.11, 0.17, 0.025], [0.12, 0.02, 0.025]], 0.021, '#c8b99b');
+  const label = mesh(new THREE.PlaneGeometry(0.25, 0.16), new THREE.MeshStandardMaterial({ map: makeTextTexture('ICA', '#f1e5c9', '#ba443a', 128, 80), roughness: 1 }));
+  label.position.set(0, -0.2, 0.140); root.add(label);
+  mergeStaticMeshes(root);
+  root.position.set(0, -0.83, 0.10);
+  root.visible = false;
+  return root;
+}
+
+export function animateCharacter(model: CharacterModel, time: number, speed: number, punch = 0, hurt = 0, dt = 1 / 60) {
+  // Advance a continuous, per-character stride rather than multiplying the game
+  // clock by a changing frequency (which snapped limbs when sprint was toggled).
+  const step = Math.max(0, Math.min(dt, .05));
+  const target = THREE.MathUtils.clamp(speed / 3, 0, 1);
+  model.gait.blend += (target - model.gait.blend) * (1 - Math.exp(-step * 14));
+  const walking = model.gait.blend;
+  const cadence = THREE.MathUtils.lerp(7.6, 11, THREE.MathUtils.clamp((speed - 4.35) / 3.55, 0, 1));
+  model.gait.phase = (model.gait.phase + step * cadence * walking) % (Math.PI * 2);
+  const swing = Math.sin(model.gait.phase);
+  model.legs[0].rotation.x = swing * 0.59 * walking;
+  model.legs[1].rotation.x = -swing * 0.59 * walking;
+  model.arms[0].rotation.x = -swing * 0.42 * walking - 0.05;
+  model.arms[1].rotation.x = swing * 0.42 * walking - 0.05 - Math.sin(punch * Math.PI) * 2.05;
+  // No automatic torso/head movement: the player asked for no rocking at all.
+  // Keep only the limb gait, punch and eye blink; damage has particle/UI feedback.
+  model.body.position.y = 0;
+  model.body.rotation.set(0, 0, 0);
+  model.head.rotation.set(0, 0, 0);
+  const blink = time % 5.7 < 0.13 ? 0.12 : 1;
+  for (const eye of model.eyes) eye.scale.y = blink;
+}

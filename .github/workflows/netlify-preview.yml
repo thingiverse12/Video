@@ -1,0 +1,67 @@
+name: Netlify preview
+
+'on':
+  push:
+    branches:
+      - arena/01a0dde8-video
+    paths:
+      - .github/netlify-preview-request.json
+      - .github/netlify-preview-public.pem
+      - .github/workflows/netlify-preview.yml
+      - scripts/deploy-netlify-preview.mjs
+      - scripts/netlify-preview-envelope.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: netlify-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    name: Build and publish a temporary Netlify preview
+    if: >-
+      github.repository == 'thingiverse12/Video' &&
+      github.ref == 'refs/heads/arena/01a0dde8-video' &&
+      (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[netlify-preview]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out the approved working branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Test private deployment-result handling
+        run: node scripts/netlify-preview-test.mjs
+
+      - name: Build the game
+        run: npm run build
+
+      - name: Install the verified Netlify CLI
+        run: npm install --global netlify-cli@27.10.0 --no-audit --no-fund
+
+      - name: Publish a new anonymous preview and seal its claim details
+        run: node scripts/deploy-netlify-preview.mjs
+
+      - name: Keep the public status and encrypted ownership details
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: netlify-preview-${{ github.run_id }}
+          path: .netlify/preview-result/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 1

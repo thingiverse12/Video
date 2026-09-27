@@ -1,0 +1,41 @@
+{
+  "name": "leif-och-billy-lillasen",
+  "version": "0.8.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test:smoke": "node scripts/smoke-test.mjs",
+    "test:shop": "node scripts/shop-smoke-test.mjs",
+    "test:rifle": "node scripts/rifle-smoke-test.mjs",
+    "test:home": "node scripts/home-smoke-test.mjs",
+    "test:upstairs": "node scripts/upstairs-smoke-test.mjs",
+    "test:music": "node scripts/music-smoke-test.mjs",
+    "test:touch": "node scripts/touch-smoke-test.mjs",
+    "test:shooting": "node scripts/shooting-smoke-test.mjs",
+    "test:aim": "node scripts/aim-controls-smoke-test.mjs",
+    "test:graphics": "node scripts/graphics-smoke-test.mjs",
+    "build:netlify": "netlify build --offline",
+    "setup:netlify": "node scripts/setup-netlify.mjs",
+    "test:deploy": "node scripts/netlify-preview-test.mjs"
+  },
+  "dependencies": {
+    "@fontsource/barlow-condensed": "^5.2.8",
+    "@fontsource/dm-sans": "^5.2.8",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.174.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.174.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "playwright": "^1.51.0",
+    "typescript": "~5.7.3",
+    "vite": "^6.1.0"
+  }
+}

@@ -1,0 +1,2 @@
+# Existing asset files take precedence; otherwise serve the React app.
+/*  /index.html  200

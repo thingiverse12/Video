@@ -1,0 +1,20 @@
+# Static React + Three.js game. Only compiled public assets are uploaded.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Optional Netlify-aware local development. Ordinary Arena previews still use
+# `npm run dev` on port 5173; do not run both Vite instances at the same time.
+[dev]
+  framework = "#custom"
+  command = "npm run dev -- --port 5173 --strictPort"
+  targetPort = 5173
+  port = 8888
+  autoLaunch = false
+
+# SPA routing and safe response headers live in public/_redirects and
+# public/_headers. Vite copies them into dist so CLI, Git builds and Netlify Drop
+# all publish the same rules, including anonymous previews.
