@@ -77,7 +77,7 @@ export function WorldMap({ state, selected, onSelect }: { state: GameSnapshot; s
   const player = mapPoint(state.position.x, state.position.z);
   const car = mapPoint(state.carPosition.x, state.carPosition.z);
   return <div className="world-map">
-    <svg viewBox="0 0 680 590" aria-label="Karta över Gråmyren med gården, Rurik, jaktmarken, Myrsjön och Myrboden" role="img">
+    <svg viewBox="0 0 680 590" aria-label="Karta över Gråmyren med gården, reparationsboden, jaktmarken, Myrsjön och Myrboden" role="img">
       <defs>
         <pattern id="map-trees" width="36" height="36" patternUnits="userSpaceOnUse"><path d="m8 5-4 7h2l-3 5h10l-3-5h2L8 5Zm18 18-3 5h1l-2 4h8l-2-4h1l-3-5Z" fill="#8ba07e" opacity=".30" /></pattern>
         <filter id="map-shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity=".15" /></filter>

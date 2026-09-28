@@ -31,7 +31,7 @@ function loft(sections: { z: number; w: number; top: number; bottom: number }[])
 
 /** A made-up, unbadged blue utility wagon. */
 export function createCar(color = '#2d6798', official = false): CarModel {
-  const root = new THREE.Group(); root.name = official ? 'indrivarnas bil' : 'blå kombi — Blå faran';
+  const root = new THREE.Group(); root.name = official ? 'mätarlagets terrängbil' : 'blå kombi — Blå faran';
   const shadow = contactShadow(3.35, 6.45, .38); shadow.rotation.reorder('ZXY'); root.add(shadow);
   const paint = new THREE.MeshPhysicalMaterial({ color, roughness: 0.25, metalness: 0.40, clearcoat: 0.88, clearcoatRoughness: 0.18 });
   const dark = smoothMaterial(official ? '#485653' : '#2b526d', 0.45, 0.17);
@@ -138,8 +138,8 @@ export function createCar(color = '#2d6798', official = false): CarModel {
     const label = mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: makeTextTexture(text, background, ink), roughness: 0.7 }));
     label.position.set(x, y, z); if (back) label.rotation.y = Math.PI; root.add(label); return label;
   };
-  decal(official ? 'INK 108' : 'GM 248', 0, 0.728, 2.526, 0.59, 0.143);
-  decal(official ? 'INK 108' : 'GM 248', 0, 1.041, -2.451, 0.60, 0.153, true);
+  decal(official ? 'GM 108' : 'GM 248', 0, 0.728, 2.526, 0.59, 0.143);
+  decal(official ? 'GM 108' : 'GM 248', 0, 1.041, -2.451, 0.60, 0.153, true);
   const wheels: THREE.Group[] = [], frontWheels: THREE.Group[] = [];
   for (const z of [-1.49, 1.46]) for (const side of [-1, 1]) {
     const wheel = new THREE.Group(); wheel.position.set(side * 1.00, 0.461, z);
@@ -156,7 +156,7 @@ export function createCar(color = '#2d6798', official = false): CarModel {
     root.add(wheel); wheels.push(wheel); if (z > 0) frontWheels.push(wheel);
   }
   if (official) {
-    const side = decal('INDRIVARNA', 1.013, 1.058, -0.52, 0.76, 0.18, false, '#e5e1ca'); side.rotation.y = Math.PI / 2;
+    const side = decal('FÄLTMÄTNING', 1.013, 1.058, -0.52, 0.76, 0.18, false, '#e6d6a3'); side.rotation.y = Math.PI / 2;
   }
   for (const wheel of wheels) mergeStaticMeshes(wheel);
   mergeStaticMeshes(root, new Set<THREE.Object3D>([...wheels, ...brakeLights]));

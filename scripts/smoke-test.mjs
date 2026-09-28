@@ -67,8 +67,8 @@ try {
   assert.equal(await page.locator('.wallet strong').innerText(), '440', 'Hunt reward plus mission reward');
   console.log('✓ Travel, leave the car, hunt an elk, and receive the reward');
 
-  await openMap('Ruriks gård');
-  await waitText('.location-hud strong', 'Ruriks gård');
+  await openMap('Reparationsboden');
+  await waitText('.location-hud strong', 'Reparationsboden');
   // Hunting now requires looking around, so do not assume the old camera heading.
   const rurikYaw = Number(await page.locator('.game-stage').getAttribute('data-camera-yaw'));
   await walkTo(page, 32.3, -17.6, rurikYaw);
@@ -83,7 +83,7 @@ try {
   assert.equal(await page.locator('.mission-tile').count(), 4);
   assert.equal(await page.getByRole('button', { name: 'Avklarat', exact: true }).count(), 2);
   await page.getByRole('button', { name: 'Framkalla besöket', exact: true }).click();
-  await waitText('.world-labels', 'indrivarna', 90000);
+  await waitText('.world-labels', 'Mätarlaget', 90000);
   const deadline = Date.now() + 90000;
   while (Date.now() < deadline) {
     if ((await page.locator('.objective-next').innerText()).includes('Uppdrag slutfört')) break;

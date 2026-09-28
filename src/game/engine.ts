@@ -160,7 +160,7 @@ export class GameEngine {
       this.avatars[avatar].model.body.add(this.rifles[avatar]);
       this.rifles[avatar].visible = false;
     }
-    this.bailiffs = [this.createActor('bailiff', 12, 12, 'fogde-1'), this.createActor('bailiff', 14, 10, 'fogde-2')];
+    this.bailiffs = [this.createActor('bailiff', 12, 12, 'matare-1'), this.createActor('bailiff', 14, 10, 'matare-2')];
     this.bailiffs.forEach(a => a.model.root.visible = false);
     this.hunting = new HuntingProjectiles(this.world,
       () => [this.companion, this.rurik, this.shopkeeper, ...this.bailiffs].map(actor => ({ root: actor.model.root })),
@@ -688,14 +688,14 @@ export class GameEngine {
     } else if (target === this.companion) this.say(target, target.id === 'ebbe' ? 'Aj! Vi är ju på samma lag!' : 'Men skärp dig, Ebbe!');
     else this.say(target, 'Det här står inte i blanketten!');
     if (target.health <= 0) {
-      if (target.id.startsWith('fogde')) {
+      if (target.id.startsWith('matare')) {
         target.flee = true; this.bailiffFled++;
         this.state.progress.bailiff = Math.min(3, 1 + this.bailiffFled);
-        this.say(target, 'Vi tar det per post istället!');
+        this.say(target, 'Vi får rita om kartan!');
         if (this.bailiffFled >= 2) {
           this.state.bailiffsActive = false;
           this.complete('bailiff');
-          this.callbacks.onToast({ title: 'Inte idag, indrivarna!', detail: 'Gården är er. För den här gången. +200 kr', kind: 'success' });
+          this.callbacks.onToast({ title: 'Stigen tar en annan väg!', detail: 'Mätarlaget lämnade gården. +200 kr', kind: 'success' });
         }
       } else {
         target.stunned = 7;
@@ -710,10 +710,10 @@ export class GameEngine {
 
   summonBailiffs() {
     if (this.state.bailiffsActive || this.bailiffArrival > 0) {
-      this.callbacks.onToast({ title: 'De är redan här', detail: 'Leta efter kostymerna vid gården.', kind: 'info' }); return;
+      this.callbacks.onToast({ title: 'De är redan här', detail: 'Leta efter mätarna vid gården.', kind: 'info' }); return;
     }
     if (this.state.progress.bailiff === 3) {
-      this.callbacks.onToast({ title: 'De fick nog för idag', detail: 'Indrivarna återkommer i nästa spelomgång.', kind: 'info' }); return;
+      this.callbacks.onToast({ title: 'De fick nog för idag', detail: 'Mätarlaget återkommer i nästa spelomgång.', kind: 'info' }); return;
     }
     this.start();
     this.state.activeMission = 'bailiff'; this.state.waypoint = 'home';
@@ -722,7 +722,7 @@ export class GameEngine {
     this.officialCar.root.visible = true;
     this.officialCar.root.position.set(16, 0, 36);
     this.audio.play('warning');
-    this.callbacks.onToast({ title: 'Oväntat besök!', detail: 'Indrivarna svänger in på gården. Ni har inte bjudit in dem.', kind: 'warning' });
+    this.callbacks.onToast({ title: 'Oväntat besök!', detail: 'Mätarlaget vill märka ut en stig genom gården.', kind: 'warning' });
     this.emit();
   }
 
@@ -876,7 +876,7 @@ export class GameEngine {
       const d = distance(current, this.playerPosition);
       if (d < 1.90 && Math.abs(current.y - this.playerPosition.y) < 1.5 && this.activeTime > this.shopGraceUntil && !this.state.inCar) { this.caughtInShop(); return; }
       if (d > 1.6 && d < 34) { goal = this.playerPosition; speed = 4.9; }
-    } else if ((actor.angry > 0 || (actor.id.startsWith('fogde') && this.state.bailiffsActive)) && !actor.flee) {
+    } else if ((actor.angry > 0 || (actor.id.startsWith('matare') && this.state.bailiffsActive)) && !actor.flee) {
       const d = distance(current, this.playerPosition);
       if (d > 2.2 && d < 42) { goal = this.playerPosition; speed = actor === this.rurik ? 4.5 : 3.1; }
       if (d < 2.4 && Math.abs(current.y - this.playerPosition.y) < 1.5 && actor.cooldown === 0 && !this.state.inCar && !this.state.onStairs) {
@@ -1124,8 +1124,8 @@ export class GameEngine {
         this.bailiffs.forEach((a, i) => {
           a.model.root.visible = true; a.model.root.position.set(11.9 + i * 1.3, 0, 7.0 - i * 2.5); a.health = 3; a.flee = false;
         });
-        this.say(this.bailiffs[0], 'Vi söker Nils och Ebbe.');
-        this.callbacks.onToast({ title: 'Indrivarna är på gården', detail: 'Gå nära kostymerna och tryck F för att jaga bort dem.', kind: 'warning' });
+        this.say(this.bailiffs[0], 'Enligt vår karta går stigen här!');
+        this.callbacks.onToast({ title: 'Mätarlaget är på gården', detail: 'Gå nära mätarna och tryck F för att jaga bort dem.', kind: 'warning' });
       }
     }
     if (!this.state.bailiffsActive && this.state.progress.bailiff < 3) {
@@ -1300,7 +1300,7 @@ export class GameEngine {
     if (this.state.started) for (const elk of this.world.elk) {
       if (elk.alive && distance(this.playerPosition, elk.model.root.position) < 25) add(`elk-${elk.phase}`, 'Skogens konung', elk.model.root.position.clone().add(new THREE.Vector3(0, 4.8, 0)), 'target');
     }
-    for (const b of this.bailiffs) if (b.model.root.visible && !speaking.has(b.id) && distance(this.playerPosition, b.model.root.position) < 25) add(b.id, b.flee ? 'På väg härifrån' : 'Indrivarna', b.model.root.position.clone().add(new THREE.Vector3(0, 3.3, 0)), 'target');
+    for (const b of this.bailiffs) if (b.model.root.visible && !speaking.has(b.id) && distance(this.playerPosition, b.model.root.position) < 25) add(b.id, b.flee ? 'På väg härifrån' : 'Mätarlaget', b.model.root.position.clone().add(new THREE.Vector3(0, 3.3, 0)), 'target');
     for (const s of this.speech) {
       const pos = s.actor ? s.actor.model.root.position.clone() : s.position.clone();
       pos.y += this.state.inCar && s.actor === this.player ? 3.3 : 3.7;
@@ -1341,7 +1341,7 @@ export class GameEngine {
     if (this.state.insideHome) return this.state.homeFloor === 1 ? 'Ebbes rum · övervåningen' : 'Inne i vännernas stuga';
     if (Math.hypot(p.x - SHOP.center.x, p.z - SHOP.center.z) < 21) return this.state.insideShop ? 'Inne på Myrboden' : 'Myrboden';
     if (p.z < -35 && distance(p, new THREE.Vector3(48, 0, -49)) < 22) return 'Myrsjön';
-    if (distance(p, new THREE.Vector3(36, 0, -24)) < 19) return 'Ruriks gård';
+    if (distance(p, new THREE.Vector3(36, 0, -24)) < 19) return 'Reparationsboden';
     if (distance(p, new THREE.Vector3(-27, 0, -44)) < 21) return 'Jaktmarken';
     if (distance(p, new THREE.Vector3(48, 0, -49)) < 22) return 'Myrsjön';
     if (distance(p, new THREE.Vector3(-5, 0, 0)) < 29) return 'Hemma på gården';

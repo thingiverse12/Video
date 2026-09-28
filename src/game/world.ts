@@ -301,7 +301,7 @@ export function createWorld(): World {
     ...homeRoom.colliders,
   );
   // The porch is accessible at the sides, the steps lead into the front garden.
-  const rurikHome = createHouse('#c39a52', 0.79, 'RURIKS REVIR');
+  const rurikHome = createHouse('#c39a52', 0.79, 'VERKSTAD');
   rurikHome.position.set(38, 0, -26);
   root.add(rurikHome);
   colliders.push({ type: 'box', x: 38, z: -26, w: 9.0, d: 6.8 });
@@ -379,7 +379,7 @@ export function createWorld(): World {
   }
 
   // Hand-painted signs, mailboxes, flower pots and scraps of everyday life.
-  for (const [x, z, text, rot] of [[11, 15, 'GRÅMYREN', -0.13], [11, -9, 'RURIK →', 0.2], [-7, -23, 'JAKTMARK →', 0.7]] as [number, number, string, number][]) {
+  for (const [x, z, text, rot] of [[11, 15, 'GRÅMYREN', -0.13], [11, -9, 'VERKSTAD →', 0.2], [-7, -23, 'JAKTMARK →', 0.7]] as [number, number, string, number][]) {
     cylinder(root, 0.11, 0.11, 2.8, '#7e7050', x, 1.4, z);
     const s = sign(root, text, x, 2.45, z + 0.02, 2.8, 0.64); s.rotation.y = rot;
   }

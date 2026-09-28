@@ -48,11 +48,11 @@ function fabric(base: string, stripe: string, plaid = true) {
 
 /** Original, articulated miniature figures with different silhouettes and clothing. */
 export function createCharacter(kind: CharacterKind): CharacterModel {
-  const nils = kind === 'nils', ebbe = kind === 'ebbe', rurik = kind === 'rurik', suit = kind === 'bailiff', clerk = kind === 'shopkeeper';
+  const nils = kind === 'nils', ebbe = kind === 'ebbe', rurik = kind === 'rurik', surveyor = kind === 'bailiff', clerk = kind === 'shopkeeper';
   const skin = nils ? '#dcb38f' : ebbe ? '#ebcbb5' : rurik ? '#c39573' : clerk ? '#c99b78' : '#d4b197';
   const hair = nils ? '#74533a' : ebbe ? '#9a784d' : '#67513d';
-  const coat = nils ? '#246b78' : ebbe ? '#715787' : rurik ? '#969054' : clerk ? '#bc4439' : '#3c4c51';
-  const denim = nils ? '#3c4942' : ebbe ? '#415e6b' : rurik ? '#495f68' : '#344349';
+  const coat = nils ? '#246b78' : ebbe ? '#715787' : rurik ? '#969054' : clerk ? '#bc4439' : '#ca9f43';
+  const denim = nils ? '#3c4942' : ebbe ? '#415e6b' : rurik ? '#495f68' : '#4d625b';
   const shirt = fabric(nils ? '#d4bb72' : '#c9c8ca', nils ? '#a6854a' : '#8e839c', false);
   const outerFabric = fabric(coat, coat, false);
   const trouserFabric = fabric(denim, denim, false);
@@ -78,7 +78,7 @@ export function createCharacter(kind: CharacterKind): CharacterModel {
     roundedBox(arm, 0.31, 0.37, 0.34, sleeve, 0, -0.135, 0, 0.135);
     const lower = roundedBox(arm, 0.275, 0.36, 0.30, sleeve, 0, -0.43, 0.05, 0.11); lower.rotation.x = -0.12;
     if (nils) roundedBox(arm, 0.32, 0.14, 0.33, '#d8b258', 0, 0.004, 0, 0.055);
-    roundedBox(arm, 0.266, 0.09, 0.29, suit ? '#e8e6d8' : nils ? '#344937' : '#899b89', 0, -0.595, 0.071, 0.035);
+    roundedBox(arm, 0.266, 0.09, 0.29, surveyor ? '#ba873c' : nils ? '#344937' : '#899b89', 0, -0.595, 0.071, 0.035);
     ellipsoid(arm, skin, 0, -0.71, 0.082, 0.134, 0.159, 0.13, 14);
     ellipsoid(arm, skin, -side * 0.115, -0.677, 0.141, 0.060, 0.089, 0.060, 12);
     for (let j = 0; j < 3; j++) roundedBox(arm, 0.014, 0.046, 0.010, '#b48463', (j - 1) * 0.05, -0.782, 0.187, 0.004);
@@ -104,13 +104,17 @@ export function createCharacter(kind: CharacterKind): CharacterModel {
       roundedBox(body, .45, .035, .085, '#9d82b6', 0, 1.04, .31, .012);
     }
   }
-  if (suit) {
-    roundedBox(body, 0.27, 0.62, 0.035, '#eee9dc', 0, 1.38, 0.26, 0.02);
-    roundedBox(body, 0.087, 0.43, 0.025, '#a18b53', 0, 1.33, 0.294, 0.012);
-    for (const side of [-1, 1]) roundedBox(body, 0.16, 0.34, 0.055, '#43585b', side * 0.16, 1.57, 0.25, 0.025).rotation.z = side * 0.30;
-    roundedBox(arms[0], 0.40, 0.49, 0.105, '#bfa16b', 0, -0.61, 0.18, 0.025);
-    roundedBox(arms[0], 0.28, 0.31, 0.01, '#f0e5c2', 0, -0.57, 0.24, 0.004);
-    for (let j = 0; j < 4; j++) box(arms[0], 0.18, 0.007, 0.008, '#b0b19a', 0, -0.50 - j * 0.045, 0.25);
+  if (surveyor) {
+    // Fictional path surveyors: rain jackets and field maps, no formal uniform.
+    roundedBox(body, 0.47, 0.56, 0.055, '#e0b252', 0, 1.39, 0.272, 0.025);
+    for (const side of [-1, 1]) {
+      roundedBox(body, 0.20, 0.34, 0.054, '#e1c777', side * 0.19, 1.48, 0.305, 0.016);
+      roundedBox(arms[side < 0 ? 0 : 1], 0.32, 0.065, 0.33, '#edcf7c', 0, -0.36, 0.045, 0.024);
+    }
+    roundedBox(body, 0.31, 0.15, 0.07, '#5c7568', 0, 1.12, 0.312, 0.026);
+    roundedBox(arms[0], 0.41, 0.52, 0.10, '#8c754b', 0, -0.61, 0.18, 0.025);
+    roundedBox(arms[0], 0.32, 0.34, 0.012, '#d7d1a4', 0, -0.57, 0.242, 0.004);
+    for (let j = 0; j < 3; j++) box(arms[0], 0.20, 0.009, 0.008, '#638078', 0, -0.49 - j * 0.056, 0.25);
   }
   if (rurik) {
     roundedBox(body, 0.25, 0.10, 0.05, '#b5b083', 0, 1.69, 0.25, 0.04);
@@ -150,11 +154,11 @@ export function createCharacter(kind: CharacterKind): CharacterModel {
   for (const side of [-1, 1]) ellipsoid(head, '#a67456', side * 0.037, -0.110, 0.397, 0.011, 0.008, 0.005, 8);
   stitch(head, [[-0.082, -0.188, 0.304], [0, -0.218, 0.318], [0.082, -0.188, 0.304]], 0.012, '#895f51');
   if (rurik || clerk) for (const side of [-1, 1]) ellipsoid(head, hair, side * 0.058, -0.152, 0.319, 0.078, 0.036, 0.025, 12).rotation.z = side * 0.10;
-  if (suit) {
-    for (const side of [-1, 1]) roundedBox(head, 0.165, 0.098, 0.04, smoothMaterial('#394a44', 0.2), side * 0.13, 0.050, 0.343, 0.025);
-    roundedBox(head, 0.09, 0.023, 0.022, '#415348', 0, 0.064, 0.355, 0.008);
-    const hairTop = mesh(new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, 1.1), smoothMaterial(hair));
-    hairTop.scale.set(0.369, 0.43, 0.33); hairTop.position.y = 0.02; head.add(hairTop);
+  if (surveyor) {
+    const hat = mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), smoothMaterial('#668474'));
+    hat.scale.set(.38, .26, .35); hat.position.y = .28; head.add(hat);
+    roundedBox(head, .74, .09, .70, '#496a61', 0, .28, 0, .045);
+    roundedBox(head, .35, .035, .18, '#496a61', 0, .30, .35, .018);
   }
   if (clerk) {
     const cap = new THREE.Group(); cap.position.y = 0.275;

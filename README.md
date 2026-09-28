@@ -18,7 +18,7 @@ npm run dev -- --port 5173
 - **Hemma:** slitna soffor, tjock-tv framför soffan, smutsig diskho, avskilda rum och ett litet E-öppningsbart kylskåp med en halv gurka och en grön tub örtkräm. Trätrappan leder till Ebbes rum på en separat övervåning med en gammal dator.
 - **Myrboden:** fiktiv matbutik med köttdisk. Försök ta ett paket och ta det hem; Marta kan stoppa dig.
 - **Jaktmarken:** hämta först geväret i huset, sikta manuellt och jaga en tecknad älg med synliga skott.
-- **Ruriks gård:** prata, slåss eller försök ta en verktygslåda. **Indrivarna:** oinbjudna gäster kan dyka upp på gården. **Myrsjön:** en lugn sjö att utforska.
+- **Reparationsboden:** prata, slåss eller försök ta en verktygslåda. **Mätarlaget:** envisa stigplanerare kan dyka upp på gården. **Myrsjön:** en lugn sjö att utforska.
 
 Ljud och bakgrundsmusik är separata, avstängda från början och skapas lokalt med Web Audio efter att spelaren aktiverat dem. Ingen inspelad dialog utlovas.
 
@@ -43,7 +43,7 @@ npm run test:deploy
 npm run test:rights  # begränsad kontroll av gamla namn och medföljande licenser
 ```
 
-Browser-testerna använder `http://localhost:5173` som standard; ändra med `TEST_URL` och/eller `CHROMIUM_EXECUTABLE`. `SCREENSHOTS=1` sparar testbilder i den ignorerade mappen `screenshots/`. Netlify använder `netlify.toml` (byggkommando `npm run build`, publiceringsmapp `dist`) och SPA-omskrivningen i `public/_redirects`. Den tidigare Netlify-förhandsvisningen var ett separat, lösenordsskyddat bygge av en äldre version; denna kodändring uppdaterar **inte** automatiskt den adressen.
+Browser-testerna använder `http://localhost:5173` som standard; ändra med `TEST_URL` och/eller `CHROMIUM_EXECUTABLE`. `SCREENSHOTS=1` sparar testbilder i den ignorerade mappen `screenshots/`. Netlify använder `netlify.toml` (byggkommando `npm run build`, publiceringsmapp `dist`) och SPA-omskrivningen i `public/_redirects`. Tidigare Netlify-förhandsvisningar med en äldre version är fortfarande åtkomliga; den som har Netlify-åtkomst måste ta ned eller ersätta dem. Den här kodändringen uppdaterar **inte** adresserna automatiskt.
 
 ## Rättigheter och publicering
 
