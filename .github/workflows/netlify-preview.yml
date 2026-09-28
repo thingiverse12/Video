@@ -64,6 +64,11 @@ jobs:
 
       - name: Publish a new anonymous preview and seal its claim details
         run: node scripts/deploy-netlify-preview.mjs
+        env:
+          # Frivilligt: sätt repositoryvariabeln AI_API_BASE till Vercel-adressen
+          # (t.ex. https://video-phi-six.vercel.app) för att Netlify-sidan ska
+          # proxa /api/ai dit. Utan den publiceras bara de statiska filerna.
+          AI_API_BASE: ${{ vars.AI_API_BASE }}
 
       - name: Check the published /api/ai endpoint
         if: always()

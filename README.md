@@ -48,7 +48,7 @@ curl -X POST http://localhost:9999/api/ai \
 
 Nyckeln sätts där appen körs, aldrig i `src/`:
 
-- **Netlify:** Site configuration → Environment variables → lägg till `AI_API_KEY` med scope **Functions**, och publicera igen.
+- **Netlify:** fungerar bara på en claimad webbplats som publiceras med konto och token; anonyma Netlify-publiceringar kan inte innehålla funktioner alls. Sätt då `AI_API_KEY` under Site configuration → Environment variables med scope **Functions**.
 - **Vercel:** Project → Settings → Environment Variables → `AI_API_KEY`, och deploya om. `api/ai.js` använder samma `server/ai-core.mjs` som Netlify-funktionen.
 - **GitHub Pages:** statisk värd utan funktioner, så panelen visar bara att API:t inte finns där.
 
@@ -80,7 +80,11 @@ Browser-testerna använder `http://localhost:5173` som standard; ändra med `TES
 
 ## Publicera med serverfunktion
 
-Arbetsflödet **Netlify preview** (`.github/workflows/netlify-preview.yml`) publicerar från den godkända arbetsgrenen när commit-meddelandet innehåller `[netlify-preview]`, eller manuellt via *Run workflow*. Det kör `npm run test:api`, bygger med Netlify så att `netlify/functions/ai.mjs` följer med som `/api/ai`, publicerar en anonym förhandsvisning och kontrollerar till sist `GET /api/ai` över HTTPS. Hamnar funktionen utanför publiceringen (vilket anonyma Netlify-webbplatser kan neka till) publiceras bara de statiska filerna, och sammanfattningen säger det rakt ut.
+**Var API:t kör.** Netlify CLI vägrar anonyma deployer så snart projektet innehåller en serverfunktion (`checkForFunctions()` avbryter utan meddelande), så en anonym Netlify-förhandsvisning kan bara innehålla själva spelet. API:t körs därför på Vercel-projektet som redan är kopplat till repot: varje push ger en ny förhandsvisning, och huvudgrenen ger produktion. Sätt `AI_API_KEY` under **Project → Settings → Environment Variables** i Vercel så svarar `/api/ai` där. Spelet på Vercel-adressen får då en fungerande Skogsprataren; på Netlify och GitHub Pages visar panelen att API:t inte finns på den adressen.
+
+Vill du ändå nå API:t från Netlify-adressen: sätt repositoryvariabeln `AI_API_BASE` till Vercel-adressens ursprung, till exempel `https://video-phi-six.vercel.app`. Publiceringen lägger då in en proxyregel i `_redirects` (`/api/* → <ursprung>/api/:splat`) och Netlify-skriptet rapporterar `proxied: true`. Regeln kräver ett `https://`-ursprung utan sökväg.
+
+Arbetsflödet **Netlify preview** (`.github/workflows/netlify-preview.yml`) publicerar från den godkända arbetsgrenen när commit-meddelandet innehåller `[netlify-preview]`, eller manuellt via *Run workflow*. Det kör `npm run test:api`, bygger spelet, publicerar en anonym Netlify-förhandsvisning av de statiska filerna och kontrollerar till sist `GET /api/ai` över HTTPS. Svaret där säger antingen att funktionen är igång (via proxy till Vercel) eller att bara statiska filer publicerades.
 
 En anonym Netlify-webbplats måste claimas inom 60 minuter, annars stängs den. Claimlänken och lösenordet skrivs aldrig i klartext i loggen: de ligger i ett krypterat kuvert i körningens artefakt och i `NETLIFY_ENVELOPE_*`-notiserna. Öppna dem med den egna nyckeln:
 
