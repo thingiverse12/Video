@@ -20,7 +20,8 @@
     "test:graphics": "node scripts/graphics-smoke-test.mjs",
     "build:netlify": "netlify build --offline",
     "setup:netlify": "node scripts/setup-netlify.mjs",
-    "test:deploy": "node scripts/netlify-preview-test.mjs"
+    "test:deploy": "node scripts/netlify-preview-test.mjs",
+    "test:rights": "node scripts/rights-preflight.mjs"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "^5.2.8",

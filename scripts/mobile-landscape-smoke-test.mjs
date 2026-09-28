@@ -51,7 +51,7 @@ try {
     fits(view.stage, { left: 0, top: 0, right: view.viewport.width, bottom: view.viewport.height }, 'Stage remains on screen');
     fits(view.pad, view.stage, 'Movement pad remains inside stage');
     fits(view.actions, view.stage, 'Action buttons remain inside stage');
-    fits(view.character, view.stage, 'Brother switching stays available');
+    fits(view.character, view.stage, 'Character switching stays available');
     assert.ok(view.resources.bottom <= view.character.top + 1, 'Health and character panels do not overlap');
     if (process.env.SCREENSHOTS) {
       await mkdir('screenshots', { recursive: true });

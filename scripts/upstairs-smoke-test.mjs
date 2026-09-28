@@ -89,7 +89,7 @@ try {
   assert.equal(await page.locator('.wallet strong').innerText(), '240');
   await page.locator('.interact-prompt').click();
   assert.equal((await data()).computerOn, 'false');
-  console.log('✓ The old CRT computer powers on/off, and switching brothers preserves the correct floor');
+  console.log('✓ The old CRT computer powers on/off, and switching characters preserves the correct floor');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Spelguide', exact: true }).click();

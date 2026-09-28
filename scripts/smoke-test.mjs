@@ -55,7 +55,7 @@ try {
 
   await page.keyboard.press('v');
   await waitText('.character-info strong', 'Ebbe');
-  console.log('✓ The player can switch brothers');
+  console.log('✓ The player can switch characters');
 
   await openMap('Jaktmarken');
   await waitText('.location-hud strong', 'Jaktmarken');

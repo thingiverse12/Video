@@ -44,7 +44,7 @@ export async function enterHome(page, yaw = 0.61) {
   await walkTo(page, -6.95, 2.0, yaw, 1.35);
   await waitText(page, '.interact-prompt', 'Gå in i huset');
   await page.keyboard.press('e');
-  await waitText(page, '.location-hud strong', 'Inne i brödernas hus');
+  await waitText(page, '.location-hud strong', 'Inne i vännernas stuga');
 }
 export async function approachRifle(page) {
   await walkTo(page, -12.65, -7.7);

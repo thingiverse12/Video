@@ -1,0 +1,22 @@
+GRÅMYREN — TREDJEPARTSLICENSER
+
+De byggda typsnitten och programbiblioteken har egna upphovsrättsinnehavare.
+Licenserna och deras medföljande upphovsrättsnotiser följer med spelet:
+
+Barlow Condensed (Fontsource) — SIL Open Font License 1.1
+  /licenses/fontsource-barlow-condensed.txt
+DM Sans (Fontsource) — SIL Open Font License 1.1
+  /licenses/fontsource-dm-sans.txt
+Lucide React — ISC
+  /licenses/lucide-react.txt
+React och React DOM — MIT
+  /licenses/react.txt
+  /licenses/react-dom.txt
+Scheduler — MIT
+  /licenses/scheduler.txt
+Three.js — MIT
+  /licenses/three.txt
+
+Övrig appkod, figurer, gränssnitt, musik och illustrationer ligger i detta
+projekt. Denna lista är information om kodens beroenden, inte en garanti
+för att ingen kan göra anspråk på spelet eller dess äldre versioner.

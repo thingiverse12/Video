@@ -117,7 +117,7 @@ try {
   await gainNear(.22);
   await page.keyboard.press('Escape');
   await gainNear(1);
-  console.log('✓ Music ducks during a real brother dialogue and returns smoothly afterward');
+  console.log('✓ Music ducks during a character dialogue and returns smoothly afterward');
 
   // Simulate visibility events; verify the real context actually suspends/resumes.
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });

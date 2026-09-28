@@ -1,6 +1,6 @@
 # Gråmyren
 
-Ett fristående svenskt 3D-skogäventyr för webbläsare. Spela som Nils eller Ebbe i en fiktiv by, kör en obrandad blå kombi, utforska skogen och välj bland fyra uppdrag. Spelets figurer, skyltar, porträtt, miljöer och musik skapas i kod; inga externa fotografier, inspelningar eller fordons-/butikslogotyper ingår i bygget.
+Ett fristående svenskt 3D-skogäventyr för webbläsare. Spela som vännerna Nils och Ebbe, som rustar upp en skogsstuga i en fiktiv by, kör en obrandad blå kombi, utforska skogen och välj bland fyra uppdrag. Spelets figurer, skyltar, porträtt, miljöer och musik skapas i kod; inga externa fotografier, inspelningar eller fordons-/butikslogotyper ingår i bygget.
 
 ## Spela lokalt
 
@@ -40,11 +40,15 @@ npm run test:mobile
 npm run test:touch
 npm run test:music
 npm run test:deploy
+npm run test:rights  # begränsad kontroll av gamla namn och medföljande licenser
 ```
 
 Browser-testerna använder `http://localhost:5173` som standard; ändra med `TEST_URL` och/eller `CHROMIUM_EXECUTABLE`. `SCREENSHOTS=1` sparar testbilder i den ignorerade mappen `screenshots/`. Netlify använder `netlify.toml` (byggkommando `npm run build`, publiceringsmapp `dist`) och SPA-omskrivningen i `public/_redirects`. Den tidigare Netlify-förhandsvisningen var ett separat, lösenordsskyddat bygge av en äldre version; denna kodändring uppdaterar **inte** automatiskt den adressen.
 
 ## Rättigheter och publicering
+
+Licensfiler för de medföljande typsnitten och programbiblioteken finns under `public/licenses/` och ingår i `dist/licenses/` efter byggning. Länken **Licenser** finns i spelets sidfot.
+
 
 Det här är en omarbetning med nya namn, nya figurkläder/porträtt, en ommärkt butik, generisk bil utan emblem och ny förpackningsgrafik. Det är en riskminskande förändring, **inte en juridisk garanti**. Granska fortfarande musik, kod, typsnitt, beroenden och helhetsintryck innan publik lansering. En friskrivning eller ändrad HEAD raderar inte tidigare Git-historik, gamla byggfiler eller redan publicerade webbplatser. Den som äger gamla driftsättningar behöver själv ta ned eller ersätta dem. Sök kvalificerad juridisk rådgivning vid behov.
 

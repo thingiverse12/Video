@@ -112,3 +112,5 @@
 .touch-actions .touch-fire-button{background:#d7834f;color:#fff6df;border-color:#ffe5c4}
 .touch-actions .touch-fire-button:disabled{background:#b6bba5;color:#f8f5e5;opacity:.72}
 @media(max-width:700px){.hunting-buttons{gap:4px}.hunting-steps{font-size:7px;padding:2px}.missing-rifle button{max-width:205px;text-align:left}}
+
+.site-footer a{color:inherit;text-decoration:underline;text-underline-offset:2px}.site-footer a:hover{color:#3d5c38}

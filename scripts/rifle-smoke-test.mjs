@@ -61,7 +61,7 @@ try {
   await waitText(page, '.character-info strong', 'Ebbe');
   await waitText(page, '.equipment-status', 'Gevär med');
   const afterSwitch = await readPosition(page);
-  assert.ok(Math.hypot(beforeSwitch.x - afterSwitch.x, beforeSwitch.z - afterSwitch.z) < 0.2, 'Switching inside keeps the active brother in the room');
+  assert.ok(Math.hypot(beforeSwitch.x - afterSwitch.x, beforeSwitch.z - afterSwitch.z) < 0.2, 'Switching inside keeps the active character in the room');
   assert.equal((await save()).hasRifle, true);
   await screenshot('ebbe-equipped');
   await leaveHome(page);
@@ -90,7 +90,7 @@ try {
   await waitText(page, '.character-info strong', 'Nils');
   await waitText(page, '.equipment-status', 'Gevär med');
   assert.equal(await page.locator('.wallet strong').innerText(), '440');
-  console.log('✓ Reload preserves ownership, the empty rack, rewards and equipment when changing brothers');
+  console.log('✓ Reload preserves ownership, the empty rack, rewards and equipment when changing characters');
 
   // Reset from inside the cutaway must restore the exterior AND the rifle item.
   await page.getByRole('button', { name: 'Inställningar', exact: true }).click();

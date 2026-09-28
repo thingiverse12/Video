@@ -101,7 +101,7 @@ try {
   for (const property of ['owned', 'released', 'separate', 'neutral', 'diagonal', 'cleared', 'frozen']) assert.equal(units[property], true, property);
   assert.ok(units.maxStep < .13, 'Changing walk/run never jumps the stride phase');
   assert.equal(units.maxBob, 0, 'No walking bob at all');
-  assert.equal(units.bodyMotion, 0, 'Neither brother rocks while idle, walking, sprinting or reacting to damage');
+  assert.equal(units.bodyMotion, 0, 'Neither character rocks while idle, walking, sprinting or reacting to damage');
   assert.equal(units.headMotion, 0, 'No automatic head nod or sway');
   assert.ok(units.limbMotion > .5, 'Leg gait and punching are still animated');
   assert.ok(units.cameraDrift < 1e-10, 'Follow camera never rocks relative to its look-at point');
@@ -220,7 +220,7 @@ try {
   await page.locator('.speedometer').waitFor({ state: 'hidden' });
   await page.getByRole('button', { name: 'Byt till Ebbe', exact: true }).tap();
   await page.getByRole('button', { name: 'Byt till Nils', exact: true }).waitFor();
-  console.log('✓ Blocked walking settles; kombi acceleration/braking, E and brother switching still work');
+  console.log('✓ Blocked walking settles; kombi acceleration/braking, E and character switching still work');
 
   if (process.env.SCREENSHOTS) {
     await mkdir('screenshots', { recursive: true });

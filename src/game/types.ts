@@ -1,4 +1,4 @@
-export type Brother = 'nils' | 'ebbe';
+export type PlayerId = 'nils' | 'ebbe';
 export type MissionId = 'hunt' | 'rurik' | 'bailiff' | 'shop';
 export const MISSION_IDS: MissionId[] = ['shop', 'hunt', 'rurik', 'bailiff'];
 export type DestinationId = 'home' | 'rurik' | 'forest' | 'lake' | 'market';
@@ -37,8 +37,8 @@ export const SHOP = {
 
 export const DESTINATIONS: Destination[] = [
   { id: 'market', name: 'Myrboden', subtitle: 'KYLEN ÄR TOM. IDÉERNA ÄR SÄMRE.', description: 'Byns lilla matbutik med köttdisk, kundvagnar och handlaren Marta. Ett helt påhittat butiksäventyr. Gå in och försök ta ett köttpaket – men Marta kan stoppa er.', x: 40, z: 25.8 },
-  { id: 'home', name: 'Hemma på gården', subtitle: 'HEM LJUVA HEM', description: 'Hemma hos bröderna. Gå upp till verandan och tryck E för att gå in. Här finns slitna soffor, en gammal tjock-tv, smutsig disk och en avskärmad tv-hörna, matplats och en kyl med örtkräm och en halv gurka. E öppnar kylen. Vid trätrappan går E upp till Ebbes rum och hans gamla dator. Hämta också jaktgeväret innan ni jagar.', x: 6, z: 10 },
-  { id: 'rurik', name: 'Ruriks gård', subtitle: 'GRANNEN PÅ ANDRA SIDAN', description: 'Rurik gillar lugn och ro. Och sin verktygslåda. Försök att inte reta upp honom. Eller gör det.', x: 33, z: -15 },
+  { id: 'home', name: 'Hemma på gården', subtitle: 'HEM LJUVA HEM', description: 'Hemma hos vännerna. Gå upp till verandan och tryck E för att gå in. Här finns slitna soffor, en gammal tjock-tv, smutsig disk och en avskärmad tv-hörna, matplats och en kyl med örtkräm och en halv gurka. E öppnar kylen. Vid trätrappan går E upp till Ebbes rum och hans gamla dator. Hämta också jaktgeväret innan ni jagar.', x: 6, z: 10 },
+  { id: 'rurik', name: 'Ruriks gård', subtitle: 'GRANNEN PÅ ANDRA SIDAN', description: 'Rurik lagar saker åt folk i Gråmyren. Hans verktygslåda står framme på gården. Hälsa på eller ta en oklok genväg.', x: 33, z: -15 },
   { id: 'forest', name: 'Jaktmarken', subtitle: 'LÅNGT FRÅN FOLK', description: 'Följ grusvägen in bland granarna. Här ute finns älgar, frisk luft och tveksamma beslut.', x: -25, z: -40 },
   { id: 'lake', name: 'Myrsjön', subtitle: 'EN STUNDS LUGN', description: 'En stilla skogssjö med en gammal brygga. Ett bra ställe att gömma sig från sina bekymmer.', x: 39, z: -42 },
 ];
@@ -65,7 +65,7 @@ export const MISSIONS = {
   rurik: {
     title: 'Bara låna lite',
     kicker: 'ETT BESÖK HOS RURIK',
-    description: 'Rurik har en fin verktygslåda. Ni har en bil med gott om plats. Vad skulle kunna gå fel?',
+    description: 'Byns reparatör Rurik har en verktygslåda ni behöver. Fråga honom först eller ta en oklok genväg.',
     short: 'Hälsa på grannen och låna hans verktygslåda. Utan att fråga, förstås.',
     steps: ['Besök Ruriks gård', 'Ta verktygslådan', 'Kom undan från Rurik'],
     reward: 100,
@@ -93,7 +93,7 @@ export interface WorldLabel {
 export interface GameSnapshot {
   ready: boolean;
   started: boolean;
-  character: Brother;
+  character: PlayerId;
   health: number;
   money: number;
   wanted: number;

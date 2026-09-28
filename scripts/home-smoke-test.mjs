@@ -57,7 +57,7 @@ try {
   await waitText(page, '.character-info strong', 'Ebbe');
   await page.keyboard.press('e');
   assert.equal(await isOpen(), 'true');
-  console.log('✓ Both brothers can open/close the fridge; pausing and the context button behave correctly');
+  console.log('✓ Both friends can open/close the fridge; pausing and the context button behave correctly');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Spelguide', exact: true }).click();

@@ -7,10 +7,10 @@ import { createUpstairs, createWoodenStaircase } from './upstairs';
 import { createOldFridge, createOldSink, createOldTelevision, createWornSofa, oldRug, oldWallpaper } from './furniture';
 
 /** An accessible cutaway room inside the existing red house. The outside keeps
- * its original silhouette; this room is shown only while a brother is inside. */
+ * its original silhouette; this room is shown only while a playable character is inside. */
 export function createHomeInterior() {
   const interior = new THREE.Group();
-  interior.name = 'Brödernas hus — spelbar interiör';
+  interior.name = 'Vännernas stuga — spelbar interiör';
   interior.position.set(HOME.center.x, 0, HOME.center.z);
   const colliders: { type: 'box'; x: number; z: number; w: number; d: number }[] = [];
   const blockFurniture = (x: number, z: number, w: number, d: number) => colliders.push({ type: 'box', x: HOME.center.x + x, z: HOME.center.z + z, w, d });
@@ -71,7 +71,7 @@ export function createHomeInterior() {
   blockFurniture(fridge.root.position.x, fridge.root.position.z + 0.08, 1.44, 1.25);
 
   // Low cutaway partition walls make distinct TV and dining rooms. The gaps
-  // are real, collidable doorways, wide enough for a brother on keyboard/touch.
+  // are real, collidable doorways, wide enough for a playable character on keyboard/touch.
   const partition = (x: number, z: number, w: number, d: number) => {
     box(interior, w, 1.40, d, wallpaper, x, HOME.groundY + 0.70, z);
     box(interior, w + 0.035, 0.065, d + 0.035, '#a28a61', x, HOME.groundY + 1.43, z);

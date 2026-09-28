@@ -1,10 +1,10 @@
 import { useId } from 'react';
-import type { Brother } from '../game/types';
+import type { PlayerId } from '../game/types';
 
 /** Original illustrated portraits that match the new game outfits, not a photograph. */
-export function Portrait({ brother, className = '' }: { brother: Brother; className?: string }) {
+export function Portrait({ character, className = '' }: { character: PlayerId; className?: string }) {
   const id = useId();
-  const nils = brother === 'nils';
+  const nils = character === 'nils';
   return (
     <svg className={className} viewBox="0 0 80 80" role="img" aria-label={nils ? 'Nils i turkos regnjacka och gul halsduk' : 'Ebbe i lila huvtröja med ljust hår'}>
       <defs>
