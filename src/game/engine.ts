@@ -301,7 +301,7 @@ export class GameEngine {
     this.state.started = true;
     const controls = window.matchMedia('(pointer: coarse)').matches
       ? 'Håll en pil för att gå. Håll Spring med andra fingret. E använder föremål.'
-      : 'WASD går. E vid kombin hoppar in. Myrboden finns på kartan (M).';
+      : 'WASD går. E vid bilen hoppar in. Myrboden finns på kartan (M).';
     this.callbacks.onToast({ title: 'Nu kör vi!', detail: controls, kind: 'info' });
     this.emit();
   }
@@ -621,7 +621,7 @@ export class GameEngine {
       this.companion.stunned = 0;
       if (this.state.activeMission === 'hunt') this.state.waypoint = this.state.hasRifle ? 'forest' : 'home';
       else if (this.state.activeMission === 'shop') this.state.waypoint = this.state.carryingMeat ? 'home' : 'market';
-      this.callbacks.onToast({ title: 'blå kombi · Blå faran', detail: this.state.activeMission === 'hunt' && !this.state.hasRifle ? 'Geväret ligger fortfarande i huset. Hämta det innan ni ger er ut på jakt.' : 'WASD kör · Mellanslag bromsar · H tutar · E kliver ur', kind: 'info' });
+      this.callbacks.onToast({ title: 'Blå faran · blå sedan', detail: this.state.activeMission === 'hunt' && !this.state.hasRifle ? 'Geväret ligger fortfarande i huset. Hämta det innan ni ger er ut på jakt.' : 'WASD kör · Mellanslag bromsar · H tutar · E kliver ur', kind: 'info' });
       this.cameraYaw = this.car.root.rotation.y + Math.PI;
       this.audio.play('click');
       this.save(); this.emit(); return;
@@ -740,7 +740,7 @@ export class GameEngine {
   private collides(position: THREE.Vector3, radius: number, includeCar: boolean, floor: 0 | 1 = 0) {
     if (Math.abs(position.x) > 89 || Math.abs(position.z) > 89) return true;
     if (floor === 1 && (Math.abs(position.x - HOME.center.x) > 5.44 - radius || Math.abs(position.z - HOME.center.z) > 3.94 - radius)) return true;
-    // The kombi can park outside, but it cannot be driven through the shop doorway.
+    // The sedan can park outside, but it cannot be driven through the shop doorway.
     if (radius > 1 && Math.abs(position.x - HOME.center.x) < 5.7 + radius && Math.abs(position.z - HOME.center.z) < 4.2 + radius) return true;
     if (radius > 1 && Math.abs(position.x - SHOP.center.x) < 7.4 + radius && position.z > SHOP.center.z - 5.5 - radius && position.z < SHOP.center.z + 5.3 + radius) return true;
     const colliders = floor === 1 ? this.world.home.upstairs.colliders : this.world.colliders;
@@ -1082,7 +1082,7 @@ export class GameEngine {
     const p = this.playerPosition;
     if (Math.hypot(p.x - SHOP.center.x, p.z - SHOP.center.z) < 17 && this.state.progress.shop === 0) {
       this.state.progress.shop = 1;
-      this.callbacks.onToast({ title: 'Myrboden', detail: 'Parkera kombin och gå fram till entrén. E öppnar butiksäventyret.', kind: 'info' });
+      this.callbacks.onToast({ title: 'Myrboden', detail: 'Parkera bilen och gå fram till entrén. E öppnar butiksäventyret.', kind: 'info' });
       this.save();
     }
     if (this.state.carryingMeat && Math.hypot(p.x - 2, p.z - 6) < 14) {
@@ -1281,7 +1281,7 @@ export class GameEngine {
       add('ebbe-computer', this.state.computerOn ? 'Ebbes dator · på' : 'Ebbes gamla dator · E', new THREE.Vector3(HOME.computer.x, HOME.upperY + 2.52, HOME.computer.z), 'target');
       return labels;
     }
-    if (distance(this.playerPosition, this.car.root.position) < 22 && !this.state.inCar) add('kombi', 'kombi · Blå faran', this.car.root.position.clone().add(new THREE.Vector3(0, 2.70, 0)), 'car');
+    if (distance(this.playerPosition, this.car.root.position) < 22 && !this.state.inCar) add('sedan', 'Blå faran · sedan', this.car.root.position.clone().add(new THREE.Vector3(0, 2.70, 0)), 'car');
     if (this.state.started && Math.hypot(this.playerPosition.x - HOME.center.x, this.playerPosition.z - HOME.center.z) < 28) {
       if (!this.state.insideHome) add('home-door', this.state.hasRifle ? 'Vännernas stuga' : 'Huset · hämta geväret', new THREE.Vector3(HOME.door.x, 4.5, -1.0), 'target');
       if (this.state.insideHome && !this.state.hasRifle) add('rifle', 'Jaktgeväret', new THREE.Vector3(HOME.rifle.x, 2.94, HOME.rifle.z), 'target');
@@ -1312,7 +1312,7 @@ export class GameEngine {
   private context(): string | null {
     if (this.state.onStairs) return null;
     if (this.state.aiming) return 'Lägg ner geväret';
-    if (this.state.inCar) return 'Kliv ur kombin';
+    if (this.state.inCar) return 'Kliv ur bilen';
     const p = this.playerPosition;
     if (this.state.homeFloor === 1) {
       if (this.nearComputer(p)) return this.state.computerOn ? 'Stäng av Ebbes dator' : 'Starta Ebbes dator';
@@ -1328,7 +1328,7 @@ export class GameEngine {
     if (!this.isInsideShop(p) && Math.hypot(p.x - SHOP.door.x, p.z - SHOP.door.z) < 3.5) return 'Gå in på Myrboden';
     if (!this.toolboxTaken && distance(p, this.world.toolbox.position) < 3.0) return 'Låna verktygslådan';
     if (this.world.elk.some(e => e.alive && distance(p, e.model.root.position) < 16)) return this.state.hasRifle ? 'Sikta med geväret' : 'Jaktgeväret saknas';
-    if (distance(p, this.car.root.position) < 4.6) return 'Hoppa in i kombin';
+    if (distance(p, this.car.root.position) < 4.6) return 'Hoppa in i bilen';
     if (distance(p, this.rurik.model.root.position) < 3.7 && !this.rurik.stunned) return 'Prata med Rurik';
     if (Math.hypot(p.x - HOME.coffee.x, p.z - HOME.coffee.z) < 2.4) return 'Ta en kaffepaus';
     if (distance(p, this.companion.model.root.position) < 3.5) return `Snacka med ${this.state.character === 'nils' ? 'Ebbe' : 'Nils'}`;

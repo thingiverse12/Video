@@ -51,7 +51,7 @@ try {
   await page.keyboard.down('w');
   await page.waitForFunction(() => Number(document.querySelector('.speedometer strong')?.textContent) >= 5);
   await page.keyboard.up('w');
-  console.log('✓ E enters the kombi and WASD accelerates it');
+  console.log('✓ E enters the sedan and WASD accelerates it');
 
   await page.keyboard.press('v');
   await waitText('.character-info strong', 'Ebbe');
