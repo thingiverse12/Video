@@ -4,7 +4,7 @@ import { sealPreviewResult, publicPreviewDetails } from './netlify-preview-envel
 import { emitEncryptedResult } from './emit-netlify-result.mjs';
 
 const repository = 'thingiverse12/Video';
-const branch = 'arena/01a0dde8-video';
+const branch = 'arena/01a0e8e8-video';
 const out = '.netlify/preview-result';
 
 function main() {
