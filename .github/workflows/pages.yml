@@ -2,7 +2,9 @@ name: Deploy static content to Pages
 
 'on':
   push:
-    branches: [arena/01a0dde8-video]
+    branches:
+      - arena/01a0dde8-video
+      - arena/01a0e92a-video
   workflow_dispatch:
 
 permissions:
