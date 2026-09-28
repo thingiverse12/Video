@@ -54,6 +54,10 @@ Licensfiler för de medföljande typsnitten och programbiblioteken finns under `
 
 Det här är en omarbetning med nya namn, nya figurkläder/porträtt, en ommärkt butik, generisk bil utan emblem och ny förpackningsgrafik. Det är en riskminskande förändring, **inte en juridisk garanti**. Granska fortfarande musik, kod, typsnitt, beroenden och helhetsintryck innan publik lansering. En friskrivning eller ändrad HEAD raderar inte tidigare Git-historik, gamla byggfiler eller redan publicerade webbplatser. Den som äger gamla driftsättningar behöver själv ta ned eller ersätta dem. Sök kvalificerad juridisk rådgivning vid behov.
 
+## GitHub Pages
+
+Aktivera Pages en gång i repositoryts inställningar: **Settings → Pages → Build and deployment → Source → GitHub Actions**. `actions/configure-pages@v5` läser Pages-konfigurationen och kan ge `404 Not Found` om den ännu inte finns. Indata `enablement: true` kräver en token med behörighet att administrera Pages; workflowens vanliga `GITHUB_TOKEN` räcker inte. När källan har valts, kör om workflowet **Deploy static content to Pages**.
+
 ## Kodöversikt
 
 - `src/App.tsx`, `src/components/` — gränssnitt, porträtt, kartor och touchkontroller.
