@@ -1,7 +1,7 @@
 {
   "mode": "anonymous-preview",
-  "branch": "arena/01a0e8e8-video",
-  "requestId": "49ba4d6a-7d8f-438b-b7e7-8a39e34afad7",
-  "requestedAt": "2026-09-28T17:02:44.690585Z",
-  "purpose": "User requested a Netlify preview with Leffe/Bill names and boxy blue sedan"
+  "branch": "arena/01a0e99b-video",
+  "requestId": "6e029671-fd6b-4e90-86fd-5ca418c8d351",
+  "requestedAt": "2026-09-28T20:06:16.883Z",
+  "purpose": "Publish the game with its server-side /api/ai endpoint for the current Arena session branch"
 }

@@ -114,3 +114,27 @@
 @media(max-width:700px){.hunting-buttons{gap:4px}.hunting-steps{font-size:7px;padding:2px}.missing-rifle button{max-width:205px;text-align:left}}
 
 .site-footer a{color:inherit;text-decoration:underline;text-underline-offset:2px}.site-footer a:hover{color:#3d5c38}
+
+/* Skogsprataren: the optional AI panel inside the settings modal. */
+.ai-panel{padding:22px 0;border-bottom:1px solid #e0e4d1}
+.ai-panel-head{align-items:flex-start}
+.ai-panel-head>svg{color:#8b9b75;margin-top:2px}
+.ai-state{display:flex;align-items:flex-start;gap:7px;margin-top:13px;font-size:9px;line-height:1.7;padding:9px 11px;border-radius:6px;background:#eef1e3;border:1px solid #e2e7d4;color:#7e8a68}
+.ai-state.ready{background:#e7efdc;border-color:#d9e4c9;color:#657c4f}
+.ai-state.info{background:#f2ecdc;border-color:#e8dfc7;color:#9a8560}
+.ai-state.checking{color:#8e9a78}
+.ai-state>svg{margin-top:1px}
+.ai-spin{animation:ai-spin 1s linear infinite}
+@keyframes ai-spin{to{transform:rotate(360deg)}}
+.ai-presets{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.ai-preset{font-size:9px;min-height:32px;padding:7px 11px}
+.ai-input{margin-top:11px;width:100%;resize:vertical;min-height:76px;font:inherit;font-size:10px;line-height:1.75;color:#546848;background:#fbfaf1;border:1px solid #daddcd;border-radius:7px;padding:11px 12px}
+.ai-input::placeholder{color:#a9ad97}
+.ai-input:focus-visible{outline:2px solid #dc8054;outline-offset:2px}
+.ai-actions{display:flex;align-items:center;gap:12px;margin-top:10px}
+.ai-counter{font-size:8px;color:#a3a893}
+.ai-send{margin-left:auto;min-height:39px;font-size:10px;gap:8px}
+.ai-error{margin-top:12px;font-size:9px;line-height:1.75;color:#a9705a;background:#f4e9e0;border:1px solid #ecd9cd;border-radius:6px;padding:9px 11px}
+.ai-answer{margin-top:12px;font-size:10px;line-height:1.85;color:#5f7250;background:#f2f4e6;border:1px solid #e3e7d3;border-radius:7px;padding:12px 13px;white-space:pre-wrap}
+.ai-answer:empty{display:none}
+@media(max-width:700px){.ai-panel{padding:19px 0}.ai-preset{font-size:8px}.ai-input{font-size:9px;min-height:70px}.ai-send{font-size:9px;min-height:36px}.ai-state,.ai-error,.ai-answer{font-size:8px}}
