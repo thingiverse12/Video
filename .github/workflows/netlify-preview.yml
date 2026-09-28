@@ -81,6 +81,8 @@ jobs:
         run: node scripts/check-vercel-api.mjs
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PUBLIC_SITE_URL: ${{ github.event.repository.homepage }}
 
       - name: Keep the public status and encrypted ownership details
         if: always()
