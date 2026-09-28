@@ -14,12 +14,14 @@ name: Netlify preview
       - api/**
       - scripts/deploy-netlify-preview.mjs
       - scripts/check-preview-api.mjs
+      - scripts/check-vercel-api.mjs
       - scripts/netlify-preview-envelope.mjs
       - scripts/emit-netlify-result.mjs
   workflow_dispatch:
 
 permissions:
   contents: read
+  deployments: read
 
 concurrency:
   group: netlify-preview-${{ github.ref }}
@@ -73,6 +75,12 @@ jobs:
       - name: Check the published /api/ai endpoint
         if: always()
         run: node scripts/check-preview-api.mjs
+
+      - name: Check /api/ai on the Vercel deployment of this commit
+        if: always()
+        run: node scripts/check-vercel-api.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Keep the public status and encrypted ownership details
         if: always()
