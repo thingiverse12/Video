@@ -39,7 +39,7 @@ export async function walkTo(page, x, z, yaw = 0, tolerance = 0.65) {
 }
 
 export async function enterHome(page, yaw = 0.61) {
-  // Go around, rather than through, the parked V40.
+  // Go around, rather than through, the parked kombi.
   await walkTo(page, 5.7, 1.4, yaw);
   await walkTo(page, -6.95, 2.0, yaw, 1.35);
   await waitText(page, '.interact-prompt', 'Gå in i huset');

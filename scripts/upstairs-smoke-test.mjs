@@ -22,13 +22,13 @@ const stairsBase = async () => {
   // Through the hall and the open doorway on the front of the dining room.
   await walkTo(page, -9.4, -2.85, 0, 0.22);
   await walkTo(page, -14.4, -2.8, 0, 0.24);
-  await waitText(page, '.interact-prompt', 'Gå upp till Billys rum');
+  await waitText(page, '.interact-prompt', 'Gå upp till Ebbes rum');
 };
 const reachComputer = async () => {
   await walkTo(page, -11.35, -7.4, 0, 0.25);
   await walkTo(page, -10.6, -6.7, 0, 0.25);
   await walkTo(page, -7.4, -7.5, 0, 0.30);
-  await waitText(page, '.interact-prompt', 'Starta Billys dator');
+  await waitText(page, '.interact-prompt', 'Starta Ebbes dator');
 };
 const waitFloor = async floor => {
   await page.waitForFunction(floor => {
@@ -48,13 +48,13 @@ try {
   await waitText(page, '.interact-prompt', 'Öppna kylskåpet');
   await page.keyboard.press('e');
   await waitText(page, '.home-hud', 'halv gurka');
-  await waitText(page, '.world-labels', 'Kalles kaviar');
+  await waitText(page, '.world-labels', 'örtkräm');
   await page.waitForTimeout(1400);
   await shot('cucumber-in-fridge');
   assert.equal((await data()).fridgeOpen, 'true');
   assert.equal((await data()).homeFloor, '0');
   assert.equal(await page.locator('.wallet strong').innerText(), '240');
-  console.log('✓ The fridge contains Kalles and half a cucumber; the new room layout is playable');
+  console.log('✓ The fridge contains örtkräm and half a cucumber; the new room layout is playable');
 
   await walkTo(page, -9.4, -5.8, 0, 0.30);
   await stairsBase();
@@ -68,7 +68,7 @@ try {
   assert.equal((await data()).playerY, pausedHeight, 'Pausing stops the stair animation');
   await page.getByRole('button', { name: 'Fortsätt äventyret', exact: true }).click();
   await waitFloor(1);
-  await waitText(page, '.location-hud', 'Billys rum');
+  await waitText(page, '.location-hud', 'Ebbes rum');
   assert.equal((await data()).playerY, '3.65');
   assert.equal((await data()).fridgeOpen, 'false');
   assert.equal(await page.locator('.world-labels').filter({ hasText: 'Jaktgeväret' }).count(), 0, 'No ground-floor item labels bleed through the upper floor');
@@ -76,14 +76,14 @@ try {
 
   await reachComputer();
   assert.equal((await data()).computerOn, 'false');
-  await shot('billys-room');
+  await shot('ebbes-room');
   await page.keyboard.press('e');
   await waitText(page, '.home-hud', 'Datorn surrar');
   assert.equal((await data()).computerOn, 'true');
   assert.equal((await data()).hasRifle, 'false');
   await shot('old-computer-on');
   await page.keyboard.press('v');
-  await waitText(page, '.character-info strong', 'Billy');
+  await waitText(page, '.character-info strong', 'Ebbe');
   assert.equal((await data()).homeFloor, '1');
   assert.equal((await data()).playerY, '3.65');
   assert.equal(await page.locator('.wallet strong').innerText(), '240');
@@ -136,7 +136,7 @@ try {
   await page.getByRole('button', { name: 'Ja, börja om', exact: true }).click();
   const reset = await data();
   assert.equal(reset.homeFloor, '0'); assert.equal(reset.insideHome, 'false'); assert.equal(reset.computerOn, 'false'); assert.equal(reset.onStairs, 'false');
-  assert.equal(await page.evaluate(() => localStorage.getItem('lillasen-adventure-v1')), null);
+  assert.equal(await page.evaluate(() => localStorage.getItem('gramyren-adventure-v1')), null);
   assert.deepEqual(errors, [], 'No browser exceptions');
   console.log('✓ Reload preserves earned progress; resetting upstairs returns cleanly to the yard');
   console.log('\nAll upstairs and cucumber tests passed.');

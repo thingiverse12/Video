@@ -1,7 +1,7 @@
-export type Brother = 'leif' | 'billy';
-export type MissionId = 'hunt' | 'tony' | 'bailiff' | 'shop';
-export const MISSION_IDS: MissionId[] = ['shop', 'hunt', 'tony', 'bailiff'];
-export type DestinationId = 'home' | 'tony' | 'forest' | 'lake' | 'ica';
+export type Brother = 'nils' | 'ebbe';
+export type MissionId = 'hunt' | 'rurik' | 'bailiff' | 'shop';
+export const MISSION_IDS: MissionId[] = ['shop', 'hunt', 'rurik', 'bailiff'];
+export type DestinationId = 'home' | 'rurik' | 'forest' | 'lake' | 'market';
 export type Menu = 'missions' | 'map' | 'guide' | 'settings' | 'pause' | null;
 
 export interface Destination {
@@ -36,9 +36,9 @@ export const SHOP = {
 };
 
 export const DESTINATIONS: Destination[] = [
-  { id: 'ica', name: 'ICA Sörbäcken', subtitle: 'KYLEN ÄR TOM. IDÉERNA ÄR SÄMRE.', description: 'Byns lilla matbutik med köttdisk, kundvagnar och handlaren Bosse. Ett helt påhittat butiksäventyr. Gå in och försök ta ett köttpaket – men Bosse kan stoppa er.', x: 40, z: 25.8 },
-  { id: 'home', name: 'Hemma på gården', subtitle: 'HEM LJUVA HEM', description: 'Hemma hos bröderna. Gå upp till verandan och tryck E för att gå in. Här finns slitna soffor, en gammal tjock-tv, smutsig disk och en avskärmad tv-hörna, matplats och en kyl med Kalles kaviar och en halv gurka. E öppnar kylen. Vid trätrappan går E upp till Billys rum och hans gamla dator. Hämta också jaktgeväret innan ni jagar.', x: 6, z: 10 },
-  { id: 'tony', name: 'Tonys gård', subtitle: 'GRANNEN PÅ ANDRA SIDAN', description: 'Tony gillar lugn och ro. Och sin verktygslåda. Försök att inte reta upp honom. Eller gör det.', x: 33, z: -15 },
+  { id: 'market', name: 'Myrboden', subtitle: 'KYLEN ÄR TOM. IDÉERNA ÄR SÄMRE.', description: 'Byns lilla matbutik med köttdisk, kundvagnar och handlaren Marta. Ett helt påhittat butiksäventyr. Gå in och försök ta ett köttpaket – men Marta kan stoppa er.', x: 40, z: 25.8 },
+  { id: 'home', name: 'Hemma på gården', subtitle: 'HEM LJUVA HEM', description: 'Hemma hos bröderna. Gå upp till verandan och tryck E för att gå in. Här finns slitna soffor, en gammal tjock-tv, smutsig disk och en avskärmad tv-hörna, matplats och en kyl med örtkräm och en halv gurka. E öppnar kylen. Vid trätrappan går E upp till Ebbes rum och hans gamla dator. Hämta också jaktgeväret innan ni jagar.', x: 6, z: 10 },
+  { id: 'rurik', name: 'Ruriks gård', subtitle: 'GRANNEN PÅ ANDRA SIDAN', description: 'Rurik gillar lugn och ro. Och sin verktygslåda. Försök att inte reta upp honom. Eller gör det.', x: 33, z: -15 },
   { id: 'forest', name: 'Jaktmarken', subtitle: 'LÅNGT FRÅN FOLK', description: 'Följ grusvägen in bland granarna. Här ute finns älgar, frisk luft och tveksamma beslut.', x: -25, z: -40 },
   { id: 'lake', name: 'Myrsjön', subtitle: 'EN STUNDS LUGN', description: 'En stilla skogssjö med en gammal brygga. Ett bra ställe att gömma sig från sina bekymmer.', x: 39, z: -42 },
 ];
@@ -46,37 +46,37 @@ export const DESTINATIONS: Destination[] = [
 export const MISSIONS = {
   shop: {
     title: 'Kött till kvällsmaten',
-    kicker: 'ETT HYSS PÅ ICA SÖRBÄCKEN',
-    description: 'Tomt i kylen igen. Försök sno ett köttpaket i byns matbutik och få hem det. Blir ni tagna tar Bosse tillbaka köttet.',
-    short: 'ICA Sörbäcken har kött. Ni har en väldigt tveksam middagsplan.',
-    steps: ['Besök ICA Sörbäcken', 'Försök sno ett köttpaket', 'Ta köttet hem till gården'],
+    kicker: 'ETT HYSS PÅ MYRBODEN',
+    description: 'Tomt i kylen igen. Försök sno ett köttpaket i byns matbutik och få hem det. Blir ni tagna tar Marta tillbaka köttet.',
+    short: 'Myrboden har kött. Ni har en väldigt tveksam middagsplan.',
+    steps: ['Besök Myrboden', 'Försök sno ett köttpaket', 'Ta köttet hem till gården'],
     reward: 120,
-    destination: 'ica' as DestinationId,
+    destination: 'market' as DestinationId,
   },
   hunt: {
     title: 'Ut i det fria',
     kicker: 'EN SVÄNG I SKOGEN',
-    description: 'Hämta jaktgeväret inne i huset innan ni drar till skogen. Utan geväret blir det ingen jakt, oavsett hur bra Billys idé är.',
-    short: 'Kaffet är packat. Hämta geväret i huset och ta V40:n till jaktmarken.',
+    description: 'Hämta jaktgeväret inne i huset innan ni drar till skogen. Utan geväret blir det ingen jakt, oavsett hur bra Ebbes idé är.',
+    short: 'Kaffet är packat. Hämta geväret i huset och ta kombin till jaktmarken.',
     steps: ['Hämta geväret i huset', 'Ta dig till jaktmarken', 'Sikta och träffa en älg'],
     reward: 150,
     destination: 'forest' as DestinationId,
   },
-  tony: {
+  rurik: {
     title: 'Bara låna lite',
-    kicker: 'ETT BESÖK HOS TONY',
-    description: 'Tony har en fin verktygslåda. Ni har en bil med gott om plats. Vad skulle kunna gå fel?',
+    kicker: 'ETT BESÖK HOS RURIK',
+    description: 'Rurik har en fin verktygslåda. Ni har en bil med gott om plats. Vad skulle kunna gå fel?',
     short: 'Hälsa på grannen och låna hans verktygslåda. Utan att fråga, förstås.',
-    steps: ['Besök Tonys gård', 'Ta verktygslådan', 'Kom undan från Tony'],
+    steps: ['Besök Ruriks gård', 'Ta verktygslådan', 'Kom undan från Rurik'],
     reward: 100,
-    destination: 'tony' as DestinationId,
+    destination: 'rurik' as DestinationId,
   },
   bailiff: {
     title: 'Oväntat besök',
-    kicker: 'KRONOFOGDEN KOMMER',
+    kicker: 'INDRIVARNA KOMMER',
     description: 'Två kostymer på uppfarten. Inga goda nyheter. Visa dem vänligt men bestämt var utfarten ligger.',
-    short: 'Kronofogden är på väg. Håll gården fri från oönskade besökare.',
-    steps: ['Möt Kronofogden', 'Jaga bort första fogden', 'Jaga bort andra fogden'],
+    short: 'Indrivarna är på väg. Håll gården fri från oönskade besökare.',
+    steps: ['Möt indrivarna', 'Jaga bort första fogden', 'Jaga bort andra fogden'],
     reward: 200,
     destination: 'home' as DestinationId,
   },
@@ -140,7 +140,7 @@ export interface GameSnapshot {
 export const INITIAL_SNAPSHOT: GameSnapshot = {
   ready: false,
   started: false,
-  character: 'leif',
+  character: 'nils',
   health: 100,
   money: 240,
   wanted: 0,
@@ -171,10 +171,10 @@ export const INITIAL_SNAPSHOT: GameSnapshot = {
   location: 'Hemma på gården',
   time: '14:32',
   activeMission: 'shop',
-  progress: { hunt: 0, tony: 0, bailiff: 0, shop: 0 },
+  progress: { hunt: 0, rurik: 0, bailiff: 0, shop: 0 },
   bailiffsActive: false,
   bailiffETA: 180,
-  context: 'Hoppa in i V40:n',
+  context: 'Hoppa in i kombin',
   position: { x: 6, y: 0, z: 9, heading: 0 },
   carPosition: { x: 2, z: 7, heading: -0.25 },
   waypoint: null,
@@ -193,6 +193,6 @@ export interface ToastMessage {
 export interface GameCallbacks {
   onUpdate: (snapshot: GameSnapshot) => void;
   onToast: (message: ToastMessage) => void;
-  onDialogue: (person: 'tony' | 'billy') => void;
+  onDialogue: (person: 'rurik' | 'ebbe') => void;
   onError: (message: string) => void;
 }

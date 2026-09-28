@@ -194,24 +194,26 @@ export function createOldSink() {
   return root;
 }
 
-function createKallesTube() {
-  const root = new THREE.Group(); root.name = 'Kalles kaviar — blå tub med röd kork';
+function createHerbPasteTube() {
+  const root = new THREE.Group(); root.name = 'Grön tub med örtröra';
   const profile = [new THREE.Vector2(0.042, 0.045), new THREE.Vector2(0.066, 0.11), new THREE.Vector2(0.135, 0.18), new THREE.Vector2(0.142, 0.41), new THREE.Vector2(0.13, 0.53), new THREE.Vector2(0.15, 0.58)];
-  const tube = mesh(new THREE.LatheGeometry(profile, 24), smoothMaterial('#206b9e', 0.55, 0.12)); tube.scale.z = 0.63; root.add(tube);
-  const cap = cylinder(root, 0.061, 0.061, 0.077, '#b75539', 0, 0.045, 0, 16);
-  for (let i = 0; i < 12; i++) box(cap, 0.006, 0.061, 0.006, '#d07b49', Math.cos(i * Math.PI / 6) * 0.06, 0, Math.sin(i * Math.PI / 6) * 0.06);
-  roundedBox(root, 0.294, 0.035, 0.037, '#d0ba5b', 0, 0.58, 0, 0.007);
+  const tube = mesh(new THREE.LatheGeometry(profile, 24), smoothMaterial('#758d59', 0.55, 0.12)); tube.scale.z = 0.63; root.add(tube);
+  const cap = cylinder(root, 0.061, 0.061, 0.077, '#ece3bb', 0, 0.045, 0, 16);
+  for (let i = 0; i < 12; i++) box(cap, 0.006, 0.061, 0.006, '#d0c696', Math.cos(i * Math.PI / 6) * 0.06, 0, Math.sin(i * Math.PI / 6) * 0.06);
+  roundedBox(root, 0.294, 0.035, 0.037, '#e5d9a6', 0, 0.58, 0, 0.007);
   const label = canvasTexture(256, 384, ctx => {
-    ctx.fillStyle = '#1d6294'; ctx.fillRect(0, 0, 256, 384);
-    ctx.fillStyle = '#e0ba50'; ctx.fillRect(8, 7, 240, 5); ctx.fillRect(8, 369, 240, 5);
-    ctx.textAlign = 'center'; ctx.fillStyle = '#efda83'; ctx.font = 'bold italic 64px Georgia'; ctx.fillText('Kalles', 124, 81);
-    // A little hand-drawn blond face evokes the familiar tube, without an external asset.
-    ctx.fillStyle = '#ecd9aa'; ctx.beginPath(); ctx.ellipse(128, 184, 62, 73, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ebc659'; ctx.beginPath(); ctx.moveTo(65, 168); ctx.bezierCurveTo(45, 89, 204, 85, 190, 165); ctx.lineTo(171, 137); ctx.lineTo(145, 159); ctx.lineTo(125, 132); ctx.lineTo(99, 157); ctx.lineTo(79, 139); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#365362'; for (const x of [105, 151]) { ctx.beginPath(); ctx.ellipse(x, 182, 5, 7, 0, 0, Math.PI * 2); ctx.fill(); }
-    ctx.strokeStyle = '#a06a46'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(108, 219); ctx.quadraticCurveTo(130, 242, 153, 218); ctx.stroke();
-    ctx.fillStyle = '#f4e7bc'; ctx.font = 'bold 36px Arial'; ctx.fillText('KAVIAR', 128, 310);
-    ctx.fillStyle = '#d5cbb0'; ctx.font = '20px Arial'; ctx.fillText('ORIGINAL', 128, 344);
+    ctx.fillStyle = '#66815b'; ctx.fillRect(0, 0, 256, 384);
+    ctx.fillStyle = '#e9dcad'; ctx.fillRect(12, 15, 232, 3); ctx.fillRect(12, 365, 232, 3);
+    ctx.fillStyle = '#f6edd1'; ctx.textAlign = 'center';
+    ctx.font = 'bold 39px Arial'; ctx.fillText('ÖRTKRÄM', 128, 72);
+    // Abstract leaves replace the former face illustration and branded colours.
+    ctx.strokeStyle = '#e9dcad'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(128, 287); ctx.lineTo(128, 137); ctx.stroke();
+    for (const side of [-1, 1]) for (const y of [160, 208, 256]) {
+      ctx.fillStyle = '#cfdaa7'; ctx.beginPath();
+      ctx.ellipse(128 + side * 29, y, 17, 37, side * .65, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#f6edd1'; ctx.font = '22px Arial'; ctx.fillText('MED GRÖNA ÖRTER', 128, 333);
   });
   const face = mesh(new THREE.PlaneGeometry(0.246, 0.382), new THREE.MeshStandardMaterial({ map: label, roughness: 0.7 }));
   face.position.set(0, 0.352, 0.091); root.add(face);
@@ -252,7 +254,7 @@ export function createOldFridge() {
   for (const x of [-0.569, 0.569]) box(root, 0.024, 1.49, 0.91, inside, x, 0.95, 0.005);
   for (const x of [-0.53, 0.53]) for (const z of [-0.35, 0.34]) cylinder(root, 0.055, 0.045, 0.17, '#666d57', x, 0.087, z, 10);
   box(root, 1.14, 0.05, 0.83, '#bbc9b5', 0, 0.265, 0.015);
-  const contents = new THREE.Group(); contents.name = 'Kylens hyllor och Kalles-tub'; root.add(contents);
+  const contents = new THREE.Group(); contents.name = 'Kylens hyllor och örtröret'; root.add(contents);
   for (const y of [0.65, 1.38]) {
     box(contents, 1.13, 0.025, 0.78, '#b7c9ba', 0, y, 0.025);
     box(contents, 1.13, 0.034, 0.035, '#e4e5c9', 0, y, 0.417);
@@ -260,7 +262,7 @@ export function createOldFridge() {
   }
   roundedBox(contents, 0.79, 0.16, 0.51, '#b2c1b1', -0.05, 1.535, -0.08, 0.017);
   box(contents, 0.65, 0.03, 0.025, '#7c9384', -0.05, 1.51, 0.193);
-  const tube = createKallesTube(); tube.position.set(0.17, 0.67, 0.31); tube.rotation.z = -0.08; tube.rotation.x = -0.08; contents.add(tube);
+  const tube = createHerbPasteTube(); tube.position.set(0.17, 0.67, 0.31); tube.rotation.z = -0.08; tube.rotation.x = -0.08; contents.add(tube);
   ellipsoid(contents, new THREE.MeshBasicMaterial({ color: '#fff0b3' }), -0.46, 1.57, 0.25, 0.038, 0.066, 0.045, 12);
   const cucumber = createHalfCucumber(); cucumber.position.set(-0.25, 0.765, 0.18); cucumber.rotation.y = -0.18; contents.add(cucumber);
   contents.visible = false;

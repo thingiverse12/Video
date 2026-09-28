@@ -30,9 +30,9 @@ try {
   assert.equal((await state()).aiming, false);
   assert.equal((await state()).shots, 0);
 
-  await page.evaluate(() => localStorage.setItem('lillasen-adventure-v1', JSON.stringify({
-    version: 3, hasRifle: true, money: 240, character: 'leif', activeMission: 'hunt',
-    progress: { hunt: 1, shop: 0, tony: 0, bailiff: 0 }, carryingMeat: false, toolboxTaken: false,
+  await page.evaluate(() => localStorage.setItem('gramyren-adventure-v1', JSON.stringify({
+    version: 3, hasRifle: true, money: 240, character: 'nils', activeMission: 'hunt',
+    progress: { hunt: 1, shop: 0, rurik: 0, bailiff: 0 }, carryingMeat: false, toolboxTaken: false,
   })));
   await page.reload({ waitUntil: 'networkidle' });
   await page.locator('.start-button').waitFor(); await lowQuality(page); await page.locator('.start-button').click();

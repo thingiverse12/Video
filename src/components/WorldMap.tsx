@@ -9,7 +9,7 @@ const roads = [
   [[14, 27], [23, 27], [32, 29], [40, 28]],
 ];
 const mapPoint = (x: number, z: number) => ({ x: (x + 63) / 143 * 680, y: (z + 78) / 131 * 590 });
-const DestinationIcon = ({ id, size = 18 }: { id: DestinationId; size?: number }) => id === 'ica' ? <Store size={size} /> : id === 'forest' ? <TreePine size={size} /> : id === 'lake' ? <Waves size={size} /> : <Home size={size} />;
+const DestinationIcon = ({ id, size = 18 }: { id: DestinationId; size?: number }) => id === 'market' ? <Store size={size} /> : id === 'forest' ? <TreePine size={size} /> : id === 'lake' ? <Waves size={size} /> : <Home size={size} />;
 
 export function MiniMap({ state, onOpen }: { state: GameSnapshot; onOpen: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -34,19 +34,19 @@ export function MiniMap({ state, onOpen }: { state: GameSnapshot; onOpen: () => 
     }
     const lake = to(55, -52);
     ctx.fillStyle = '#8eadab'; ctx.beginPath(); ctx.ellipse(lake.x, lake.y, 47, 35, -0.35, 0, Math.PI * 2); ctx.fill();
-    const home = to(-8, -5), tony = to(38, -25);
+    const home = to(-8, -5), rurik = to(38, -25);
     ctx.fillStyle = '#cdc5a2'; ctx.beginPath(); ctx.ellipse(home.x, home.y, 30, 24, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(tony.x, tony.y, 24, 21, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(rurik.x, rurik.y, 24, 21, 0, 0, Math.PI * 2); ctx.fill();
     for (const road of roads) {
       ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#d9cfb0'; ctx.lineWidth = 9;
       ctx.beginPath(); road.forEach(([x, z], i) => { const p = to(x, z); if (!i) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); }); ctx.stroke();
       ctx.strokeStyle = '#f0e4c4'; ctx.lineWidth = 5; ctx.stroke();
     }
-    for (const [x, z, color] of [[-10, -6, '#98644b'], [38, -26, '#aa8d4f'], [-22, -14, '#8e7353'], [40, 16, '#b9624b']] as [number, number, string][]) {
+    for (const [x, z, color] of [[-10, -6, '#98644b'], [38, -26, '#aa8d4f'], [-22, -14, '#8e7353'], [40, 16, '#517b63']] as [number, number, string][]) {
       const p = to(x, z); ctx.fillStyle = color; ctx.fillRect(p.x - 8, p.y - 5, 16, 10);
     }
     const shop = to(40, 16);
-    ctx.fillStyle = '#f4e4cc'; ctx.font = 'bold 7px Arial'; ctx.textAlign = 'center'; ctx.fillText('ICA', shop.x, shop.y + 2.5);
+    ctx.fillStyle = '#f4e4cc'; ctx.font = 'bold 7px Arial'; ctx.textAlign = 'center'; ctx.fillText('MYR', shop.x, shop.y + 2.5);
     if (state.waypoint) {
       const dest = DESTINATIONS.find(d => d.id === state.waypoint)!;
       const p = to(dest.x, dest.z);
@@ -66,7 +66,7 @@ export function MiniMap({ state, onOpen }: { state: GameSnapshot; onOpen: () => 
     ctx.shadowBlur = 0; ctx.fillStyle = '#d57747'; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6.4, 6.8); ctx.lineTo(0, 3.6); ctx.lineTo(-6.4, 6.8); ctx.closePath(); ctx.fill(); ctx.restore();
   }, [state.position.x, state.position.z, state.position.heading, state.carPosition.x, state.carPosition.z, state.waypoint, state.bailiffsActive]);
   return <button className="minimap" onClick={onOpen} aria-label="Öppna världskartan">
-    <div className="minimap-heading"><span>LILLÅSEN</span><span className="minimap-north">N <span>↑</span></span></div>
+    <div className="minimap-heading"><span>GRÅMYREN</span><span className="minimap-north">N <span>↑</span></span></div>
     <canvas ref={canvasRef} width="336" height="336" />
     <div className="minimap-footer"><span>Du är här</span><span className="keycap">M</span></div>
     <span className="minimap-expand"><ArrowUpRight size={15} /></span>
@@ -77,7 +77,7 @@ export function WorldMap({ state, selected, onSelect }: { state: GameSnapshot; s
   const player = mapPoint(state.position.x, state.position.z);
   const car = mapPoint(state.carPosition.x, state.carPosition.z);
   return <div className="world-map">
-    <svg viewBox="0 0 680 590" aria-label="Karta över Lillåsen med gården, Tony, jaktmarken, Myrsjön och ICA Sörbäcken" role="img">
+    <svg viewBox="0 0 680 590" aria-label="Karta över Gråmyren med gården, Rurik, jaktmarken, Myrsjön och Myrboden" role="img">
       <defs>
         <pattern id="map-trees" width="36" height="36" patternUnits="userSpaceOnUse"><path d="m8 5-4 7h2l-3 5h10l-3-5h2L8 5Zm18 18-3 5h1l-2 4h8l-2-4h1l-3-5Z" fill="#8ba07e" opacity=".30" /></pattern>
         <filter id="map-shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity=".15" /></filter>
@@ -99,7 +99,7 @@ export function WorldMap({ state, selected, onSelect }: { state: GameSnapshot; s
         return <g key={i}><path d={d} fill="none" stroke="#c9bb98" strokeWidth={i === 2 ? 8 : 17} strokeLinecap="round" strokeLinejoin="round" /><path d={d} fill="none" stroke="#f2e8cb" strokeWidth={i === 2 ? 5 : 12} strokeLinecap="round" strokeLinejoin="round" /></g>;
       })}
       <g stroke="#f3ead2" strokeWidth="3"><rect x="244" y="350" width="49" height="29" rx="2" fill="#a9745c" /><rect x="221" y="320" width="23" height="18" fill="#aa8060" /><rect x="459" y="231" width="41" height="26" rx="2" fill="#b89c64" /></g>
-      <g><rect x="455" y="398" width="67" height="46" rx="3" fill="#b96951" stroke="#f4e8c9" strokeWidth="3" /><text x="488" y="427" textAnchor="middle" fill="#fff0d8" fontFamily="Arial" fontStyle="italic" fontWeight="bold" fontSize="17">ICA</text><path d="M459 450v18m15-18v18m15-18v18m15-18v18m15-18v18" stroke="#eee2c1" strokeWidth="2" /></g>
+      <g><rect x="455" y="398" width="67" height="46" rx="3" fill="#b96951" stroke="#f4e8c9" strokeWidth="3" /><text x="488" y="427" textAnchor="middle" fill="#fff0d8" fontFamily="Arial" fontStyle="italic" fontWeight="bold" fontSize="17">LIVS</text><path d="M459 450v18m15-18v18m15-18v18m15-18v18m15-18v18" stroke="#eee2c1" strokeWidth="2" /></g>
       <g fontFamily="DM Sans, sans-serif" textAnchor="middle" fill="#69795d">
         <text x="117" y="294" fontSize="11" letterSpacing="4" transform="rotate(-32 117 294)">STORSKOGEN</text>
         <text x="582" y="225" fontSize="10" letterSpacing="3">MYRSJÖN</text>

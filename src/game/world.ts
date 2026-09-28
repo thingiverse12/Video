@@ -283,7 +283,7 @@ export function createWorld(): World {
     { type: 'box', x: sx - 2.55, z: sz - 4.70, w: 6.65, d: 0.66 },
   );
   cylinder(root, 0.095, 0.11, 2.8, '#8b7d60', 23, 1.4, 25);
-  const shopSign = sign(root, 'ICA SÖRBÄCKEN →', 23, 2.37, 25, 4.0, 0.72, '#f0dfbf');
+  const shopSign = sign(root, 'MYRBODEN →', 23, 2.37, 25, 4.0, 0.72, '#f0dfbf');
   shopSign.rotation.y = -0.25;
 
   const home = createHouse();
@@ -301,9 +301,9 @@ export function createWorld(): World {
     ...homeRoom.colliders,
   );
   // The porch is accessible at the sides, the steps lead into the front garden.
-  const tonyHome = createHouse('#c39a52', 0.79, 'TONYS REVIR');
-  tonyHome.position.set(38, 0, -26);
-  root.add(tonyHome);
+  const rurikHome = createHouse('#c39a52', 0.79, 'RURIKS REVIR');
+  rurikHome.position.set(38, 0, -26);
+  root.add(rurikHome);
   colliders.push({ type: 'box', x: 38, z: -26, w: 9.0, d: 6.8 });
 
   // Timber outbuilding and a lean-to, with the familiar Falu-red walls.
@@ -379,7 +379,7 @@ export function createWorld(): World {
   }
 
   // Hand-painted signs, mailboxes, flower pots and scraps of everyday life.
-  for (const [x, z, text, rot] of [[11, 15, 'LILLÅSEN', -0.13], [11, -9, 'TONY →', 0.2], [-7, -23, 'JAKTMARK →', 0.7]] as [number, number, string, number][]) {
+  for (const [x, z, text, rot] of [[11, 15, 'GRÅMYREN', -0.13], [11, -9, 'RURIK →', 0.2], [-7, -23, 'JAKTMARK →', 0.7]] as [number, number, string, number][]) {
     cylinder(root, 0.11, 0.11, 2.8, '#7e7050', x, 1.4, z);
     const s = sign(root, text, x, 2.45, z + 0.02, 2.8, 0.64); s.rotation.y = rot;
   }
@@ -405,7 +405,7 @@ export function createWorld(): World {
   box(root, 2.10, 0.14, 1.08, '#9b865d', 32.3, 1.05, -19.6);
   for (const x of [31.45, 33.15]) for (const z of [-19.95, -19.25]) box(root, 0.13, 1.03, 0.13, '#7e7453', x, 0.50, z);
   bench(42, -20.7, 0.25);
-  // Tony's suspiciously well-kept vegetables.
+  // Rurik's suspiciously well-kept vegetables.
   box(root, 4.2, 0.12, 3.9, '#71684b', 47, 0.08, -20);
   for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
     const cabbage = mesh(new THREE.IcosahedronGeometry(0.30, 0), '#778753'); cabbage.position.set(45.5 + i * 0.96, 0.29, -21.4 + j * 0.88); root.add(cabbage);

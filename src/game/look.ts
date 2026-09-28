@@ -50,7 +50,7 @@ export function surfaceTexture(kind: 'grass' | 'gravel' | 'bark' | 'water' | 'fu
     }
   }
   const texture = new THREE.CanvasTexture(canvas);
-  texture.name = `Lillåsen · ${kind}`;
+  texture.name = `Gråmyren · ${kind}`;
   texture.colorSpace = kind === 'water' ? THREE.NoColorSpace : THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.anisotropy = 4;
@@ -197,7 +197,7 @@ export function outdoorReflections(renderer: THREE.WebGLRenderer) {
   const generator = new THREE.PMREMGenerator(renderer);
   try {
     const target = generator.fromEquirectangular(texture);
-    target.texture.name = 'Lillåsen sky reflections'; return target;
+    target.texture.name = 'Gråmyren sky reflections'; return target;
   } catch {
     // Reflection support is optional. Lighting and all gameplay remain available.
     return null;
@@ -223,7 +223,7 @@ export function groundDecal(kind: 'clearing' | 'track') {
     pixels.data[i + 3] = Math.round(alpha * 255);
   }
   ctx.putImageData(pixels, 0, 0);
-  const texture = new THREE.CanvasTexture(canvas); texture.name = `Lillåsen · ${kind} decal`;
+  const texture = new THREE.CanvasTexture(canvas); texture.name = `Gråmyren · ${kind} decal`;
   if (kind === 'track') texture.wrapT = THREE.RepeatWrapping;
   texture.anisotropy = 4; textures.set(key, texture); return texture;
 }

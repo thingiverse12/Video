@@ -23,7 +23,7 @@ interface Actor {
 }
 interface Particle { object: THREE.Mesh; velocity: THREE.Vector3; life: number; total: number; }
 interface Speech { id: string; text: string; position: THREE.Vector3; actor?: Actor; until: number; }
-const SAVE_KEY = 'lillasen-adventure-v1';
+const SAVE_KEY = 'gramyren-adventure-v1';
 const up = new THREE.Vector3(0, 1, 0);
 const distance = (a: THREE.Vector3, b: THREE.Vector3) => Math.hypot(a.x - b.x, a.z - b.z);
 const angleLerp = (a: number, b: number, factor: number) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * factor;
@@ -36,7 +36,7 @@ export class GameEngine {
   private car: CarModel;
   private officialCar: CarModel;
   private brothers: Record<Brother, Actor>;
-  private tony: Actor;
+  private rurik: Actor;
   private shopkeeper: Actor;
   private bags: Record<Brother, THREE.Group>;
   private rifles: Record<Brother, THREE.Group>;
@@ -111,7 +111,7 @@ export class GameEngine {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.02;
-    this.renderer.domElement.setAttribute('aria-label', 'Spelvärlden Lillåsen i 3D. Använd WASD för att gå, E för att interagera och F för att slå.');
+    this.renderer.domElement.setAttribute('aria-label', 'Spelvärlden Gråmyren i 3D. Använd WASD för att gå, E för att interagera och F för att slå.');
     this.renderer.domElement.tabIndex = 0;
     this.renderer.domElement.className = 'world-canvas';
     element.appendChild(this.renderer.domElement);
@@ -144,26 +144,26 @@ export class GameEngine {
     this.officialCar.root.position.set(16, 0, 37); this.officialCar.root.rotation.y = Math.PI + 0.16;
     this.scene.add(this.officialCar.root);
     this.brothers = {
-      leif: this.createActor('leif', 6.1, 9.2),
-      billy: this.createActor('billy', 8.5, 8.15),
+      nils: this.createActor('nils', 6.1, 9.2),
+      ebbe: this.createActor('ebbe', 8.5, 8.15),
     };
-    this.brothers.leif.model.root.rotation.y = 0.51;
-    this.brothers.billy.model.root.rotation.y = 0.28;
-    this.tony = this.createActor('tony', 35.4, -17.9);
+    this.brothers.nils.model.root.rotation.y = 0.51;
+    this.brothers.ebbe.model.root.rotation.y = 0.28;
+    this.rurik = this.createActor('rurik', 35.4, -17.9);
     this.shopkeeper = this.createActor('shopkeeper', SHOP.clerk.x, SHOP.clerk.z);
     this.shopkeeper.model.root.rotation.y = -0.70;
-    this.bags = { leif: createShoppingBag(), billy: createShoppingBag() };
-    this.brothers.leif.model.arms[0].add(this.bags.leif);
-    this.brothers.billy.model.arms[0].add(this.bags.billy);
-    this.rifles = { leif: createHuntingRifle(), billy: createHuntingRifle() };
-    for (const brother of ['leif', 'billy'] as Brother[]) {
+    this.bags = { nils: createShoppingBag(), ebbe: createShoppingBag() };
+    this.brothers.nils.model.arms[0].add(this.bags.nils);
+    this.brothers.ebbe.model.arms[0].add(this.bags.ebbe);
+    this.rifles = { nils: createHuntingRifle(), ebbe: createHuntingRifle() };
+    for (const brother of ['nils', 'ebbe'] as Brother[]) {
       this.brothers[brother].model.body.add(this.rifles[brother]);
       this.rifles[brother].visible = false;
     }
     this.bailiffs = [this.createActor('bailiff', 12, 12, 'fogde-1'), this.createActor('bailiff', 14, 10, 'fogde-2')];
     this.bailiffs.forEach(a => a.model.root.visible = false);
     this.hunting = new HuntingProjectiles(this.world,
-      () => [this.companion, this.tony, this.shopkeeper, ...this.bailiffs].map(actor => ({ root: actor.model.root })),
+      () => [this.companion, this.rurik, this.shopkeeper, ...this.bailiffs].map(actor => ({ root: actor.model.root })),
       () => [this.car.root, this.officialCar.root], impact => this.onShotImpact(impact));
     this.scene.add(this.hunting.root);
 
@@ -198,7 +198,7 @@ export class GameEngine {
   }
 
   private get player() { return this.brothers[this.state.character]; }
-  private get companion() { return this.brothers[this.state.character === 'leif' ? 'billy' : 'leif']; }
+  private get companion() { return this.brothers[this.state.character === 'nils' ? 'ebbe' : 'nils']; }
   private get playerPosition() { return this.state.inCar ? this.car.root.position : this.player.model.root.position; }
 
   private listen<K extends keyof WindowEventMap>(target: Window, type: K, handler: (event: WindowEventMap[K]) => void) {
@@ -301,7 +301,7 @@ export class GameEngine {
     this.state.started = true;
     const controls = window.matchMedia('(pointer: coarse)').matches
       ? 'Håll en pil för att gå. Håll Spring med andra fingret. E använder föremål.'
-      : 'WASD går. E vid V40:n hoppar in. ICA finns på kartan (M).';
+      : 'WASD går. E vid kombin hoppar in. Myrboden finns på kartan (M).';
     this.callbacks.onToast({ title: 'Nu kör vi!', detail: controls, kind: 'info' });
     this.emit();
   }
@@ -465,7 +465,7 @@ export class GameEngine {
     this.cancelHunting();
     const previousPosition = this.playerPosition.clone();
     const otherPosition = this.companion.model.root.position.clone();
-    this.state.character = this.state.character === 'leif' ? 'billy' : 'leif';
+    this.state.character = this.state.character === 'nils' ? 'ebbe' : 'nils';
     this.player.stunned = 0; this.player.health = 3;
     if ((this.state.carryingMeat || this.state.insideHome) && !this.state.inCar) {
       this.player.model.root.position.copy(previousPosition);
@@ -473,7 +473,7 @@ export class GameEngine {
     }
     this.updateEquipment();
     this.audio.play('click');
-    this.say(this.player, this.state.character === 'billy' ? 'Det här blir ju skitbra!' : 'Låt mig sköta det här.');
+    this.say(this.player, this.state.character === 'ebbe' ? 'Det här blir ju skitbra!' : 'Låt mig sköta det här.');
     this.emit(); this.save();
   }
 
@@ -543,7 +543,7 @@ export class GameEngine {
         this.audio.play('click'); this.emit(); return;
       }
       if (this.nearStairs(p)) { this.beginStairTravel(); return; }
-      this.callbacks.onToast({ title: 'Billys rum', detail: 'Gå fram till datorn och tryck E, eller gå tillbaka till trätrappan för att komma ner.', kind: 'info' });
+      this.callbacks.onToast({ title: 'Ebbes rum', detail: 'Gå fram till datorn och tryck E, eller gå tillbaka till trätrappan för att komma ner.', kind: 'info' });
       return;
     }
     if (this.nearStairs(p)) { this.beginStairTravel(); return; }
@@ -587,7 +587,7 @@ export class GameEngine {
       this.updateEquipment();
       this.say(this.shopkeeper, 'Hörrni! Det där är inte ett smakprov!');
       this.audio.play('warning');
-      this.callbacks.onToast({ title: 'Köttet ligger i påsen!', detail: 'Bosse kommer! Spring ut och ta dig hem till gården. Ingen snabbresa med köttpåsen.', kind: 'warning' });
+      this.callbacks.onToast({ title: 'Köttet ligger i påsen!', detail: 'Marta kommer! Spring ut och ta dig hem till gården. Ingen snabbresa med köttpåsen.', kind: 'warning' });
       this.save(); this.emit(); return;
     }
     if (this.isInsideShop(p) && Math.hypot(p.x - SHOP.entry.x, p.z - SHOP.entry.z) < 3.4) {
@@ -604,10 +604,10 @@ export class GameEngine {
     }
     if (!this.toolboxTaken && distance(p, this.world.toolbox.position) < 3.0) {
       this.toolboxTaken = true; this.world.toolbox.visible = false;
-      this.state.progress.tony = Math.max(this.state.progress.tony, 2);
+      this.state.progress.rurik = Math.max(this.state.progress.rurik, 2);
       this.state.wanted = Math.max(2, this.state.wanted);
-      this.tony.angry = 40;
-      this.say(this.tony, 'Hörru! Den där är MIN!');
+      this.rurik.angry = 40;
+      this.say(this.rurik, 'Hörru! Den där är MIN!');
       this.audio.play('warning');
       this.callbacks.onToast({ title: 'Lånat utan att fråga', detail: 'Du har verktygslådan. Dags att dra härifrån!', kind: 'warning' });
       this.save(); this.emit(); return;
@@ -620,14 +620,14 @@ export class GameEngine {
       this.player.model.root.visible = false; this.companion.model.root.visible = false;
       this.companion.stunned = 0;
       if (this.state.activeMission === 'hunt') this.state.waypoint = this.state.hasRifle ? 'forest' : 'home';
-      else if (this.state.activeMission === 'shop') this.state.waypoint = this.state.carryingMeat ? 'home' : 'ica';
-      this.callbacks.onToast({ title: 'Volvo V40 · Blå faran', detail: this.state.activeMission === 'hunt' && !this.state.hasRifle ? 'Geväret ligger fortfarande i huset. Hämta det innan ni ger er ut på jakt.' : 'WASD kör · Mellanslag bromsar · H tutar · E kliver ur', kind: 'info' });
+      else if (this.state.activeMission === 'shop') this.state.waypoint = this.state.carryingMeat ? 'home' : 'market';
+      this.callbacks.onToast({ title: 'blå kombi · Blå faran', detail: this.state.activeMission === 'hunt' && !this.state.hasRifle ? 'Geväret ligger fortfarande i huset. Hämta det innan ni ger er ut på jakt.' : 'WASD kör · Mellanslag bromsar · H tutar · E kliver ur', kind: 'info' });
       this.cameraYaw = this.car.root.rotation.y + Math.PI;
       this.audio.play('click');
       this.save(); this.emit(); return;
     }
-    if (distance(p, this.tony.model.root.position) < 3.7 && !this.tony.stunned) {
-      this.callbacks.onDialogue('tony'); return;
+    if (distance(p, this.rurik.model.root.position) < 3.7 && !this.rurik.stunned) {
+      this.callbacks.onDialogue('rurik'); return;
     }
     if (Math.hypot(p.x - HOME.coffee.x, p.z - HOME.coffee.z) < 2.4) {
       this.state.health = 100;
@@ -635,16 +635,16 @@ export class GameEngine {
       this.callbacks.onToast({ title: 'Kaffepaus', detail: 'Hälsan är återställd. Nu orkar ni med mer hyss.', kind: 'success' });
       this.audio.play('coin'); this.emit(); return;
     }
-    if (distance(p, this.companion.model.root.position) < 3.5) { this.callbacks.onDialogue('billy'); return; }
+    if (distance(p, this.companion.model.root.position) < 3.5) { this.callbacks.onDialogue('ebbe'); return; }
     this.callbacks.onToast({ title: 'Kom lite närmare', detail: 'E använder föremål. Q tar fram geväret; sikta själv och klicka eller tryck Skjut.', kind: 'info' });
   }
 
   talk(choice: 'forest' | 'toolbox' | 'bye') {
     if (choice === 'forest') {
       this.state.waypoint = 'forest';
-      this.say(this.tony, 'Bortom granarna. Och håll er där!');
-      this.callbacks.onToast({ title: 'Tony pekade ut jaktmarken', detail: 'En vägpunkt har lagts till på kartan.', kind: 'info' });
-    } else if (choice === 'toolbox') this.say(this.tony, 'Rör inte mina grejer!');
+      this.say(this.rurik, 'Bortom granarna. Och håll er där!');
+      this.callbacks.onToast({ title: 'Rurik pekade ut jaktmarken', detail: 'En vägpunkt har lagts till på kartan.', kind: 'info' });
+    } else if (choice === 'toolbox') this.say(this.rurik, 'Rör inte mina grejer!');
     else this.say(this.player, 'Vi skulle ändå precis gå.');
     this.emit();
   }
@@ -664,7 +664,7 @@ export class GameEngine {
     if (this.punchTimer > 0.08) return;
     this.punchTimer = 0.43;
     this.audio.play('hit');
-    const candidates = [this.companion, this.tony, this.shopkeeper, ...this.bailiffs].filter(a => a.model.root.visible && !a.flee && !a.stunned && Math.abs(this.playerPosition.y - a.model.root.position.y) < 1.5 && distance(this.playerPosition, a.model.root.position) < 3.3);
+    const candidates = [this.companion, this.rurik, this.shopkeeper, ...this.bailiffs].filter(a => a.model.root.visible && !a.flee && !a.stunned && Math.abs(this.playerPosition.y - a.model.root.position.y) < 1.5 && distance(this.playerPosition, a.model.root.position) < 3.3);
     candidates.sort((a, b) => distance(this.playerPosition, a.model.root.position) - distance(this.playerPosition, b.model.root.position));
     const target = candidates[0];
     if (target) {
@@ -679,13 +679,13 @@ export class GameEngine {
     this.burst(target.model.root.position.clone().add(new THREE.Vector3(0, 1.9, 0)), '#f2d388', 13);
     const push = target.model.root.position.clone().sub(this.playerPosition); push.y = 0;
     if (push.lengthSq() > 0) { push.normalize().multiplyScalar(0.66); this.move(target.model.root, push, 0.45); }
-    if (target === this.tony) {
+    if (target === this.rurik) {
       target.angry = 32; this.state.wanted = Math.min(3, this.state.wanted + 1);
       this.say(target, ['Men vad håller ni på med?!', 'Ut från min gård!', 'Nu får det vara nog!'][Math.max(0, target.health) % 3]);
     } else if (target === this.shopkeeper) {
       target.angry = 30; this.state.wanted = Math.max(2, this.state.wanted);
       this.say(target, 'Det här är en matbutik, inte en boxningsklubb!');
-    } else if (target === this.companion) this.say(target, target.id === 'billy' ? 'Aj! Vi är ju på samma lag!' : 'Men skärp dig, Billy!');
+    } else if (target === this.companion) this.say(target, target.id === 'ebbe' ? 'Aj! Vi är ju på samma lag!' : 'Men skärp dig, Ebbe!');
     else this.say(target, 'Det här står inte i blanketten!');
     if (target.health <= 0) {
       if (target.id.startsWith('fogde')) {
@@ -695,11 +695,11 @@ export class GameEngine {
         if (this.bailiffFled >= 2) {
           this.state.bailiffsActive = false;
           this.complete('bailiff');
-          this.callbacks.onToast({ title: 'Inte idag, Kronofogden!', detail: 'Gården är er. För den här gången. +200 kr', kind: 'success' });
+          this.callbacks.onToast({ title: 'Inte idag, indrivarna!', detail: 'Gården är er. För den här gången. +200 kr', kind: 'success' });
         }
       } else {
         target.stunned = 7;
-        target.angry = target === this.tony ? 0 : target.angry;
+        target.angry = target === this.rurik ? 0 : target.angry;
         this.say(target, 'Jag… tar en liten paus.');
       }
     }
@@ -713,7 +713,7 @@ export class GameEngine {
       this.callbacks.onToast({ title: 'De är redan här', detail: 'Leta efter kostymerna vid gården.', kind: 'info' }); return;
     }
     if (this.state.progress.bailiff === 3) {
-      this.callbacks.onToast({ title: 'De fick nog för idag', detail: 'Kronofogden återkommer i nästa spelomgång.', kind: 'info' }); return;
+      this.callbacks.onToast({ title: 'De fick nog för idag', detail: 'Indrivarna återkommer i nästa spelomgång.', kind: 'info' }); return;
     }
     this.start();
     this.state.activeMission = 'bailiff'; this.state.waypoint = 'home';
@@ -722,7 +722,7 @@ export class GameEngine {
     this.officialCar.root.visible = true;
     this.officialCar.root.position.set(16, 0, 36);
     this.audio.play('warning');
-    this.callbacks.onToast({ title: 'Oväntat besök!', detail: 'Kronofogden svänger in på gården. Ni har inte bjudit in dem.', kind: 'warning' });
+    this.callbacks.onToast({ title: 'Oväntat besök!', detail: 'Indrivarna svänger in på gården. Ni har inte bjudit in dem.', kind: 'warning' });
     this.emit();
   }
 
@@ -740,7 +740,7 @@ export class GameEngine {
   private collides(position: THREE.Vector3, radius: number, includeCar: boolean, floor: 0 | 1 = 0) {
     if (Math.abs(position.x) > 89 || Math.abs(position.z) > 89) return true;
     if (floor === 1 && (Math.abs(position.x - HOME.center.x) > 5.44 - radius || Math.abs(position.z - HOME.center.z) > 3.94 - radius)) return true;
-    // The V40 can park outside, but it cannot be driven through the shop doorway.
+    // The kombi can park outside, but it cannot be driven through the shop doorway.
     if (radius > 1 && Math.abs(position.x - HOME.center.x) < 5.7 + radius && Math.abs(position.z - HOME.center.z) < 4.2 + radius) return true;
     if (radius > 1 && Math.abs(position.x - SHOP.center.x) < 7.4 + radius && position.z > SHOP.center.z - 5.5 - radius && position.z < SHOP.center.z + 5.3 + radius) return true;
     const colliders = floor === 1 ? this.world.home.upstairs.colliders : this.world.colliders;
@@ -813,7 +813,7 @@ export class GameEngine {
       this.player.model.root.position.copy(this.car.root.position);
       this.companion.model.root.position.copy(this.car.root.position);
       this.audio.engine(this.carVelocity, true);
-      for (const actor of [this.tony, this.shopkeeper, ...this.bailiffs]) {
+      for (const actor of [this.rurik, this.shopkeeper, ...this.bailiffs]) {
         if (actor.model.root.visible && !actor.flee && !actor.stunned && Math.abs(this.carVelocity) > 4 && distance(this.car.root.position, actor.model.root.position) < 2.3) {
           this.hitActor(actor, 3); this.carVelocity *= 0.5;
         }
@@ -878,10 +878,10 @@ export class GameEngine {
       if (d > 1.6 && d < 34) { goal = this.playerPosition; speed = 4.9; }
     } else if ((actor.angry > 0 || (actor.id.startsWith('fogde') && this.state.bailiffsActive)) && !actor.flee) {
       const d = distance(current, this.playerPosition);
-      if (d > 2.2 && d < 42) { goal = this.playerPosition; speed = actor === this.tony ? 4.5 : 3.1; }
+      if (d > 2.2 && d < 42) { goal = this.playerPosition; speed = actor === this.rurik ? 4.5 : 3.1; }
       if (d < 2.4 && Math.abs(current.y - this.playerPosition.y) < 1.5 && actor.cooldown === 0 && !this.state.inCar && !this.state.onStairs) {
         actor.punch = 0.43; actor.cooldown = 1.8;
-        this.state.health -= actor === this.tony ? 10 : 7;
+        this.state.health -= actor === this.rurik ? 10 : 7;
         this.lastDamage = this.activeTime;
         this.audio.play('hit');
         this.burst(this.playerPosition.clone().add(new THREE.Vector3(0, 1.8, 0)), '#e8ca91', 6);
@@ -906,7 +906,7 @@ export class GameEngine {
       const travelled = this.move(actor.model.root, delta, 0.45, true);
       actor.speed = dt > 0 ? Math.min(speed, travelled / dt) : 0;
     }
-    animateCharacter(actor.model, this.elapsed + (actor.id === 'billy' ? 1.4 : 0.6), actor.speed, actor.punch / 0.43, 0, dt);
+    animateCharacter(actor.model, this.elapsed + (actor.id === 'ebbe' ? 1.4 : 0.6), actor.speed, actor.punch / 0.43, 0, dt);
   }
 
   private respawn() {
@@ -919,7 +919,7 @@ export class GameEngine {
     this.state.inCar = false; this.state.wanted = 0;
     this.player.model.root.visible = true; this.companion.model.root.visible = true;
     this.player.model.root.position.set(-5, 0, 4); this.companion.model.root.position.set(-3, 0, 5);
-    this.tony.angry = 0; this.tony.model.root.position.copy(this.tony.home);
+    this.rurik.angry = 0; this.rurik.model.root.position.copy(this.rurik.home);
     this.bailiffs.forEach(a => { if (!a.flee) { a.model.root.position.copy(a.home); a.cooldown = 10; } });
     this.callbacks.onToast({ title: 'En ofrivillig tupplur', detail: 'Tillbaka på gården, 25 kr fattigare. Alla är hela igen.', kind: 'warning' });
     this.save();
@@ -938,7 +938,7 @@ export class GameEngine {
   }
 
   private updateEquipment() {
-    for (const brother of ['leif', 'billy'] as Brother[]) {
+    for (const brother of ['nils', 'ebbe'] as Brother[]) {
       const selected = this.state.character === brother;
       this.bags[brother].visible = this.state.carryingMeat && selected;
       const rifle = this.rifles[brother];
@@ -1067,14 +1067,14 @@ export class GameEngine {
     if (!this.state.carryingMeat) return;
     this.state.carryingMeat = false; this.state.shopRisk = 0; this.state.progress.shop = 1;
     this.state.money = Math.max(0, this.state.money - 20); this.state.wanted = Math.max(0, this.state.wanted - 1);
-    this.state.waypoint = 'ica'; this.world.shop.loot.visible = true; this.updateEquipment();
+    this.state.waypoint = 'market'; this.world.shop.loot.visible = true; this.updateEquipment();
     this.player.model.root.position.set(SHOP.door.x, 0, SHOP.door.z + 2.7);
     this.companion.model.root.position.set(SHOP.door.x + 2.7, 0, SHOP.door.z + 3.0);
     this.shopkeeper.model.root.position.copy(this.shopkeeper.home); this.shopkeeper.angry = 0; this.shopkeeper.cooldown = 2;
     this.input.clear(); this.stopCameraDrag(); this.updateShop(0);
     this.say(this.shopkeeper, 'Köttet stannar här. Ut med er!');
     this.audio.play('warning');
-    this.callbacks.onToast({ title: 'Bosse tog er på bar gärning!', detail: 'Köttet är tillbaka i disken. −20 kr för besväret. Ni kan gå in och försöka igen.', kind: 'warning' });
+    this.callbacks.onToast({ title: 'Marta tog er på bar gärning!', detail: 'Köttet är tillbaka i disken. −20 kr för besväret. Ni kan gå in och försöka igen.', kind: 'warning' });
     this.save(); this.emit();
   }
 
@@ -1082,7 +1082,7 @@ export class GameEngine {
     const p = this.playerPosition;
     if (Math.hypot(p.x - SHOP.center.x, p.z - SHOP.center.z) < 17 && this.state.progress.shop === 0) {
       this.state.progress.shop = 1;
-      this.callbacks.onToast({ title: 'ICA Sörbäcken', detail: 'Parkera V40:n och gå fram till entrén. E öppnar butiksäventyret.', kind: 'info' });
+      this.callbacks.onToast({ title: 'Myrboden', detail: 'Parkera kombin och gå fram till entrén. E öppnar butiksäventyret.', kind: 'info' });
       this.save();
     }
     if (this.state.carryingMeat && Math.hypot(p.x - 2, p.z - 6) < 14) {
@@ -1098,14 +1098,14 @@ export class GameEngine {
       this.callbacks.onToast({ title: 'Framme vid jaktmarken', detail: 'Q eller Sikta tar fram geväret. Placera siktet på älgen och klicka, tryck mellanslag eller Skjut. Du kan missa!' , kind: 'success' });
       this.save();
     }
-    if (distance(p, new THREE.Vector3(36, 0, -22)) < 14 && this.state.progress.tony === 0) {
-      this.state.progress.tony = 1;
-      this.callbacks.onToast({ title: 'Välkommen till Tony', detail: 'Prata med E, bråka med F. Verktygslådan står på bordet.', kind: 'info' });
+    if (distance(p, new THREE.Vector3(36, 0, -22)) < 14 && this.state.progress.rurik === 0) {
+      this.state.progress.rurik = 1;
+      this.callbacks.onToast({ title: 'Välkommen till Rurik', detail: 'Prata med E, bråka med F. Verktygslådan står på bordet.', kind: 'info' });
       this.save();
     }
-    if (this.toolboxTaken && this.state.progress.tony === 2 && distance(p, new THREE.Vector3(36, 0, -22)) > 19 && distance(p, this.tony.model.root.position) > 12) {
-      this.complete('tony');
-      this.tony.angry = 0;
+    if (this.toolboxTaken && this.state.progress.rurik === 2 && distance(p, new THREE.Vector3(36, 0, -22)) > 19 && distance(p, this.rurik.model.root.position) > 12) {
+      this.complete('rurik');
+      this.rurik.angry = 0;
       this.state.wanted = Math.max(0, this.state.wanted - 1);
     }
     if (this.state.waypoint) {
@@ -1124,8 +1124,8 @@ export class GameEngine {
         this.bailiffs.forEach((a, i) => {
           a.model.root.visible = true; a.model.root.position.set(11.9 + i * 1.3, 0, 7.0 - i * 2.5); a.health = 3; a.flee = false;
         });
-        this.say(this.bailiffs[0], 'Vi söker Leif och Billy.');
-        this.callbacks.onToast({ title: 'Kronofogden är på gården', detail: 'Gå nära kostymerna och tryck F för att jaga bort dem.', kind: 'warning' });
+        this.say(this.bailiffs[0], 'Vi söker Nils och Ebbe.');
+        this.callbacks.onToast({ title: 'Indrivarna är på gården', detail: 'Gå nära kostymerna och tryck F för att jaga bort dem.', kind: 'warning' });
       }
     }
     if (!this.state.bailiffsActive && this.state.progress.bailiff < 3) {
@@ -1236,7 +1236,7 @@ export class GameEngine {
         this.updateShop(dt);
         this.updateActor(this.shopkeeper, dt);
         this.updateActor(this.companion, dt);
-        this.updateActor(this.tony, dt);
+        this.updateActor(this.rurik, dt);
         this.bailiffs.forEach(a => this.updateActor(a, dt));
         this.updateBailiffs(dt);
         this.hunting.update(dt);
@@ -1244,7 +1244,7 @@ export class GameEngine {
       } else {
         animateCharacter(this.player.model, this.elapsed, 0, 0, 0, dt);
         animateCharacter(this.companion.model, this.elapsed + 1, 0, 0, 0, dt);
-        animateCharacter(this.tony.model, this.elapsed, 0, 0, 0, dt);
+        animateCharacter(this.rurik.model, this.elapsed, 0, 0, 0, dt);
         animateCharacter(this.shopkeeper.model, this.elapsed, 0, 0, 0, dt);
         this.ring.position.copy(this.playerPosition).add(new THREE.Vector3(0, 0.04, 0));
       }
@@ -1272,35 +1272,35 @@ export class GameEngine {
     };
     const speaking = new Set(this.speech.map(s => s.actor?.id));
     if (!this.state.inCar) {
-      for (const brother of [this.brothers.leif, this.brothers.billy]) {
-        if (!speaking.has(brother.id) && brother.model.root.visible) add(brother.id, brother.id === 'leif' ? 'Leif' : 'Billy', brother.model.root.position.clone().add(new THREE.Vector3(0, 3.45, 0)), 'name');
+      for (const brother of [this.brothers.nils, this.brothers.ebbe]) {
+        if (!speaking.has(brother.id) && brother.model.root.visible) add(brother.id, brother.id === 'nils' ? 'Nils' : 'Ebbe', brother.model.root.position.clone().add(new THREE.Vector3(0, 3.45, 0)), 'name');
       }
     }
     if (this.state.insideHome && this.state.homeFloor === 1) {
       add('stairs-down', 'Trappan ner · E', new THREE.Vector3(HOME.stairsTop.x, HOME.upperY + 1.20, HOME.stairsTop.z + 0.15), 'target');
-      add('billy-computer', this.state.computerOn ? 'Billys dator · på' : 'Billys gamla dator · E', new THREE.Vector3(HOME.computer.x, HOME.upperY + 2.52, HOME.computer.z), 'target');
+      add('ebbe-computer', this.state.computerOn ? 'Ebbes dator · på' : 'Ebbes gamla dator · E', new THREE.Vector3(HOME.computer.x, HOME.upperY + 2.52, HOME.computer.z), 'target');
       return labels;
     }
-    if (distance(this.playerPosition, this.car.root.position) < 22 && !this.state.inCar) add('volvo', 'V40 · Blå faran', this.car.root.position.clone().add(new THREE.Vector3(0, 2.70, 0)), 'car');
+    if (distance(this.playerPosition, this.car.root.position) < 22 && !this.state.inCar) add('kombi', 'kombi · Blå faran', this.car.root.position.clone().add(new THREE.Vector3(0, 2.70, 0)), 'car');
     if (this.state.started && Math.hypot(this.playerPosition.x - HOME.center.x, this.playerPosition.z - HOME.center.z) < 28) {
       if (!this.state.insideHome) add('home-door', this.state.hasRifle ? 'Brödernas hus' : 'Huset · hämta geväret', new THREE.Vector3(HOME.door.x, 4.5, -1.0), 'target');
       if (this.state.insideHome && !this.state.hasRifle) add('rifle', 'Jaktgeväret', new THREE.Vector3(HOME.rifle.x, 2.94, HOME.rifle.z), 'target');
-      if (this.state.insideHome && Math.hypot(this.playerPosition.x - HOME.fridge.x, this.playerPosition.z - HOME.fridge.z) < 6.2) add('fridge', this.state.fridgeOpen ? 'Kalles kaviar · halv gurka' : 'Gamla kylen · E', new THREE.Vector3(HOME.fridge.x, 2.98, HOME.fridge.z + 0.3), 'target');
+      if (this.state.insideHome && Math.hypot(this.playerPosition.x - HOME.fridge.x, this.playerPosition.z - HOME.fridge.z) < 6.2) add('fridge', this.state.fridgeOpen ? 'örtkräm · halv gurka' : 'Gamla kylen · E', new THREE.Vector3(HOME.fridge.x, 2.98, HOME.fridge.z + 0.3), 'target');
       if (this.state.insideHome) add('stairs-up', 'Trätrappan · E', new THREE.Vector3(HOME.stairsBase.x, 2.80, HOME.stairsBase.z), 'target');
       if (this.state.insideHome) add('home-exit', 'Ut på gården', new THREE.Vector3(HOME.entry.x, 0.85, HOME.entry.z + 0.50), 'target');
     }
     if (this.state.started && Math.hypot(this.playerPosition.x - SHOP.center.x, this.playerPosition.z - SHOP.center.z) < 28) {
-      if (!this.state.insideShop) add('ica', 'ICA Sörbäcken', new THREE.Vector3(SHOP.door.x, 4.6, SHOP.door.z - 1), 'target');
+      if (!this.state.insideShop) add('market', 'Myrboden', new THREE.Vector3(SHOP.door.x, 4.6, SHOP.door.z - 1), 'target');
       if (this.state.insideShop && !this.state.carryingMeat && this.state.progress.shop < 3) add('meat', 'Köttdisken', new THREE.Vector3(SHOP.meat.x, 2.3, SHOP.meat.z), 'target');
       if (this.state.insideShop) add('shop-exit', 'Utgång', new THREE.Vector3(SHOP.entry.x, 0.65, SHOP.entry.z + 0.7), 'target');
-      if (!speaking.has('shopkeeper')) add('shopkeeper', this.shopkeeper.angry > 0 ? 'Bosse · förbannad' : 'Bosse · handlaren', this.shopkeeper.model.root.position.clone().add(new THREE.Vector3(0, 3.25, 0)), 'name');
+      if (!speaking.has('shopkeeper')) add('shopkeeper', this.shopkeeper.angry > 0 ? 'Marta · förbannad' : 'Marta · handlaren', this.shopkeeper.model.root.position.clone().add(new THREE.Vector3(0, 3.25, 0)), 'name');
     }
-    if (this.state.started && distance(this.playerPosition, this.tony.model.root.position) < 18 && !speaking.has('tony')) add('tony', this.tony.angry > 0 ? 'Tony · förbannad' : 'Tony', this.tony.model.root.position.clone().add(new THREE.Vector3(0, 3.25, 0)), 'name');
-    if (this.state.started && !this.toolboxTaken && distance(this.playerPosition, this.world.toolbox.position) < 18) add('toolbox', 'Tonys verktygslåda', this.world.toolbox.position.clone().add(new THREE.Vector3(0, 1.4, 0)), 'target');
+    if (this.state.started && distance(this.playerPosition, this.rurik.model.root.position) < 18 && !speaking.has('rurik')) add('rurik', this.rurik.angry > 0 ? 'Rurik · förbannad' : 'Rurik', this.rurik.model.root.position.clone().add(new THREE.Vector3(0, 3.25, 0)), 'name');
+    if (this.state.started && !this.toolboxTaken && distance(this.playerPosition, this.world.toolbox.position) < 18) add('toolbox', 'Ruriks verktygslåda', this.world.toolbox.position.clone().add(new THREE.Vector3(0, 1.4, 0)), 'target');
     if (this.state.started) for (const elk of this.world.elk) {
       if (elk.alive && distance(this.playerPosition, elk.model.root.position) < 25) add(`elk-${elk.phase}`, 'Skogens konung', elk.model.root.position.clone().add(new THREE.Vector3(0, 4.8, 0)), 'target');
     }
-    for (const b of this.bailiffs) if (b.model.root.visible && !speaking.has(b.id) && distance(this.playerPosition, b.model.root.position) < 25) add(b.id, b.flee ? 'På väg härifrån' : 'Kronofogden', b.model.root.position.clone().add(new THREE.Vector3(0, 3.3, 0)), 'target');
+    for (const b of this.bailiffs) if (b.model.root.visible && !speaking.has(b.id) && distance(this.playerPosition, b.model.root.position) < 25) add(b.id, b.flee ? 'På väg härifrån' : 'Indrivarna', b.model.root.position.clone().add(new THREE.Vector3(0, 3.3, 0)), 'target');
     for (const s of this.speech) {
       const pos = s.actor ? s.actor.model.root.position.clone() : s.position.clone();
       pos.y += this.state.inCar && s.actor === this.player ? 3.3 : 3.7;
@@ -1312,36 +1312,36 @@ export class GameEngine {
   private context(): string | null {
     if (this.state.onStairs) return null;
     if (this.state.aiming) return 'Lägg ner geväret';
-    if (this.state.inCar) return 'Kliv ur V40:n';
+    if (this.state.inCar) return 'Kliv ur kombin';
     const p = this.playerPosition;
     if (this.state.homeFloor === 1) {
-      if (this.nearComputer(p)) return this.state.computerOn ? 'Stäng av Billys dator' : 'Starta Billys dator';
+      if (this.nearComputer(p)) return this.state.computerOn ? 'Stäng av Ebbes dator' : 'Starta Ebbes dator';
       return this.nearStairs(p) ? 'Gå nerför trätrappan' : null;
     }
-    if (this.nearStairs(p)) return 'Gå upp till Billys rum';
+    if (this.nearStairs(p)) return 'Gå upp till Ebbes rum';
     if (this.isInsideHome(p) && !this.state.hasRifle && Math.hypot(p.x - HOME.rifle.x, p.z - HOME.rifle.z) < 2.4) return 'Ta jaktgeväret';
     if (this.nearFridge(p)) return this.state.fridgeOpen ? 'Stäng kylskåpet' : 'Öppna kylskåpet';
     if (this.isInsideHome(p) && Math.hypot(p.x - HOME.entry.x, p.z - HOME.entry.z) < 2.65) return 'Gå ut ur huset';
     if (!this.isInsideHome(p) && Math.hypot(p.x - HOME.door.x, p.z - HOME.door.z) < 2.6) return 'Gå in i huset';
     if (this.isInsideShop(p) && !this.state.carryingMeat && this.state.progress.shop < 3 && Math.hypot(p.x - SHOP.meat.x, p.z - SHOP.meat.z) < 3.15) return 'Försök sno köttpaketet';
-    if (this.isInsideShop(p) && Math.hypot(p.x - SHOP.entry.x, p.z - SHOP.entry.z) < 3.4) return 'Gå ut från ICA';
-    if (!this.isInsideShop(p) && Math.hypot(p.x - SHOP.door.x, p.z - SHOP.door.z) < 3.5) return 'Gå in på ICA Sörbäcken';
+    if (this.isInsideShop(p) && Math.hypot(p.x - SHOP.entry.x, p.z - SHOP.entry.z) < 3.4) return 'Gå ut från Myrboden';
+    if (!this.isInsideShop(p) && Math.hypot(p.x - SHOP.door.x, p.z - SHOP.door.z) < 3.5) return 'Gå in på Myrboden';
     if (!this.toolboxTaken && distance(p, this.world.toolbox.position) < 3.0) return 'Låna verktygslådan';
     if (this.world.elk.some(e => e.alive && distance(p, e.model.root.position) < 16)) return this.state.hasRifle ? 'Sikta med geväret' : 'Jaktgeväret saknas';
-    if (distance(p, this.car.root.position) < 4.6) return 'Hoppa in i V40:n';
-    if (distance(p, this.tony.model.root.position) < 3.7 && !this.tony.stunned) return 'Prata med Tony';
+    if (distance(p, this.car.root.position) < 4.6) return 'Hoppa in i kombin';
+    if (distance(p, this.rurik.model.root.position) < 3.7 && !this.rurik.stunned) return 'Prata med Rurik';
     if (Math.hypot(p.x - HOME.coffee.x, p.z - HOME.coffee.z) < 2.4) return 'Ta en kaffepaus';
-    if (distance(p, this.companion.model.root.position) < 3.5) return `Snacka med ${this.state.character === 'leif' ? 'Billy' : 'Leif'}`;
+    if (distance(p, this.companion.model.root.position) < 3.5) return `Snacka med ${this.state.character === 'nils' ? 'Ebbe' : 'Nils'}`;
     return null;
   }
 
   private location() {
     const p = this.playerPosition;
     if (this.state.onStairs) return 'Trätrappan · mellan våningarna';
-    if (this.state.insideHome) return this.state.homeFloor === 1 ? 'Billys rum · övervåningen' : 'Inne i brödernas hus';
-    if (Math.hypot(p.x - SHOP.center.x, p.z - SHOP.center.z) < 21) return this.state.insideShop ? 'Inne på ICA Sörbäcken' : 'ICA Sörbäcken';
+    if (this.state.insideHome) return this.state.homeFloor === 1 ? 'Ebbes rum · övervåningen' : 'Inne i brödernas hus';
+    if (Math.hypot(p.x - SHOP.center.x, p.z - SHOP.center.z) < 21) return this.state.insideShop ? 'Inne på Myrboden' : 'Myrboden';
     if (p.z < -35 && distance(p, new THREE.Vector3(48, 0, -49)) < 22) return 'Myrsjön';
-    if (distance(p, new THREE.Vector3(36, 0, -24)) < 19) return 'Tonys gård';
+    if (distance(p, new THREE.Vector3(36, 0, -24)) < 19) return 'Ruriks gård';
     if (distance(p, new THREE.Vector3(-27, 0, -44)) < 21) return 'Jaktmarken';
     if (distance(p, new THREE.Vector3(48, 0, -49)) < 22) return 'Myrsjön';
     if (distance(p, new THREE.Vector3(-5, 0, 0)) < 29) return 'Hemma på gården';
@@ -1383,7 +1383,7 @@ export class GameEngine {
       const data = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
       if (!data || ![1, 2, 3].includes(data.version)) return;
       if (typeof data.money === 'number' && Number.isFinite(data.money) && data.money >= 0 && data.money <= 1000000) this.state.money = Math.floor(data.money);
-      if (data.character === 'leif' || data.character === 'billy') this.state.character = data.character;
+      if (data.character === 'nils' || data.character === 'ebbe') this.state.character = data.character;
       for (const id of MISSION_IDS) {
         const value = data.progress?.[id];
         if (Number.isInteger(value) && value >= 0 && value <= 3) this.state.progress[id] = value;
@@ -1428,14 +1428,14 @@ export class GameEngine {
     this.officialCar.root.visible = false;
     this.shopkeeper.model.root.position.copy(this.shopkeeper.home); this.shopkeeper.angry = 0; this.shopkeeper.health = 3; this.shopkeeper.stunned = 0;
     this.world.shop.structure.visible = true; this.world.shop.loot.visible = true; this.shopGraceUntil = 0; this.shopCamera = null; this.updateEquipment();
-    this.tony.model.root.position.copy(this.tony.home); this.tony.health = 3; this.tony.angry = 0; this.tony.stunned = 0;
-    this.brothers.leif.model.root.position.set(6.1, 0, 9.2); this.brothers.billy.model.root.position.set(8.5, 0, 8.15);
+    this.rurik.model.root.position.copy(this.rurik.home); this.rurik.health = 3; this.rurik.angry = 0; this.rurik.stunned = 0;
+    this.brothers.nils.model.root.position.set(6.1, 0, 9.2); this.brothers.ebbe.model.root.position.set(8.5, 0, 8.15);
     Object.values(this.brothers).forEach(a => { a.model.root.visible = true; a.health = 3; a.stunned = 0; a.angry = 0; });
     this.car.root.position.set(2.1, 0, 7); this.car.root.rotation.set(0, -0.3, 0); this.carVelocity = 0;
     this.world.elk.forEach(e => { e.alive = true; e.model.root.visible = true; });
     this.input.clear(); this.stopCameraDrag(); this.speech = []; this.cameraYaw = 0.61; this.cameraElevation = 0.57; this.cameraDistance = 15.8;
     this.audio.engine(0, false);
-    this.callbacks.onToast({ title: 'En ny dag i Lillåsen', detail: 'Alla uppdrag och sparade framsteg är återställda.', kind: 'info' });
+    this.callbacks.onToast({ title: 'En ny dag i Gråmyren', detail: 'Alla uppdrag och sparade framsteg är återställda.', kind: 'info' });
     this.emit();
   }
 

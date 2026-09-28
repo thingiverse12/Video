@@ -40,21 +40,21 @@ try {
     const normal = crown.getAttribute('normal'), position = crown.getAttribute('position');
     let outward = 0;
     for (let i = 0; i < normal.count; i++) if (normal.getX(i) * position.getX(i) + normal.getZ(i) * position.getZ(i) > 0) outward++;
-    const billy = createCharacter('billy');
-    let orangeBack = false;
-    billy.body.traverse(object => {
+    const ebbe = createCharacter('ebbe');
+    let purpleBack = false;
+    ebbe.body.traverse(object => {
       if (!object.isMesh || !object.material.map) return;
       const canvas = object.material.map.image;
       if (!canvas?.getContext) return;
       const pixel = canvas.getContext('2d').getImageData(64, 64, 1, 1).data;
-      if (pixel[0] < pixel[1] * 1.35 || pixel[0] < pixel[2] * 1.8) return;
+      if (pixel[2] < pixel[0] * 1.12 || pixel[2] < pixel[1] * 1.3) return;
       const p = object.geometry.getAttribute('position');
-      for (let i = 0; i < p.count; i++) if (p.getZ(i) < -.28 && p.getY(i) > 1.0 && p.getY(i) < 1.7) orangeBack = true;
+      for (let i = 0; i < p.count; i++) if (p.getZ(i) < -.28 && p.getY(i) > 1.0 && p.getY(i) < 1.7) purpleBack = true;
     });
     let sway = 0;
     for (let i = 0; i < 180; i++) {
-      animateCharacter(billy, i / 60, i % 3 ? 7.9 : 0, 0, 0, 1 / 60);
-      sway = Math.max(sway, Math.abs(billy.body.position.y), ...billy.body.rotation.toArray().slice(0, 3).map(Math.abs), ...billy.head.rotation.toArray().slice(0, 3).map(Math.abs));
+      animateCharacter(ebbe, i / 60, i % 3 ? 7.9 : 0, 0, 0, 1 / 60);
+      sway = Math.max(sway, Math.abs(ebbe.body.position.y), ...ebbe.body.rotation.toArray().slice(0, 3).map(Math.abs), ...ebbe.head.rotation.toArray().slice(0, 3).map(Math.abs));
     }
     const car = createCar(); let glossyBlue = false;
     car.root.traverse(object => { const m = object.material; if (m?.isMeshPhysicalMaterial && m.clearcoat > .8 && m.color.b > m.color.r) glossyBlue = true; });
@@ -65,17 +65,17 @@ try {
       crownVertices: position.count, outward: outward / normal.count,
       finiteNormals: [...normal.array].every(Number.isFinite), grassVertices: grass.getAttribute('position').count,
       grassTexture: surfaceTexture('grass').image.width, repeat: surfaceTexture('grass').repeat.x,
-      orangeBack, sway, glossyBlue, carName: car.root.name,
+      purpleBack, sway, glossyBlue, carName: car.root.name,
       elkHasShadow: elk.root.children.some(c => c.name.startsWith('Contact shadow')),
     };
   });
   assert.equal(art.shadowNonInteractive, true); assert.equal(art.shadowAboveRoad, true); assert.equal(art.shadowTransparent, true);
   assert.ok(art.crownVertices >= 60 && art.outward > .95 && art.finiteNormals);
   assert.ok(art.grassVertices >= 20 && art.grassTexture === 256 && art.repeat > 1);
-  assert.equal(art.orangeBack, true, 'Billy wears an orange vest on his back too');
+  assert.equal(art.purpleBack, true, 'Ebbe wears a purple hoodie on his back too');
   assert.equal(art.sway, 0, 'The visual update never restores body/head rocking');
-  assert.equal(art.glossyBlue, true); assert.ok(art.carName.includes('V40')); assert.equal(art.elkHasShadow, true);
-  console.log('✓ Textures, detailed tree/grass geometry, harmless contact shadows, orange vest, blue V40 and zero rocking', art);
+  assert.equal(art.glossyBlue, true); assert.ok(art.carName.includes('kombi')); assert.equal(art.elkHasShadow, true);
+  console.log('✓ Textures, detailed tree/grass geometry, harmless contact shadows, purple hoodie, blue unbadged kombi and zero rocking', art);
 
   await travelTo(desktop, 'Myrsjön');
   await waitText(desktop, '.location-hud strong', 'Myrsjön');

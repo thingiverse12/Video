@@ -18,11 +18,11 @@ const holdUntil = async (keys, predicate, timeout = 45000) => {
 };
 const travelToShop = async () => {
   await page.keyboard.press('m');
-  await page.getByRole('button', { name: 'Välj ICA Sörbäcken', exact: true }).click();
+  await page.getByRole('button', { name: 'Välj Myrboden', exact: true }).click();
   await page.getByRole('button', { name: 'Snabbresa hit', exact: true }).click();
-  await waitText('.interact-prompt', 'Gå in på ICA Sörbäcken');
+  await waitText('.interact-prompt', 'Gå in på Myrboden');
   await page.keyboard.press('e');
-  await waitText('.location-hud strong', 'Inne på ICA Sörbäcken');
+  await waitText('.location-hud strong', 'Inne på Myrboden');
 };
 const takeMeat = async () => {
   await holdUntil(['w', 'a'], () => document.querySelector('.interact-prompt')?.textContent?.includes('Försök sno'));
@@ -39,13 +39,13 @@ try {
   await page.getByRole('button', { name: 'Nu kör vi', exact: true }).click();
   await travelToShop();
   assert.equal(await page.locator('.shop-hud').count(), 1);
-  console.log('✓ ICA has a map destination and an enterable, cutaway interior');
+  console.log('✓ LIVS has a map destination and an enterable, cutaway interior');
 
   await takeMeat();
-  const firstAttempt = await page.evaluate(() => JSON.parse(localStorage.getItem('lillasen-adventure-v1')));
+  const firstAttempt = await page.evaluate(() => JSON.parse(localStorage.getItem('gramyren-adventure-v1')));
   assert.equal(firstAttempt.carryingMeat, true);
   assert.equal(firstAttempt.progress.shop, 2);
-  console.log('✓ Leif can attempt the meat theft and carries a saved shopping bag');
+  console.log('✓ Nils can attempt the meat theft and carries a saved shopping bag');
 
   await page.keyboard.press('m');
   await page.getByRole('button', { name: 'Välj Hemma på gården', exact: true }).click();
@@ -56,22 +56,22 @@ try {
   // Stand still: the clerk/risk meter must actually be able to catch the player.
   await waitText('.wallet strong', '220', 90000);
   assert.equal(await page.locator('.shop-hud.carrying').count(), 0);
-  await waitText('.interact-prompt', 'Gå in på ICA Sörbäcken');
-  const caught = await page.evaluate(() => JSON.parse(localStorage.getItem('lillasen-adventure-v1')));
+  await waitText('.interact-prompt', 'Gå in på Myrboden');
+  const caught = await page.evaluate(() => JSON.parse(localStorage.getItem('gramyren-adventure-v1')));
   assert.equal(caught.carryingMeat, false);
   assert.equal(caught.progress.shop, 1);
-  console.log('✓ Bosse catches a failed attempt, returns the meat, charges 20 kr, and allows a retry');
+  console.log('✓ Marta catches a failed attempt, returns the meat, charges 20 kr, and allows a retry');
 
-  // Billy can do the same mission. Travel to the entrance before the second attempt.
+  // Ebbe can do the same mission. Travel to the entrance before the second attempt.
   await page.keyboard.press('v');
-  await waitText('.character-info strong', 'Billy');
+  await waitText('.character-info strong', 'Ebbe');
   await travelToShop();
   await takeMeat();
-  await holdUntil(['Shift', 's', 'd'], () => document.querySelector('.interact-prompt')?.textContent?.includes('Gå ut från ICA'));
+  await holdUntil(['Shift', 's', 'd'], () => document.querySelector('.interact-prompt')?.textContent?.includes('Gå ut från LIVS'));
   await page.keyboard.press('e');
-  await waitText('.location-hud strong', 'ICA Sörbäcken');
+  await waitText('.location-hud strong', 'Myrboden');
   assert.ok(!(await page.locator('.location-hud strong').innerText()).includes('Inne'));
-  console.log('✓ Billy can take the meat and leave the shop');
+  console.log('✓ Ebbe can take the meat and leave the shop');
 
   // Walk home through the actual world, not by teleporting or changing internal state.
   await holdUntil(['Shift', 'a'], () => {
@@ -81,10 +81,10 @@ try {
   await holdUntil(['Shift', 'w'], () => document.querySelector('.objective-next')?.textContent?.includes('Uppdrag slutfört'), 90000);
   assert.equal(await page.locator('.wallet strong').innerText(), '340');
   assert.equal(await page.locator('.shop-hud.carrying').count(), 0);
-  const completed = await page.evaluate(() => JSON.parse(localStorage.getItem('lillasen-adventure-v1')));
+  const completed = await page.evaluate(() => JSON.parse(localStorage.getItem('gramyren-adventure-v1')));
   assert.equal(completed.progress.shop, 3);
   assert.equal(completed.carryingMeat, false);
-  assert.equal(completed.character, 'billy');
+  assert.equal(completed.character, 'ebbe');
   console.log('✓ Escaping and bringing the meat home completes the fourth mission (+120 kr)');
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -97,20 +97,20 @@ try {
   console.log('✓ Four missions fit mobile, and touch players have a sprint button');
 
   // Upgrading must not delete a player's version-1 adventures or money.
-  await page.evaluate(() => localStorage.setItem('lillasen-adventure-v1', JSON.stringify({ version: 1, money: 975, progress: { hunt: 3, tony: 3, bailiff: 3 }, character: 'billy', activeMission: 'hunt', toolboxTaken: true })));
+  await page.evaluate(() => localStorage.setItem('gramyren-adventure-v1', JSON.stringify({ version: 1, money: 975, progress: { hunt: 3, rurik: 3, bailiff: 3 }, character: 'ebbe', activeMission: 'hunt', toolboxTaken: true })));
   await page.reload({ waitUntil: 'networkidle', timeout: 90000 });
   await page.locator('.start-button').waitFor();
   assert.equal(await page.locator('.wallet strong').innerText(), '975');
-  assert.equal(await page.locator('.character-info strong').innerText(), 'Billy');
+  assert.equal(await page.locator('.character-info strong').innerText(), 'Ebbe');
   await page.keyboard.press('i');
   assert.equal(await page.getByRole('button', { name: 'Avklarat', exact: true }).count(), 3);
   assert.ok((await page.locator('.mission-tile.tracked').innerText()).includes('Kött till kvällsmaten'));
   console.log('✓ Existing version-1 saves migrate without losing completed missions');
   assert.deepEqual(errors, []);
-  console.log('\nAll Sörbäcken update tests passed.');
+  console.log('\nAll Myrboden update tests passed.');
 } catch (error) {
   await page.screenshot({ path: 'screenshots/shop-test-failure.png', fullPage: true }).catch(() => {});
-  console.error('State at failure:', await page.evaluate(() => ({ location: document.querySelector('.location-hud')?.textContent, prompt: document.querySelector('.interact-prompt')?.textContent, objective: document.querySelector('.objective-next')?.textContent, waypoint: document.querySelector('.waypoint-hud')?.textContent, saved: localStorage.getItem('lillasen-adventure-v1') })).catch(() => null));
+  console.error('State at failure:', await page.evaluate(() => ({ location: document.querySelector('.location-hud')?.textContent, prompt: document.querySelector('.interact-prompt')?.textContent, objective: document.querySelector('.objective-next')?.textContent, waypoint: document.querySelector('.waypoint-hud')?.textContent, saved: localStorage.getItem('gramyren-adventure-v1') })).catch(() => null));
   throw error;
 } finally {
   await browser.close();

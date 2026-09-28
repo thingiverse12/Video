@@ -51,10 +51,10 @@ try {
   await page.keyboard.down('w');
   await page.waitForFunction(() => Number(document.querySelector('.speedometer strong')?.textContent) >= 5);
   await page.keyboard.up('w');
-  console.log('✓ E enters the V40 and WASD accelerates it');
+  console.log('✓ E enters the kombi and WASD accelerates it');
 
   await page.keyboard.press('v');
-  await waitText('.character-info strong', 'Billy');
+  await waitText('.character-info strong', 'Ebbe');
   console.log('✓ The player can switch brothers');
 
   await openMap('Jaktmarken');
@@ -67,23 +67,23 @@ try {
   assert.equal(await page.locator('.wallet strong').innerText(), '440', 'Hunt reward plus mission reward');
   console.log('✓ Travel, leave the car, hunt an elk, and receive the reward');
 
-  await openMap('Tonys gård');
-  await waitText('.location-hud strong', 'Tonys gård');
+  await openMap('Ruriks gård');
+  await waitText('.location-hud strong', 'Ruriks gård');
   // Hunting now requires looking around, so do not assume the old camera heading.
-  const tonyYaw = Number(await page.locator('.game-stage').getAttribute('data-camera-yaw'));
-  await walkTo(page, 32.3, -17.6, tonyYaw);
+  const rurikYaw = Number(await page.locator('.game-stage').getAttribute('data-camera-yaw'));
+  await walkTo(page, 32.3, -17.6, rurikYaw);
   await waitText('.interact-prompt', 'Låna verktygslådan');
   await page.keyboard.press('e');
   await waitText('.toast-stack', 'Lånat utan att fråga');
   await openMap('Hemma på gården');
   await waitText('.wallet strong', '540');
-  console.log('✓ Tony can be visited, his toolbox taken, and the escape completed');
+  console.log('✓ Rurik can be visited, his toolbox taken, and the escape completed');
 
   await page.getByRole('button', { name: 'Uppdrag', exact: true }).click();
   assert.equal(await page.locator('.mission-tile').count(), 4);
   assert.equal(await page.getByRole('button', { name: 'Avklarat', exact: true }).count(), 2);
   await page.getByRole('button', { name: 'Framkalla besöket', exact: true }).click();
-  await waitText('.world-labels', 'Kronofogden', 90000);
+  await waitText('.world-labels', 'indrivarna', 90000);
   const deadline = Date.now() + 90000;
   while (Date.now() < deadline) {
     if ((await page.locator('.objective-next').innerText()).includes('Uppdrag slutfört')) break;
@@ -102,8 +102,8 @@ try {
   await page.getByRole('button', { name: 'Fortsätt äventyret', exact: true }).click();
   console.log('✓ Pause stops the game clock');
 
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('lillasen-adventure-v1')));
-  assert.deepEqual(saved.progress, { hunt: 3, tony: 3, bailiff: 3, shop: 0 });
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gramyren-adventure-v1')));
+  assert.deepEqual(saved.progress, { hunt: 3, rurik: 3, bailiff: 3, shop: 0 });
   assert.equal(saved.money, 740);
   assert.equal(saved.hasRifle, true);
   assert.equal(saved.version, 3);
@@ -123,7 +123,7 @@ try {
   await page.getByRole('button', { name: 'Börja om', exact: true }).click();
   await page.getByRole('button', { name: 'Ja, börja om', exact: true }).click();
   await waitText('.wallet strong', '240');
-  assert.equal(await page.evaluate(() => localStorage.getItem('lillasen-adventure-v1')), null);
+  assert.equal(await page.evaluate(() => localStorage.getItem('gramyren-adventure-v1')), null);
   assert.equal(await page.locator('.start-button').innerText(), 'Nu kör vi');
   console.log('✓ Reset requires confirmation and clears all saved progress');
 

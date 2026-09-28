@@ -55,7 +55,7 @@ try {
     const neutral = directionKeys(padDirection(2, -2, 144)).length === 0;
     const diagonal = directionKeys(padDirection(60, -60, 144)).join(',') === 'KeyD,KeyW';
     const { createCharacter, animateCharacter } = await import('/src/game/characters.ts');
-    const model = createCharacter('leif');
+    const model = createCharacter('nils');
     let maxStep = 0, maxBob = 0, previous = 0, time = 133.7;
     for (let frame = 0; frame < 360; frame++) {
       time += 1 / 60;
@@ -69,7 +69,7 @@ try {
     const frozen = model.gait.phase === phase;
     for (let frame = 0; frame < 120; frame++) animateCharacter(model, time += 1 / 60, 0, 0, 0, 1 / 60);
     let bodyMotion = 0, headMotion = 0, limbMotion = 0;
-    for (const brother of [model, createCharacter('billy')]) {
+    for (const brother of [model, createCharacter('ebbe')]) {
       for (const speed of [0, 4.35, 7.9, 0]) {
         for (let frame = 0; frame < 180; frame++) {
           time += 1 / 60;
@@ -218,9 +218,9 @@ try {
   await up(2);
   await page.locator('.touch-actions > button').nth(1).tap();
   await page.locator('.speedometer').waitFor({ state: 'hidden' });
-  await page.getByRole('button', { name: 'Byt till Billy', exact: true }).tap();
-  await page.getByRole('button', { name: 'Byt till Leif', exact: true }).waitFor();
-  console.log('✓ Blocked walking settles; V40 acceleration/braking, E and brother switching still work');
+  await page.getByRole('button', { name: 'Byt till Ebbe', exact: true }).tap();
+  await page.getByRole('button', { name: 'Byt till Nils', exact: true }).waitFor();
+  console.log('✓ Blocked walking settles; kombi acceleration/braking, E and brother switching still work');
 
   if (process.env.SCREENSHOTS) {
     await mkdir('screenshots', { recursive: true });

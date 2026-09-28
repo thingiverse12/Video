@@ -29,10 +29,9 @@ function loft(sections: { z: number; w: number; top: number; bottom: number }[])
   return geometry;
 }
 
-/** A compact first-generation V40 estate: lower, shorter, more tapered than
- * the old car, with swept glass, a curved nose and the tall rear lamp clusters. */
+/** A made-up, unbadged blue utility wagon. */
 export function createCar(color = '#2d6798', official = false): CarModel {
-  const root = new THREE.Group(); root.name = official ? 'Kronofogdens bil' : 'Volvo V40 — Blå faran';
+  const root = new THREE.Group(); root.name = official ? 'indrivarnas bil' : 'blå kombi — Blå faran';
   const shadow = contactShadow(3.35, 6.45, .38); shadow.rotation.reorder('ZXY'); root.add(shadow);
   const paint = new THREE.MeshPhysicalMaterial({ color, roughness: 0.25, metalness: 0.40, clearcoat: 0.88, clearcoatRoughness: 0.18 });
   const dark = smoothMaterial(official ? '#485653' : '#2b526d', 0.45, 0.17);
@@ -57,6 +56,15 @@ export function createCar(color = '#2d6798', official = false): CarModel {
     { z: 1.035, w: 0.935, bottom: 1.15, top: 1.235 },
   ]), paint));
   roundedBox(root, 1.67, 0.083, 2.26, paint, 0, 1.945, -0.75, 0.035);
+  if (!official) {
+    // A homemade cargo rack distinguishes the farm wagon from a production model.
+    for (const side of [-1, 1]) {
+      roundedBox(root, .045, .09, 2.40, trim, side * .69, 2.075, -.74, .017);
+      for (const z of [-1.67, .22]) roundedBox(root, .09, .13, .12, trim, side * .69, 2.015, z, .026);
+    }
+    for (const z of [-1.73, -.88, .12]) roundedBox(root, 1.42, .045, .05, trim, 0, 2.055, z, .017);
+    roundedBox(root, .82, .20, .58, '#bba76e', 0, 2.18, -1.15, .075);
+  }
 
   const glint = new THREE.MeshBasicMaterial({ color: '#d9edf1', transparent: true, opacity: .12, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 
@@ -101,7 +109,7 @@ export function createCar(color = '#2d6798', official = false): CarModel {
     // Subtle hood creases, body-coloured rather than a flat rectangular bonnet.
     beam(root, new THREE.Vector3(side * 0.65, 1.224, 1.045), new THREE.Vector3(side * 0.68, 1.11, 2.19), 0.009, official ? '#828d81' : '#6694ad', 5);
   }
-  // Wipers and a rear wiper, mirrors, grille and diagonal Volvo iron-mark.
+  // Wipers and a rear wiper, mirrors, grille and diagonal kombi iron-mark.
   for (const side of [-1, 1]) beam(root, new THREE.Vector3(side * 0.47, 1.274, 0.985), new THREE.Vector3(side * 0.05, 1.345, 0.914), 0.011, '#293d3e');
   beam(root, new THREE.Vector3(0, 1.42, -2.23), new THREE.Vector3(0.45, 1.55, -2.128), 0.012, '#2c4040');
   roundedBox(root, 1.84, 0.23, 0.21, paint, 0, 0.698, 2.386, 0.08);
@@ -110,9 +118,7 @@ export function createCar(color = '#2d6798', official = false): CarModel {
   roundedBox(root, 0.69, 0.269, 0.065, chrome, 0, 0.955, 2.394, 0.05);
   roundedBox(root, 0.622, 0.221, 0.04, '#263e46', 0, 0.956, 2.435, 0.034);
   for (let j = -4; j <= 4; j++) roundedBox(root, 0.015, 0.174, 0.02, chrome, j * 0.063, 0.955, 2.465, 0.004);
-  roundedBox(root, 0.64, 0.023, 0.02, chrome, 0, 0.955, 2.484, 0.007).rotation.z = 0.30;
-  const badge = mesh(new THREE.TorusGeometry(0.064, 0.014, 7, 20), chrome); badge.position.set(0, 0.955, 2.504); root.add(badge);
-  roundedBox(root, 0.09, 0.027, 0.015, '#3b5b6d', 0, 0.955, 2.517, 0.003);
+  // No maker emblem, diagonal bar or model-name decals.
   const lamp = new THREE.MeshStandardMaterial({ color: '#efe9d1', roughness: 0.2, metalness: 0.2, emissive: '#f3dfae', emissiveIntensity: 0.12 });
   const rearLamp = new THREE.MeshStandardMaterial({ color: '#b74539', roughness: 0.27, emissive: '#d5432d', emissiveIntensity: 0.15 });
   const brakeLights: THREE.Mesh[] = [];
@@ -132,10 +138,8 @@ export function createCar(color = '#2d6798', official = false): CarModel {
     const label = mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: makeTextTexture(text, background, ink), roughness: 0.7 }));
     label.position.set(x, y, z); if (back) label.rotation.y = Math.PI; root.add(label); return label;
   };
-  decal(official ? 'KFM 001' : 'LBV 040', 0, 0.728, 2.526, 0.59, 0.143);
-  decal(official ? 'KFM 001' : 'LBV 040', 0, 1.041, -2.451, 0.60, 0.153, true);
-  decal('V40', -0.62, 1.18, -2.419, 0.23, 0.094, true, official ? '#66736d' : '#346b94', '#d3dcd4');
-  decal('VOLVO', 0.51, 1.18, -2.419, 0.34, 0.085, true, official ? '#66736d' : '#346b94', '#d3dcd4');
+  decal(official ? 'INK 108' : 'GM 248', 0, 0.728, 2.526, 0.59, 0.143);
+  decal(official ? 'INK 108' : 'GM 248', 0, 1.041, -2.451, 0.60, 0.153, true);
   const wheels: THREE.Group[] = [], frontWheels: THREE.Group[] = [];
   for (const z of [-1.49, 1.46]) for (const side of [-1, 1]) {
     const wheel = new THREE.Group(); wheel.position.set(side * 1.00, 0.461, z);
@@ -152,7 +156,7 @@ export function createCar(color = '#2d6798', official = false): CarModel {
     root.add(wheel); wheels.push(wheel); if (z > 0) frontWheels.push(wheel);
   }
   if (official) {
-    const side = decal('KRONOFOGDEN', 1.013, 1.058, -0.52, 0.76, 0.18, false, '#e5e1ca'); side.rotation.y = Math.PI / 2;
+    const side = decal('INDRIVARNA', 1.013, 1.058, -0.52, 0.76, 0.18, false, '#e5e1ca'); side.rotation.y = Math.PI / 2;
   }
   for (const wheel of wheels) mergeStaticMeshes(wheel);
   mergeStaticMeshes(root, new Set<THREE.Object3D>([...wheels, ...brakeLights]));

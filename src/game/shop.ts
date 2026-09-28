@@ -30,12 +30,12 @@ function meatTray(parent: THREE.Object3D, x: number, y: number, z: number, rotat
 }
 
 export function createShop() {
-  const root = new THREE.Group(); root.name = 'ICA Sörbäcken — fiktiv spelbutik';
+  const root = new THREE.Group(); root.name = 'Myrboden — fiktiv spelbutik';
   root.position.set(SHOP.center.x, 0, SHOP.center.z);
   const structure = new THREE.Group(); structure.name = 'Butikstak och övre väggar — döljs inomhus';
   const loot = new THREE.Group(); loot.name = 'Köttpaket';
   root.add(structure, loot);
-  const red = '#b74639', white = '#e7e5d3', steel = '#858f86';
+  const red = '#517b63', white = '#eee6cf', steel = '#858f86';
   const glass = new THREE.MeshStandardMaterial({ color: '#b2cdc4', roughness: 0.18, metalness: 0.14, transparent: true, opacity: 0.42, depthWrite: false });
   box(root, 14.2, 0.14, 10.6, '#c6c8b5', 0, 0.055, 0);
   for (let x = -6.5; x <= 6.5; x += 1) for (let z = -4.5; z <= 4.5; z += 1) {
@@ -57,8 +57,8 @@ export function createShop() {
   box(structure, 14.2, 3.55, 0.24, white, 0, 2.42, -5.2);
   box(structure, 14.5, 0.88, 0.27, red, 0, 3.66, 5.22);
   box(structure, 14.5, 0.12, 0.37, '#d5d5c0', 0, 4.15, 5.22);
-  placard(structure, 'ICA', 2.4, 0.83, -4.90, 3.69, 5.37, red, '#fff6e5', true);
-  placard(structure, 'SÖRBÄCKEN', 6.85, 0.78, 0.47, 3.70, 5.373, red, '#fff6e5');
+  placard(structure, '✦', 2.4, 0.83, -4.90, 3.69, 5.37, red, '#fff6e5');
+  placard(structure, 'MYRBODEN', 6.85, 0.78, 0.47, 3.70, 5.373, red, '#fff6e5');
   placard(structure, 'VÄLKOMMEN IN', 2.40, 0.26, 0, 2.99, 5.26, '#eee6cc', '#5b6d52');
   // Price posters seen from the outside, not real store/theft information.
   placard(structure, 'HEJ GRANNEN!', 1.72, 0.65, -5.26, 1.75, 5.274, '#f4dfa4', '#8c6948');
@@ -121,7 +121,7 @@ export function createShop() {
   for (let i = -2; i <= 2; i++) box(root, 0.08, 0.013, 5.4, '#dddccb', i * 4.7, 0.097, 12.5);
   for (const x of [-8.4, 8.4]) cylinder(root, 0.11, 0.12, 0.75, red, x, 0.405, 8.30, 10);
   for (const side of [-1, 1]) {
-    cylinder(root, 0.075, 0.08, 1.0, '#b84537', side * 2.1, 0.51, 6.17, 12);
+    cylinder(root, 0.075, 0.08, 1.0, '#547d67', side * 2.1, 0.51, 6.17, 12);
     cylinder(root, 0.078, 0.079, 0.12, '#eee2c5', side * 2.1, 0.78, 6.17, 12);
   }
   for (const [x, fruit] of [[-5.9, '#8e9d55'], [-4.4, '#c9984d']] as [number, string][]) {
@@ -143,7 +143,7 @@ export function createShop() {
   const poster = new THREE.Group(); poster.position.set(-8.2, 0, 7.5); poster.rotation.y = 0.19;
   for (const side of [-1, 1]) box(poster, 0.07, 1.50, 0.07, '#7b7f67', side * 0.43, 0.79, 0);
   box(poster, 0.91, 1.2, 0.075, '#f1e4bc', 0, 0.90, 0);
-  placard(poster, 'ICA', 0.73, 0.40, 0, 1.15, 0.041, '#f1e4bc', red, true);
+  placard(poster, 'MYR' , 0.73, 0.40, 0, 1.15, 0.041, '#f1e4bc', red, true);
   placard(poster, 'FIKAPAUS?', 0.77, 0.22, 0, 0.75, 0.042, '#f1e4bc', '#67734f'); root.add(poster);
   mergeStaticMeshes(structure);
   mergeStaticMeshes(loot);

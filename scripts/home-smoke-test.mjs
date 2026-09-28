@@ -38,12 +38,12 @@ try {
   await waitText(page, '.home-hud', 'Lite kvar i kylen');
   assert.equal(await isOpen(), 'true');
   await waitText(page, '.interact-prompt', 'Stäng kylskåpet');
-  await waitText(page, '.world-labels', 'Kalles kaviar');
+  await waitText(page, '.world-labels', 'örtkräm');
   await page.waitForTimeout(1800); // Let the animated door swing open for the visual check.
   await shot('fridge-open');
   assert.equal(await page.locator('.wallet strong').innerText(), '240');
   assert.equal(await page.locator('.game-stage').getAttribute('data-has-rifle'), 'false');
-  console.log('✓ E opens the old fridge and reveals Kalles, without granting money or hunting equipment');
+  console.log('✓ E opens the old fridge and reveals örtkräm, without granting money or hunting equipment');
 
   await page.keyboard.press('Escape');
   await page.getByRole('dialog').waitFor();
@@ -54,7 +54,7 @@ try {
   await waitText(page, '.interact-prompt', 'Öppna kylskåpet');
   assert.equal(await isOpen(), 'false');
   await page.keyboard.press('v');
-  await waitText(page, '.character-info strong', 'Billy');
+  await waitText(page, '.character-info strong', 'Ebbe');
   await page.keyboard.press('e');
   assert.equal(await isOpen(), 'true');
   console.log('✓ Both brothers can open/close the fridge; pausing and the context button behave correctly');
@@ -111,14 +111,14 @@ try {
   assert.equal(await isOpen(), 'false');
   assert.equal(await page.locator('.game-stage').getAttribute('data-inside-home'), 'false');
   await waitText(page, '.equipment-status', 'Inget gevär');
-  assert.equal(await page.evaluate(() => localStorage.getItem('lillasen-adventure-v1')), null);
+  assert.equal(await page.evaluate(() => localStorage.getItem('gramyren-adventure-v1')), null);
   console.log('✓ Reload preserves earned progress, sofa collisions work, and reset closes the fridge');
   assert.deepEqual(errors, [], 'No browser exceptions');
   console.log('\nAll old-interior and fridge tests passed.');
 } catch (error) {
   await mkdir('screenshots', { recursive: true });
   await page.screenshot({ path: 'screenshots/home-test-failure.png', fullPage: true }).catch(() => {});
-  console.error('State at failure:', await page.evaluate(() => ({ position: { ...document.querySelector('.game-stage')?.dataset }, prompt: document.querySelector('.interact-prompt')?.textContent, home: document.querySelector('.home-hud')?.textContent, saved: localStorage.getItem('lillasen-adventure-v1') })).catch(() => null));
+  console.error('State at failure:', await page.evaluate(() => ({ position: { ...document.querySelector('.game-stage')?.dataset }, prompt: document.querySelector('.interact-prompt')?.textContent, home: document.querySelector('.home-hud')?.textContent, saved: localStorage.getItem('gramyren-adventure-v1') })).catch(() => null));
   throw error;
 } finally {
   await browser.close();
