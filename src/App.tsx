@@ -13,6 +13,7 @@ import { Portrait } from './components/Portrait';
 import { MiniMap, WorldMap } from './components/WorldMap';
 import { TouchControls } from './components/TouchControls';
 import { HuntingControls } from './components/HuntingControls';
+import { Skogsprataren } from './components/Skogsprataren';
 import { isMobilePlayer } from './game/mobile';
 
 const missionIds = MISSION_IDS;
@@ -323,6 +324,7 @@ export default function App() {
           <div className="setting-volume"><span>Spelljud</span><input type="range" min="0" max="100" value={volume} aria-label="Ljudvolym" onChange={e => { const v = Number(e.target.value); setVolume(v); engine.current?.setVolume(v / 100); }} /><b>{volume}%</b></div>
           <div className="setting-row"><div className="setting-label"><Sun size={20} /><span><strong>Hur fin ska skogen vara?</strong><small>Lagom har mjuka markskuggor och passar pekskärmar. Finfin lägger till solskuggor och högre upplösning.</small></span></div><div className="segmented"><button className={!highQuality ? 'selected' : ''} onClick={() => { setHighQuality(false); engine.current?.setQuality(false); }}>Lagom</button><button className={highQuality ? 'selected' : ''} onClick={() => { setHighQuality(true); engine.current?.setQuality(true); }}>Finfin</button></div></div>
           <div className="setting-row"><div className="setting-label"><Maximize2 size={20} /><span><strong>Mer Norrland på skärmen</strong><small>Spela utan sådant som stör.</small></span></div><button className="text-button" onClick={toggleFullscreen}>{fullscreen ? 'Lämna helskärm' : 'Helskärm'}<ArrowUpRight size={16} /></button></div>
+          <Skogsprataren />
           <div className="reset-section"><div className="setting-label"><RotateCcw size={20} /><span><strong>En helt ny dag</strong><small>Radera sparade framsteg och börja om.</small></span></div>{!confirmReset ? <button className="text-button danger" onClick={() => setConfirmReset(true)}>Börja om</button> : <div className="reset-confirmation"><p>Pengar, uppdrag och utrustning återställs. Säkert?</p><button className="secondary-button" onClick={() => setConfirmReset(false)}>Avbryt</button><button className="danger-button" onClick={() => { engine.current?.reset(); closeModal(); }}>Ja, börja om</button></div>}</div>
           <button className="primary-button settings-done" onClick={closeModal}>Så där ja<Check size={16} /></button>
         </div>}

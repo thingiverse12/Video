@@ -6,6 +6,11 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Serverfunktionen bakom /api/ai. Nyckeln (AI_API_KEY) sätts i Netlifys
+# gränssnitt med scope Functions – aldrig här i filen och aldrig i src/.
+[functions]
+  directory = "netlify/functions"
+
 # Optional Netlify-aware local development. Ordinary Arena previews still use
 # `npm run dev` on port 5173; do not run both Vite instances at the same time.
 [dev]

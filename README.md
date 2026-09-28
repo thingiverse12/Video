@@ -24,6 +24,36 @@ Ljud och bakgrundsmusik är separata, avstängda från början och skapas lokalt
 
 Bilens 3D-form har ett kort, kantigt kupétak, sluttande bakruta och separat låg bagagelucka som en fyrdörrars sedan. Bilderna visar äldre blå sedaner; vi använder deras allmänna proportioner och dämpade blå färg utan att återge en specifik bilmodell. Fotografier, vattenmärken, modellnamn, märkesemblem och registreringsnummer ingår inte i spelet.
 
+## API: Skogsprataren (`/api/ai`)
+
+Spelet kan frivilligt prata med en språkmodell via en serverfunktion. Webbläsaren anropar bara `/api/ai` på samma adress som spelet; själva nyckeln ligger i serverns miljövariabler och skickas aldrig till spelaren, loggas aldrig och syns aldrig i svaren. Panelen finns under **Inställningar → Skogsprataren**. Utan nyckel visas i stället en förklaring, och spelet fungerar precis som vanligt.
+
+```sh
+# Lokalt: kör funktionen som den ser ut hos Netlify, utan konto
+netlify functions:serve --port 9999 --offline   # eller: netlify dev
+curl http://localhost:9999/api/ai                        # status, ingen nyckel krävs
+curl -X POST http://localhost:9999/api/ai \
+  -H 'content-type: application/json' \
+  -d '{"prompt":"Skriv en kort skylt till stugan"}'
+```
+
+| Miljövariabel | Betydelse |
+| --- | --- |
+| `AI_API_KEY` | Nyckeln. `OPENAI_API_KEY` eller `ANTHROPIC_API_KEY` fungerar också, liksom de nycklar Netlify AI Gateway injicerar automatiskt. |
+| `AI_PROVIDER` | `openai` (standard, OpenAI-kompatibelt) eller `anthropic`. |
+| `AI_MODEL` | Modellnamn, t.ex. `gpt-4o-mini` eller `claude-sonnet-4-5`. |
+| `AI_API_URL` | Annan basadress, t.ex. `https://openrouter.ai/api/v1` eller en egen gateway. |
+
+`GET /api/ai` svarar `{ ok, configured, provider?, model?, maxPromptChars }`. `POST /api/ai` tar `{ "prompt": "...", "system"?, "maxTokens"? }` och svarar `{ ok: true, text, provider, model }`. Fel svarar med `400` (ogiltig kropp), `405` (fel metod), `413` (för lång prompt), `501` (nyckel saknas) eller `502` (tjänsten svarade inte). Netlify-varianten har även en gräns på 20 anrop per minut och IP.
+
+Nyckeln sätts där appen körs, aldrig i `src/`:
+
+- **Netlify:** Site configuration → Environment variables → lägg till `AI_API_KEY` med scope **Functions**, och publicera igen.
+- **Vercel:** Project → Settings → Environment Variables → `AI_API_KEY`, och deploya om. `api/ai.js` använder samma `server/ai-core.mjs` som Netlify-funktionen.
+- **GitHub Pages:** statisk värd utan funktioner, så panelen visar bara att API:t inte finns där.
+
+`npm run test:api` kör 71 kontroller av endpointen utan nätverk och utan riktiga nycklar, inklusive båda värdarnas funktionsformer och en kontroll som stoppar en nyckel som råkar hamna i webbläsarkoden.
+
 ## Bygg, tester och Netlify
 
 ```sh
@@ -37,6 +67,7 @@ npm run test:upstairs
 npm run test:rifle
 npm run test:shooting
 npm run test:aim
+npm run test:api
 npm run test:graphics
 npm run test:mobile
 npm run test:touch
@@ -46,6 +77,19 @@ npm run test:rights  # begränsad kontroll av gamla namn och medföljande licens
 ```
 
 Browser-testerna använder `http://localhost:5173` som standard; ändra med `TEST_URL` och/eller `CHROMIUM_EXECUTABLE`. `SCREENSHOTS=1` sparar testbilder i den ignorerade mappen `screenshots/`. Netlify använder `netlify.toml` (byggkommando `npm run build`, publiceringsmapp `dist`) och SPA-omskrivningen i `public/_redirects`. Tidigare Netlify-förhandsvisningar med en äldre version är fortfarande åtkomliga; den som har Netlify-åtkomst måste ta ned eller ersätta dem. Den här kodändringen uppdaterar **inte** adresserna automatiskt.
+
+## Publicera med serverfunktion
+
+Arbetsflödet **Netlify preview** (`.github/workflows/netlify-preview.yml`) publicerar från den godkända arbetsgrenen när commit-meddelandet innehåller `[netlify-preview]`, eller manuellt via *Run workflow*. Det kör `npm run test:api`, bygger med Netlify så att `netlify/functions/ai.mjs` följer med som `/api/ai`, publicerar en anonym förhandsvisning och kontrollerar till sist `GET /api/ai` över HTTPS. Hamnar funktionen utanför publiceringen (vilket anonyma Netlify-webbplatser kan neka till) publiceras bara de statiska filerna, och sammanfattningen säger det rakt ut.
+
+En anonym Netlify-webbplats måste claimas inom 60 minuter, annars stängs den. Claimlänken och lösenordet skrivs aldrig i klartext i loggen: de ligger i ett krypterat kuvert i körningens artefakt och i `NETLIFY_ENVELOPE_*`-notiserna. Öppna dem med den egna nyckeln:
+
+```sh
+node scripts/netlify-owner-key.mjs generate            # en gång: ny publik nyckel + lokal privat nyckel
+node scripts/netlify-owner-key.mjs open .netlify/preview-owner-private-key.pem --log run.log
+```
+
+Den publika nyckeln (`.github/netlify-preview-public.pem`) versionshanteras; den privata (`.netlify/preview-owner-private-key.pem`) är ignorerad av Git och ska aldrig delas eller publiceras. Vercel är redan kopplad till repot och kör `api/ai.js` vid push, så den vägen behöver ingen claim alls.
 
 ## Rättigheter och publicering
 

@@ -3,12 +3,17 @@ name: Netlify preview
 'on':
   push:
     branches:
-      - arena/01a0e8e8-video
+      - arena/01a0e99b-video
     paths:
       - .github/netlify-preview-request.json
       - .github/netlify-preview-public.pem
       - .github/workflows/netlify-preview.yml
+      - netlify.toml
+      - netlify/functions/**
+      - server/**
+      - api/**
       - scripts/deploy-netlify-preview.mjs
+      - scripts/check-preview-api.mjs
       - scripts/netlify-preview-envelope.mjs
       - scripts/emit-netlify-result.mjs
   workflow_dispatch:
@@ -25,10 +30,10 @@ jobs:
     name: Build and publish a temporary Netlify preview
     if: >-
       github.repository == 'thingiverse12/Video' &&
-      github.ref == 'refs/heads/arena/01a0e8e8-video' &&
+      github.ref == 'refs/heads/arena/01a0e99b-video' &&
       (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[netlify-preview]'))
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - name: Check out the approved working branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -45,6 +50,9 @@ jobs:
       - name: Install application dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Test the API endpoint without any keys
+        run: npm run test:api
+
       - name: Test private deployment-result handling
         run: node scripts/netlify-preview-test.mjs
 
@@ -56,6 +64,10 @@ jobs:
 
       - name: Publish a new anonymous preview and seal its claim details
         run: node scripts/deploy-netlify-preview.mjs
+
+      - name: Check the published /api/ai endpoint
+        if: always()
+        run: node scripts/check-preview-api.mjs
 
       - name: Keep the public status and encrypted ownership details
         if: always()

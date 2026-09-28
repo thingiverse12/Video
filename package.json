@@ -18,6 +18,7 @@
     "test:mobile": "node scripts/mobile-landscape-smoke-test.mjs",
     "test:shooting": "node scripts/shooting-smoke-test.mjs",
     "test:aim": "node scripts/aim-controls-smoke-test.mjs",
+    "test:api": "node scripts/api-smoke-test.mjs",
     "test:graphics": "node scripts/graphics-smoke-test.mjs",
     "build:netlify": "netlify build --offline",
     "setup:netlify": "node scripts/setup-netlify.mjs",
