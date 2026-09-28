@@ -1,6 +1,6 @@
 # Gråmyren
 
-Ett fristående svenskt 3D-skogäventyr för webbläsare. Spela som vännerna Nils och Ebbe, som rustar upp en skogsstuga i en fiktiv by, kör en obrandad blå femdörrars kombi, utforska skogen och välj bland fyra uppdrag. Spelets figurer, skyltar, porträtt, miljöer och musik skapas i kod; inga externa fotografier, inspelningar eller fordons-/butikslogotyper ingår i bygget.
+Ett fristående svenskt 3D-skogäventyr för webbläsare. Spela som vännerna Nils och Ebbe, som rustar upp en skogsstuga i en fiktiv by, kör en obrandad blå fyrdörrars sedan, utforska skogen och välj bland fyra uppdrag. Spelets figurer, skyltar, porträtt, miljöer och musik skapas i kod; inga externa fotografier, inspelningar eller fordons-/butikslogotyper ingår i bygget.
 
 ## Spela lokalt
 
@@ -22,7 +22,7 @@ npm run dev -- --port 5173
 
 Ljud och bakgrundsmusik är separata, avstängda från början och skapas lokalt med Web Audio efter att spelaren aktiverat dem. Ingen inspelad dialog utlovas.
 
-Bilens 3D-form har ett långt tak och en upprätt baklucka som en femdörrars kombi. Bilderna visar äldre fyrdörrars bilar; därifrån används bara allmänna drag som nedtonad blå lack och kantig front. Fotografier, vattenmärken, modellnamn, märkesemblem och registreringsnummer ingår inte i spelet.
+Bilens 3D-form har ett kort, kantigt kupétak, sluttande bakruta och separat låg bagagelucka som en fyrdörrars sedan. Bilderna visar äldre blå sedaner; vi använder deras allmänna proportioner och dämpade blå färg utan att återge en specifik bilmodell. Fotografier, vattenmärken, modellnamn, märkesemblem och registreringsnummer ingår inte i spelet.
 
 ## Bygg, tester och Netlify
 

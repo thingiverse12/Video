@@ -29,17 +29,17 @@ function loft(sections: { z: number; w: number; top: number; bottom: number }[])
   return geometry;
 }
 
-/** Original, unbadged blue five-door wagon with a boxy nose. */
-export function createCar(color = '#467a9d', official = false): CarModel {
-  const root = new THREE.Group(); root.name = official ? 'mätarlagets terrängbil' : 'blå kombi — Blå faran';
+/** Original, unbadged blue four-door sedan with a separate boot. */
+export function createCar(color = '#527d9b', official = false): CarModel {
+  const root = new THREE.Group(); root.name = official ? 'mätarlagets terrängbil' : 'blå sedan — Blå faran';
   const shadow = contactShadow(3.35, 6.45, .38); shadow.rotation.reorder('ZXY'); root.add(shadow);
-  const paint = new THREE.MeshPhysicalMaterial({ color, roughness: 0.25, metalness: 0.40, clearcoat: 0.88, clearcoatRoughness: 0.18 });
+  const paint = new THREE.MeshPhysicalMaterial({ color, roughness: 0.34, metalness: 0.27, clearcoat: 0.88, clearcoatRoughness: 0.18 });
   const dark = smoothMaterial(official ? '#485653' : '#2b526d', 0.45, 0.17);
   const glass = new THREE.MeshStandardMaterial({ color: '#496f7b', roughness: 0.14, metalness: 0.34, side: THREE.DoubleSide });
   const trim = smoothMaterial('#283e42', 0.56);
   const chrome = smoothMaterial('#d6deda', 0.22, 0.72);
   const body = mesh(loft([
-    { z: -2.42, w: 0.88, bottom: 0.54, top: 1.15 },
+    { z: -2.42, w: 0.88, bottom: 0.54, top: 1.24 },
     { z: -2.18, w: 0.965, bottom: 0.52, top: 1.23 },
     { z: -1.45, w: 1.0, bottom: 0.51, top: 1.22 },
     { z: 0.35, w: 1.0, bottom: 0.51, top: 1.21 },
@@ -48,22 +48,20 @@ export function createCar(color = '#467a9d', official = false): CarModel {
     { z: 2.43, w: 0.82, bottom: 0.62, top: 1.00 },
   ]), paint); root.add(body);
   roundedBox(root, 1.92, 0.14, 4.75, dark, 0, 0.55, 0.02, 0.05);
-  // Extended roof and upright hatch give this a clear five-door wagon profile.
-  // The older-looking square bonnet is an aesthetic cue, not a model-specific badge.
+  // Square four-door cabin, raked rear glass and a clearly separate horizontal boot.
+  // The roof stops before the boot; this is not a long-roof wagon.
   root.add(mesh(loft([
-    { z: -2.32, w: 0.86, bottom: 1.18, top: 1.80 },
-    { z: -2.04, w: 0.86, bottom: 1.18, top: 1.89 },
-    { z: -1.19, w: 0.86, bottom: 1.19, top: 1.91 },
+    { z: -1.79, w: 0.88, bottom: 1.19, top: 1.20 },
+    { z: -1.25, w: 0.85, bottom: 1.19, top: 1.90 },
     { z: -0.41, w: 0.87, bottom: 1.19, top: 1.93 },
     { z: 0.35, w: 0.86, bottom: 1.19, top: 1.90 },
     { z: 1.04, w: 0.92, bottom: 1.16, top: 1.23 },
   ]), paint));
-  roundedBox(root, 1.68, 0.072, 2.25, paint, 0, 1.91, -0.74, 0.022);
-  // Thin, unbadged luggage rails, not a copy of the photographed roof.
-  if (!official) for (const side of [-1, 1]) {
-    roundedBox(root, 0.035, 0.068, 2.03, trim, side * 0.69, 1.99, -0.84, 0.014);
-    for (const z of [-1.69, -0.04]) roundedBox(root, 0.075, 0.065, 0.10, trim, side * 0.69, 1.94, z, 0.018);
-  }
+  roundedBox(root, 1.67, 0.075, 1.70, paint, 0, 1.92, -0.44, 0.022);
+  roundedBox(root, 1.75, 0.075, 0.70, paint, 0, 1.245, -2.04, 0.012);
+  // Thin shut-lines sit above the body, so the separate boot lid remains visible.
+  beam(root, new THREE.Vector3(-0.78, 1.291, -1.80), new THREE.Vector3(0.78, 1.291, -1.80), .012, '#344d5a');
+  for (const side of [-1, 1]) beam(root, new THREE.Vector3(side * 0.86, 1.291, -1.82), new THREE.Vector3(side * 0.86, 1.291, -2.34), .009, '#344d5a');
 
   const glint = new THREE.MeshBasicMaterial({ color: '#d9edf1', transparent: true, opacity: .12, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 
@@ -81,15 +79,14 @@ export function createCar(color = '#467a9d', official = false): CarModel {
     for (let i = 0; i < 4; i++) beam(root, points[i], points[(i + 1) % 4], 0.016, '#263e46', 6);
   };
   pane([new THREE.Vector3(-0.81, 1.873, 0.378), new THREE.Vector3(0.81, 1.873, 0.378), new THREE.Vector3(0.90, 1.26, 0.994), new THREE.Vector3(-0.90, 1.26, 0.994)]);
-  pane([new THREE.Vector3(-0.77, 1.76, -2.345), new THREE.Vector3(-0.78, 1.29, -2.395), new THREE.Vector3(0.78, 1.29, -2.395), new THREE.Vector3(0.77, 1.76, -2.345)]);
+  pane([new THREE.Vector3(-0.78, 1.87, -1.25), new THREE.Vector3(-0.84, 1.27, -1.77), new THREE.Vector3(0.84, 1.27, -1.77), new THREE.Vector3(0.78, 1.87, -1.25)]);
   for (const side of [-1, 1]) {
     const panels = [
       [[0.90, 1.272, 0.973], [0.885, 1.845, 0.323], [0.90, 1.858, -0.44], [0.984, 1.274, -0.44]],
-      [[0.902, 1.852, -0.535], [0.852, 1.853, -1.16], [0.932, 1.274, -1.57], [0.984, 1.274, -0.535]],
-      [[0.847, 1.839, -1.26], [0.856, 1.815, -2.03], [0.912, 1.275, -2.22], [0.930, 1.274, -1.68]],
+      [[0.902, 1.852, -0.535], [0.848, 1.853, -1.22], [0.932, 1.274, -1.60], [0.984, 1.274, -0.535]],
     ];
     for (const panel of panels) pane(panel.map(([x, y, z]) => new THREE.Vector3(x * side, y, z)));
-    for (const [a, b] of [[0.27, -0.41], [-0.57, -1.13], [-1.39, -2.00]]) beam(root, new THREE.Vector3(side * 0.895, 1.80, a), new THREE.Vector3(side * 0.897, 1.80, b), 0.009, '#bfd0c7', 5);
+    for (const [a, b] of [[0.27, -0.41], [-0.57, -1.13]]) beam(root, new THREE.Vector3(side * 0.895, 1.80, a), new THREE.Vector3(side * 0.897, 1.80, b), 0.009, '#bfd0c7', 5);
     roundedBox(root, 0.035, 0.055, 3.65, trim, side * 1.003, 0.88, -0.02, 0.012);
     roundedBox(root, 0.020, 0.024, 3.27, chrome, side * 0.995, 1.248, -0.59, 0.008);
     for (const z of [-0.38, -1.22]) {
@@ -99,7 +96,7 @@ export function createCar(color = '#467a9d', official = false): CarModel {
     for (const z of [-0.48, -1.33, 0.90]) box(root, 0.016, 0.43, 0.011, dark, side * 1.006, 0.99, z);
     ellipsoid(root, paint, side * 1.06, 1.40, 0.59, 0.185, 0.109, 0.192, 16);
     roundedBox(root, 0.019, 0.122, 0.236, glass, side * 1.215, 1.405, 0.581, 0.04);
-    roundedBox(root, 0.037, 0.028, 2.42, chrome, side * 0.81, 1.944, -0.78, 0.009);
+    roundedBox(root, 0.037, 0.028, 1.65, chrome, side * 0.80, 1.944, -0.43, 0.009);
     for (const z of [-1.49, 1.46]) {
       const arch = mesh(new THREE.TorusGeometry(0.486, 0.036, 6, 22, Math.PI), dark);
       arch.rotation.y = side * Math.PI / 2; arch.position.set(side * 1.0, 0.466, z); root.add(arch);
@@ -107,9 +104,8 @@ export function createCar(color = '#467a9d', official = false): CarModel {
     // Subtle hood creases, body-coloured rather than a flat rectangular bonnet.
     beam(root, new THREE.Vector3(side * 0.65, 1.224, 1.045), new THREE.Vector3(side * 0.68, 1.11, 2.19), 0.009, official ? '#828d81' : '#6694ad', 5);
   }
-  // Wipers, mirrors and a plain horizontal grille; no brand mark.
+  // Wipers, mirrors, rectangular lamps and a plain horizontal grille; no brand mark.
   for (const side of [-1, 1]) beam(root, new THREE.Vector3(side * 0.47, 1.274, 0.985), new THREE.Vector3(side * 0.05, 1.345, 0.914), 0.011, '#293d3e');
-  beam(root, new THREE.Vector3(-0.39, 1.40, -2.407), new THREE.Vector3(0.19, 1.48, -2.407), 0.011, '#293d3e');
   roundedBox(root, 1.84, 0.23, 0.21, paint, 0, 0.698, 2.386, 0.08);
   roundedBox(root, 1.86, 0.072, 0.14, trim, 0, 0.635, 2.421, 0.026);
   roundedBox(root, 0.78, 0.145, 0.028, trim, 0, 0.66, 2.517, 0.025);
@@ -123,16 +119,17 @@ export function createCar(color = '#467a9d', official = false): CarModel {
     roundedBox(root, 0.44, 0.235, 0.078, lamp, side * 0.68, 0.97, 2.348, 0.022);
     roundedBox(root, 0.10, 0.22, 0.07, '#d5a35b', side * 0.96, 0.97, 2.328, 0.014);
     roundedBox(root, 0.40, 0.11, 0.037, '#dedac5', side * 0.69, 0.65, 2.499, 0.014);
-    // A simple upright lamp stack sits beside the unbadged rear hatch.
-    const rear = roundedBox(root, 0.18, 0.53, 0.082, rearLamp, side * 0.84, 1.34, -2.393, 0.018);
+    // Low, horizontal rear lamps frame the separate luggage lid.
+    const rear = roundedBox(root, 0.37, 0.22, 0.082, rearLamp, side * 0.70, 1.035, -2.426, 0.018);
     brakeLights.push(rear);
-    roundedBox(root, 0.18, 0.16, 0.084, '#daa35e', side * 0.84, 1.02, -2.394, 0.014);
-    roundedBox(root, 0.17, 0.14, 0.083, '#e2dbbd', side * 0.84, 0.89, -2.395, 0.014);
+    roundedBox(root, 0.14, 0.22, 0.082, '#daa35e', side * 0.94, 1.035, -2.425, 0.014);
+    roundedBox(root, 0.14, 0.20, 0.083, '#e2dbbd', side * 0.42, 1.035, -2.425, 0.014);
   }
   roundedBox(root, 1.81, 0.187, 0.20, paint, 0, 0.687, -2.391, 0.055);
   roundedBox(root, 1.81, 0.055, 0.09, trim, 0, 0.72, -2.494, 0.022);
+  // A distinct trunk face and bumper remain below the back window.
+  roundedBox(root, 1.28, 0.012, 0.019, trim, 0, 1.155, -2.446, 0.005);
   roundedBox(root, 0.48, 0.025, 0.017, chrome, 0, 1.22, -2.434, 0.008);
-  roundedBox(root, 1.58, 0.032, 0.024, trim, 0, 1.80, -2.409, 0.008);
   const decal = (text: string, x: number, y: number, z: number, w: number, h: number, back = false, background = '#edeedc', ink = '#304640') => {
     const label = mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: makeTextTexture(text, background, ink), roughness: 0.7 }));
     label.position.set(x, y, z); if (back) label.rotation.y = Math.PI; root.add(label); return label;

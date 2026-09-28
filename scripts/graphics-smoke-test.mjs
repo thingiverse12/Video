@@ -57,7 +57,24 @@ try {
       sway = Math.max(sway, Math.abs(ebbe.body.position.y), ...ebbe.body.rotation.toArray().slice(0, 3).map(Math.abs), ...ebbe.head.rotation.toArray().slice(0, 3).map(Math.abs));
     }
     const car = createCar(); let glossyBlue = false;
-    car.root.traverse(object => { const m = object.material; if (m?.isMeshPhysicalMaterial && m.clearcoat > .8 && m.color.b > m.color.r) glossyBlue = true; });
+    const carProfile = { boot: 0, cabin: 0, bonnet: 0 };
+    car.root.updateMatrixWorld(true);
+    car.root.traverse(object => {
+      const m = object.material;
+      if (!object.isMesh || !m?.isMeshPhysicalMaterial) return;
+      if (m.clearcoat > .8 && m.color.b > m.color.r) glossyBlue = true;
+      const vertices = object.geometry.getAttribute('position'), transform = object.matrixWorld.elements;
+      for (let i = 0; i < vertices.count; i++) {
+        const x = vertices.getX(i), y = vertices.getY(i), z = vertices.getZ(i);
+        const worldX = transform[0] * x + transform[4] * y + transform[8] * z + transform[12];
+        if (Math.abs(worldX) > 1.1) continue;
+        const worldY = transform[1] * x + transform[5] * y + transform[9] * z + transform[13];
+        const worldZ = transform[2] * x + transform[6] * y + transform[10] * z + transform[14];
+        if (worldZ > -2.45 && worldZ < -1.8) carProfile.boot = Math.max(carProfile.boot, worldY);
+        if (worldZ > -.7 && worldZ < .2) carProfile.cabin = Math.max(carProfile.cabin, worldY);
+        if (worldZ > 1.5 && worldZ < 2.45) carProfile.bonnet = Math.max(carProfile.bonnet, worldY);
+      }
+    });
     const elk = createElk();
     return {
       shadowNonInteractive: hits.length === 0, shadowAboveRoad: shadow.position.y > .044,
@@ -65,7 +82,8 @@ try {
       crownVertices: position.count, outward: outward / normal.count,
       finiteNormals: [...normal.array].every(Number.isFinite), grassVertices: grass.getAttribute('position').count,
       grassTexture: surfaceTexture('grass').image.width, repeat: surfaceTexture('grass').repeat.x,
-      purpleBack, sway, glossyBlue, carName: car.root.name,
+      purpleBack, sway, glossyBlue, carName: car.root.name, carProfile,
+      carWheels: car.wheels.length, carBrakeLights: car.brakeLights.length,
       elkHasShadow: elk.root.children.some(c => c.name.startsWith('Contact shadow')),
     };
   });
@@ -74,8 +92,10 @@ try {
   assert.ok(art.grassVertices >= 20 && art.grassTexture === 256 && art.repeat > 1);
   assert.equal(art.purpleBack, true, 'Ebbe wears a purple hoodie on his back too');
   assert.equal(art.sway, 0, 'The visual update never restores body/head rocking');
-  assert.equal(art.glossyBlue, true); assert.ok(art.carName.includes('kombi')); assert.equal(art.elkHasShadow, true);
-  console.log('✓ Textures, detailed tree/grass geometry, harmless contact shadows, purple hoodie, blue unbadged kombi and zero rocking', art);
+  assert.equal(art.glossyBlue, true); assert.ok(art.carName.includes('sedan')); assert.equal(art.elkHasShadow, true);
+  assert.ok(art.carProfile.cabin > 1.85 && art.carProfile.boot > 1.26 && art.carProfile.boot < 1.4 && art.carProfile.bonnet < 1.25, 'Separate low boot and high passenger roof');
+  assert.equal(art.carWheels, 4); assert.equal(art.carBrakeLights, 2);
+  console.log('✓ Textures, detailed tree/grass geometry, harmless contact shadows, purple hoodie, blue unbadged sedan and zero rocking', art);
 
   await travelTo(desktop, 'Myrsjön');
   await waitText(desktop, '.location-hud strong', 'Myrsjön');

@@ -621,7 +621,7 @@ export class GameEngine {
       this.companion.stunned = 0;
       if (this.state.activeMission === 'hunt') this.state.waypoint = this.state.hasRifle ? 'forest' : 'home';
       else if (this.state.activeMission === 'shop') this.state.waypoint = this.state.carryingMeat ? 'home' : 'market';
-      this.callbacks.onToast({ title: 'Blå faran · blå kombi', detail: this.state.activeMission === 'hunt' && !this.state.hasRifle ? 'Geväret ligger fortfarande i huset. Hämta det innan ni ger er ut på jakt.' : 'WASD kör · Mellanslag bromsar · H tutar · E kliver ur', kind: 'info' });
+      this.callbacks.onToast({ title: 'Blå faran · blå sedan', detail: this.state.activeMission === 'hunt' && !this.state.hasRifle ? 'Geväret ligger fortfarande i huset. Hämta det innan ni ger er ut på jakt.' : 'WASD kör · Mellanslag bromsar · H tutar · E kliver ur', kind: 'info' });
       this.cameraYaw = this.car.root.rotation.y + Math.PI;
       this.audio.play('click');
       this.save(); this.emit(); return;
@@ -740,7 +740,7 @@ export class GameEngine {
   private collides(position: THREE.Vector3, radius: number, includeCar: boolean, floor: 0 | 1 = 0) {
     if (Math.abs(position.x) > 89 || Math.abs(position.z) > 89) return true;
     if (floor === 1 && (Math.abs(position.x - HOME.center.x) > 5.44 - radius || Math.abs(position.z - HOME.center.z) > 3.94 - radius)) return true;
-    // The wagon can park outside, but it cannot be driven through the shop doorway.
+    // The sedan can park outside, but it cannot be driven through the shop doorway.
     if (radius > 1 && Math.abs(position.x - HOME.center.x) < 5.7 + radius && Math.abs(position.z - HOME.center.z) < 4.2 + radius) return true;
     if (radius > 1 && Math.abs(position.x - SHOP.center.x) < 7.4 + radius && position.z > SHOP.center.z - 5.5 - radius && position.z < SHOP.center.z + 5.3 + radius) return true;
     const colliders = floor === 1 ? this.world.home.upstairs.colliders : this.world.colliders;
@@ -1281,7 +1281,7 @@ export class GameEngine {
       add('ebbe-computer', this.state.computerOn ? 'Ebbes dator · på' : 'Ebbes gamla dator · E', new THREE.Vector3(HOME.computer.x, HOME.upperY + 2.52, HOME.computer.z), 'target');
       return labels;
     }
-    if (distance(this.playerPosition, this.car.root.position) < 22 && !this.state.inCar) add('kombi', 'Blå faran · kombi', this.car.root.position.clone().add(new THREE.Vector3(0, 2.70, 0)), 'car');
+    if (distance(this.playerPosition, this.car.root.position) < 22 && !this.state.inCar) add('sedan', 'Blå faran · sedan', this.car.root.position.clone().add(new THREE.Vector3(0, 2.70, 0)), 'car');
     if (this.state.started && Math.hypot(this.playerPosition.x - HOME.center.x, this.playerPosition.z - HOME.center.z) < 28) {
       if (!this.state.insideHome) add('home-door', this.state.hasRifle ? 'Vännernas stuga' : 'Huset · hämta geväret', new THREE.Vector3(HOME.door.x, 4.5, -1.0), 'target');
       if (this.state.insideHome && !this.state.hasRifle) add('rifle', 'Jaktgeväret', new THREE.Vector3(HOME.rifle.x, 2.94, HOME.rifle.z), 'target');
