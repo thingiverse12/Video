@@ -47,7 +47,7 @@ Browser-testerna använder `http://localhost:5173` som standard; ändra med `TES
 
 ## Rättigheter och publicering
 
-Licensfiler för de medföljande typsnitten och programbiblioteken finns under `public/licenses/` och ingår i `dist/licenses/` efter byggning. Länken **Licenser** finns i spelets sidfot.
+Licensfiler för de medföljande typsnitten och programbiblioteken finns under `public/licenses/` och ingår i `dist/licenses/` efter byggning. Länken **Licenser** finns i spelets sidfot. `npm run build` kör automatiskt en begränsad kontroll som stoppar bygget om kända äldre namn eller märken dyker upp i dagens appfiler eller om licensfilerna saknas. Kontrollen bedömer inte juridisk originalitet.
 
 
 Det här är en omarbetning med nya namn, nya figurkläder/porträtt, en ommärkt butik, generisk bil utan emblem och ny förpackningsgrafik. Det är en riskminskande förändring, **inte en juridisk garanti**. Granska fortfarande musik, kod, typsnitt, beroenden och helhetsintryck innan publik lansering. En friskrivning eller ändrad HEAD raderar inte tidigare Git-historik, gamla byggfiler eller redan publicerade webbplatser. Den som äger gamla driftsättningar behöver själv ta ned eller ersätta dem. Sök kvalificerad juridisk rådgivning vid behov.
