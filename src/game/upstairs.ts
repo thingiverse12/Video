@@ -27,7 +27,7 @@ export function createWoodenStaircase() {
     }
     beam(root, new THREE.Vector3(sx, HOME.groundY + 1.00, 3.03), new THREE.Vector3(sx, HOME.upperY + 0.86, -0.77), 0.047, '#ad8a5b', 8);
   }
-  sign(root, 'UPP TILL EBBE', x, 2.40, 3.32, 1.46, 0.30, '#d7c596');
+  sign(root, 'UPP TILL BILL', x, 2.40, 3.32, 1.46, 0.30, '#d7c596');
   mergeStaticMeshes(root); root.visible = false;
   return root;
 }
@@ -40,19 +40,19 @@ function computerTexture(on: boolean) {
     for (let i = 0; i < 3; i++) {
       ctx.fillStyle = '#dbcb8d'; ctx.fillRect(26, 32 + i * 77, 28, 27);
       ctx.fillStyle = '#426461'; ctx.fillRect(30, 39 + i * 77, 20, 13);
-      ctx.fillStyle = '#e7e4c1'; ctx.font = '14px monospace'; ctx.fillText(['SPEL', 'EBBE', 'SKRÄP'][i], 21, 76 + i * 77);
+      ctx.fillStyle = '#e7e4c1'; ctx.font = '14px monospace'; ctx.fillText(['SPEL', 'BILL', 'SKRÄP'][i], 21, 76 + i * 77);
     }
     ctx.fillStyle = '#243b3977'; ctx.fillRect(109, 62, 348, 233);
     ctx.fillStyle = '#dadac2'; ctx.fillRect(100, 53, 345, 232);
     ctx.fillStyle = '#375f71'; ctx.fillRect(105, 58, 335, 29);
-    ctx.fillStyle = '#f2ecd1'; ctx.font = 'bold 18px monospace'; ctx.fillText('EBBES DATOR', 117, 79);
+    ctx.fillStyle = '#f2ecd1'; ctx.font = 'bold 18px monospace'; ctx.fillText('BILLS DATOR', 117, 79);
     ctx.fillStyle = '#8f9d6a'; ctx.fillRect(119, 104, 306, 125);
     for (let i = 0; i < 7; i++) {
       const x = 140 + i * 43; ctx.fillStyle = i % 2 ? '#3e684c' : '#527b56';
       ctx.beginPath(); ctx.moveTo(x, 112 + (i % 2) * 10); ctx.lineTo(x - 25, 209); ctx.lineTo(x + 25, 209); ctx.closePath(); ctx.fill();
     }
     ctx.fillStyle = '#eee5ba'; ctx.font = 'bold 17px monospace'; ctx.fillText('ÄLGSPANAREN 95', 142, 221);
-    ctx.fillStyle = '#535d46'; ctx.font = '17px monospace'; ctx.fillText('Välkommen, Ebbe!', 135, 262);
+    ctx.fillStyle = '#535d46'; ctx.font = '17px monospace'; ctx.fillText('Välkommen, Bill!', 135, 262);
     ctx.fillStyle = '#ced2bd'; ctx.fillRect(0, 351, 512, 33);
     ctx.fillStyle = '#596d53'; ctx.font = 'bold 17px monospace'; ctx.fillText('START', 19, 374); ctx.fillText('14:32', 438, 374);
   } else {
@@ -64,7 +64,7 @@ function computerTexture(on: boolean) {
 }
 
 function createOldComputer() {
-  const root = new THREE.Group(); root.name = 'Ebbes gamla beige dator med tjockskärm';
+  const root = new THREE.Group(); root.name = 'Bills gamla beige dator med tjockskärm';
   // Scuffed desk and a beige PC tower with floppy/CD drives.
   box(root, 2.56, 0.12, 1.05, '#9a7952', 0, 1.04, 0);
   for (const x of [-1.11, 1.11]) for (const z of [-0.36, 0.36]) box(root, 0.10, 1.05, 0.10, '#775b3e', x, 0.525, z);
@@ -110,7 +110,7 @@ function createOldComputer() {
 }
 
 export function createUpstairs() {
-  const root = new THREE.Group(); root.name = 'Övervåningen — Ebbes rum';
+  const root = new THREE.Group(); root.name = 'Övervåningen — Bills rum';
   root.position.set(HOME.center.x, HOME.upperY, HOME.center.z);
   const colliders: { type: 'box'; x: number; z: number; w: number; d: number }[] = [];
   const block = (x: number, z: number, w: number, d: number) => colliders.push({ type: 'box', x: HOME.center.x + x, z: HOME.center.z + z, w, d });
@@ -133,8 +133,8 @@ export function createUpstairs() {
   for (const [z, d] of [[-3.18, 1.50], [1.85, 4.18]]) { box(root, 0.15, 1.31, d, paper, -2.30, 0.655, z); box(root, 0.19, 0.07, d, '#b69b70', -2.30, 1.345, z); block(-2.30, z, 0.15, d); }
   for (const z of [-2.38, -0.22]) box(root, 0.15, 2.67, 0.12, '#997b54', -2.30, 1.335, z);
   box(root, 0.18, 0.12, 2.30, '#997b54', -2.30, 2.73, -1.30);
-  const roomSign = sign(root, 'EBBES RUM', -2.30, 2.98, -1.30, 1.65, 0.33, '#ded0a7'); roomSign.rotation.y = -Math.PI / 2;
-  sign(root, 'EBBE', 1.60, 1.48, -3.83, 1.45, 0.31, '#cfc4a3');
+  const roomSign = sign(root, 'BILLS RUM', -2.30, 2.98, -1.30, 1.65, 0.33, '#ded0a7'); roomSign.rotation.y = -Math.PI / 2;
+  sign(root, 'BILL', 1.60, 1.48, -3.83, 1.45, 0.31, '#cfc4a3');
 
   const computer = createOldComputer();
   computer.root.position.set(HOME.computer.x - HOME.center.x, 0, HOME.computer.z - HOME.center.z); root.add(computer.root);

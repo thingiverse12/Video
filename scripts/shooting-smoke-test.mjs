@@ -145,7 +145,7 @@ try {
 
   await page.keyboard.press('q');
   await page.keyboard.press('v');
-  await waitText(page, '.character-info strong', 'Ebbe');
+  await waitText(page, '.character-info strong', 'Bill');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Sikta med geväret', exact: true }).tap();
   await page.waitForTimeout(800);
@@ -164,7 +164,7 @@ try {
   assert.equal((await snapshot()).hit, 2);
   assert.equal(await page.locator('.wallet strong').innerText(), '490', 'No duplicate quest reward on the second hit');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  console.log('✓ Ebbe can aim with a finger and use Skjut on mobile without turning the camera');
+  console.log('✓ Bill can aim with a finger and use Skjut on mobile without turning the camera');
 
   await page.getByRole('button', { name: 'Lägg ner geväret', exact: true }).tap();
   await travelTo(page, 'Hemma på gården');

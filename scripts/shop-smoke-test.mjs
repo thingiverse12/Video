@@ -45,7 +45,7 @@ try {
   const firstAttempt = await page.evaluate(() => JSON.parse(localStorage.getItem('gramyren-adventure-v1')));
   assert.equal(firstAttempt.carryingMeat, true);
   assert.equal(firstAttempt.progress.shop, 2);
-  console.log('✓ Nils can attempt the meat theft and carries a saved shopping bag');
+  console.log('✓ Leffe can attempt the meat theft and carries a saved shopping bag');
 
   await page.keyboard.press('m');
   await page.getByRole('button', { name: 'Välj Hemma på gården', exact: true }).click();
@@ -62,16 +62,16 @@ try {
   assert.equal(caught.progress.shop, 1);
   console.log('✓ Marta catches a failed attempt, returns the meat, charges 20 kr, and allows a retry');
 
-  // Ebbe can do the same mission. Travel to the entrance before the second attempt.
+  // Bill can do the same mission. Travel to the entrance before the second attempt.
   await page.keyboard.press('v');
-  await waitText('.character-info strong', 'Ebbe');
+  await waitText('.character-info strong', 'Bill');
   await travelToShop();
   await takeMeat();
   await holdUntil(['Shift', 's', 'd'], () => document.querySelector('.interact-prompt')?.textContent?.includes('Gå ut från LIVS'));
   await page.keyboard.press('e');
   await waitText('.location-hud strong', 'Myrboden');
   assert.ok(!(await page.locator('.location-hud strong').innerText()).includes('Inne'));
-  console.log('✓ Ebbe can take the meat and leave the shop');
+  console.log('✓ Bill can take the meat and leave the shop');
 
   // Walk home through the actual world, not by teleporting or changing internal state.
   await holdUntil(['Shift', 'a'], () => {
@@ -84,7 +84,7 @@ try {
   const completed = await page.evaluate(() => JSON.parse(localStorage.getItem('gramyren-adventure-v1')));
   assert.equal(completed.progress.shop, 3);
   assert.equal(completed.carryingMeat, false);
-  assert.equal(completed.character, 'ebbe');
+  assert.equal(completed.character, 'bill');
   console.log('✓ Escaping and bringing the meat home completes the fourth mission (+120 kr)');
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -97,11 +97,11 @@ try {
   console.log('✓ Four missions fit mobile, and touch players have a sprint button');
 
   // Upgrading must not delete a player's version-1 adventures or money.
-  await page.evaluate(() => localStorage.setItem('gramyren-adventure-v1', JSON.stringify({ version: 1, money: 975, progress: { hunt: 3, rurik: 3, bailiff: 3 }, character: 'ebbe', activeMission: 'hunt', toolboxTaken: true })));
+  await page.evaluate(() => localStorage.setItem('gramyren-adventure-v1', JSON.stringify({ version: 1, money: 975, progress: { hunt: 3, rurik: 3, bailiff: 3 }, character: 'bill', activeMission: 'hunt', toolboxTaken: true })));
   await page.reload({ waitUntil: 'networkidle', timeout: 90000 });
   await page.locator('.start-button').waitFor();
   assert.equal(await page.locator('.wallet strong').innerText(), '975');
-  assert.equal(await page.locator('.character-info strong').innerText(), 'Ebbe');
+  assert.equal(await page.locator('.character-info strong').innerText(), 'Bill');
   await page.keyboard.press('i');
   assert.equal(await page.getByRole('button', { name: 'Avklarat', exact: true }).count(), 3);
   assert.ok((await page.locator('.mission-tile.tracked').innerText()).includes('Kött till kvällsmaten'));

@@ -1,4 +1,4 @@
-export type PlayerId = 'nils' | 'ebbe';
+export type PlayerId = 'leffe' | 'bill';
 export type MissionId = 'hunt' | 'rurik' | 'bailiff' | 'shop';
 export const MISSION_IDS: MissionId[] = ['shop', 'hunt', 'rurik', 'bailiff'];
 export type DestinationId = 'home' | 'rurik' | 'forest' | 'lake' | 'market';
@@ -37,7 +37,7 @@ export const SHOP = {
 
 export const DESTINATIONS: Destination[] = [
   { id: 'market', name: 'Myrboden', subtitle: 'KYLEN ÄR TOM. IDÉERNA ÄR SÄMRE.', description: 'Byns lilla matbutik med köttdisk, kundvagnar och handlaren Marta. Ett helt påhittat butiksäventyr. Gå in och försök ta ett köttpaket – men Marta kan stoppa er.', x: 40, z: 25.8 },
-  { id: 'home', name: 'Hemma på gården', subtitle: 'HEM LJUVA HEM', description: 'Hemma hos vännerna. Gå upp till verandan och tryck E för att gå in. Här finns slitna soffor, en gammal tjock-tv, smutsig disk och en avskärmad tv-hörna, matplats och en kyl med örtkräm och en halv gurka. E öppnar kylen. Vid trätrappan går E upp till Ebbes rum och hans gamla dator. Hämta också jaktgeväret innan ni jagar.', x: 6, z: 10 },
+  { id: 'home', name: 'Hemma på gården', subtitle: 'HEM LJUVA HEM', description: 'Hemma hos vännerna. Gå upp till verandan och tryck E för att gå in. Här finns slitna soffor, en gammal tjock-tv, smutsig disk och en avskärmad tv-hörna, matplats och en kyl med örtkräm och en halv gurka. E öppnar kylen. Vid trätrappan går E upp till Bills rum och hans gamla dator. Hämta också jaktgeväret innan ni jagar.', x: 6, z: 10 },
   { id: 'rurik', name: 'Reparationsboden', subtitle: 'VERKTYG OCH OMVÄGAR', description: 'Rurik driver en liten verkstad vid skogsvägen. Här finns verktyg för allt som går sönder, men han lånar ogärna ut dem.', x: 33, z: -15 },
   { id: 'forest', name: 'Jaktmarken', subtitle: 'LÅNGT FRÅN FOLK', description: 'Följ grusvägen in bland granarna. Här ute finns älgar, frisk luft och tveksamma beslut.', x: -25, z: -40 },
   { id: 'lake', name: 'Myrsjön', subtitle: 'EN STUNDS LUGN', description: 'En stilla skogssjö med en gammal brygga. Ett bra ställe att gömma sig från sina bekymmer.', x: 39, z: -42 },
@@ -56,7 +56,7 @@ export const MISSIONS = {
   hunt: {
     title: 'Ut i det fria',
     kicker: 'EN SVÄNG I SKOGEN',
-    description: 'Hämta jaktgeväret inne i huset innan ni drar till skogen. Utan geväret blir det ingen jakt, oavsett hur bra Ebbes idé är.',
+    description: 'Hämta jaktgeväret inne i huset innan ni drar till skogen. Utan geväret blir det ingen jakt, oavsett hur bra Bills idé är.',
     short: 'Kaffet är packat. Hämta geväret i huset och ta bilen till jaktmarken.',
     steps: ['Hämta geväret i huset', 'Ta dig till jaktmarken', 'Sikta och träffa en älg'],
     reward: 150,
@@ -140,7 +140,7 @@ export interface GameSnapshot {
 export const INITIAL_SNAPSHOT: GameSnapshot = {
   ready: false,
   started: false,
-  character: 'nils',
+  character: 'leffe',
   health: 100,
   money: 240,
   wanted: 0,
@@ -193,6 +193,6 @@ export interface ToastMessage {
 export interface GameCallbacks {
   onUpdate: (snapshot: GameSnapshot) => void;
   onToast: (message: ToastMessage) => void;
-  onDialogue: (person: 'rurik' | 'ebbe') => void;
+  onDialogue: (person: 'rurik' | 'bill') => void;
   onError: (message: string) => void;
 }

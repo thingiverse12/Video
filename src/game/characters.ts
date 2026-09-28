@@ -3,7 +3,7 @@ import { box, ellipsoid, makeTextTexture, mesh, roundedBox, smoothMaterial } fro
 import { mergeStaticMeshes } from './optimize';
 import { contactShadow } from './look';
 
-export type CharacterKind = 'nils' | 'ebbe' | 'rurik' | 'bailiff' | 'shopkeeper';
+export type CharacterKind = 'leffe' | 'bill' | 'rurik' | 'bailiff' | 'shopkeeper';
 export interface CharacterModel {
   root: THREE.Group;
   body: THREE.Group;
@@ -48,12 +48,12 @@ function fabric(base: string, stripe: string, plaid = true) {
 
 /** Original, articulated miniature figures with different silhouettes and clothing. */
 export function createCharacter(kind: CharacterKind): CharacterModel {
-  const nils = kind === 'nils', ebbe = kind === 'ebbe', rurik = kind === 'rurik', surveyor = kind === 'bailiff', clerk = kind === 'shopkeeper';
-  const skin = nils ? '#dcb38f' : ebbe ? '#ebcbb5' : rurik ? '#c39573' : clerk ? '#c99b78' : '#d4b197';
-  const hair = nils ? '#74533a' : ebbe ? '#9a784d' : '#67513d';
-  const coat = nils ? '#246b78' : ebbe ? '#715787' : rurik ? '#969054' : clerk ? '#bc4439' : '#ca9f43';
-  const denim = nils ? '#3c4942' : ebbe ? '#415e6b' : rurik ? '#495f68' : '#4d625b';
-  const shirt = fabric(nils ? '#d4bb72' : '#c9c8ca', nils ? '#a6854a' : '#8e839c', false);
+  const leffe = kind === 'leffe', bill = kind === 'bill', rurik = kind === 'rurik', surveyor = kind === 'bailiff', clerk = kind === 'shopkeeper';
+  const skin = leffe ? '#dcb38f' : bill ? '#ebcbb5' : rurik ? '#c39573' : clerk ? '#c99b78' : '#d4b197';
+  const hair = leffe ? '#74533a' : bill ? '#9a784d' : '#67513d';
+  const coat = leffe ? '#246b78' : bill ? '#715787' : rurik ? '#969054' : clerk ? '#bc4439' : '#ca9f43';
+  const denim = leffe ? '#3c4942' : bill ? '#415e6b' : rurik ? '#495f68' : '#4d625b';
+  const shirt = fabric(leffe ? '#d4bb72' : '#c9c8ca', leffe ? '#a6854a' : '#8e839c', false);
   const outerFabric = fabric(coat, coat, false);
   const trouserFabric = fabric(denim, denim, false);
   const root = new THREE.Group(), body = new THREE.Group();
@@ -65,7 +65,7 @@ export function createCharacter(kind: CharacterKind): CharacterModel {
   for (const side of [-1, 1]) {
     const leg = new THREE.Group(); leg.position.set(side * 0.208, 0.94, 0);
     roundedBox(leg, 0.30, 0.75, 0.35, trouserFabric, 0, -0.32, 0, 0.11);
-    roundedBox(leg, 0.235, 0.19, 0.015, nils ? '#515b51' : '#637e87', 0, -0.32, 0.176, 0.045);
+    roundedBox(leg, 0.235, 0.19, 0.015, leffe ? '#515b51' : '#637e87', 0, -0.32, 0.176, 0.045);
     stitch(leg, [[side * 0.135, -0.02, 0.03], [side * 0.143, -0.30, 0.02], [side * 0.13, -0.66, 0.02]], 0.007, '#819084');
     roundedBox(leg, 0.33, 0.28, 0.39, '#514c39', 0, -0.69, 0.012, 0.08);
     roundedBox(leg, 0.35, 0.24, 0.56, '#3b3c31', 0, -0.80, 0.095, 0.10);
@@ -77,18 +77,18 @@ export function createCharacter(kind: CharacterKind): CharacterModel {
     const sleeve = outerFabric;
     roundedBox(arm, 0.31, 0.37, 0.34, sleeve, 0, -0.135, 0, 0.135);
     const lower = roundedBox(arm, 0.275, 0.36, 0.30, sleeve, 0, -0.43, 0.05, 0.11); lower.rotation.x = -0.12;
-    if (nils) roundedBox(arm, 0.32, 0.14, 0.33, '#d8b258', 0, 0.004, 0, 0.055);
-    roundedBox(arm, 0.266, 0.09, 0.29, surveyor ? '#ba873c' : nils ? '#344937' : '#899b89', 0, -0.595, 0.071, 0.035);
+    if (leffe) roundedBox(arm, 0.32, 0.14, 0.33, '#d8b258', 0, 0.004, 0, 0.055);
+    roundedBox(arm, 0.266, 0.09, 0.29, surveyor ? '#ba873c' : leffe ? '#344937' : '#899b89', 0, -0.595, 0.071, 0.035);
     ellipsoid(arm, skin, 0, -0.71, 0.082, 0.134, 0.159, 0.13, 14);
     ellipsoid(arm, skin, -side * 0.115, -0.677, 0.141, 0.060, 0.089, 0.060, 12);
     for (let j = 0; j < 3; j++) roundedBox(arm, 0.014, 0.046, 0.010, '#b48463', (j - 1) * 0.05, -0.782, 0.187, 0.004);
     arm.rotation.z = side * 0.055;
     body.add(arm); arms.push(arm);
   }
-  if (nils || ebbe) {
-    // Nils wears a teal raincoat and ochre scarf; Ebbe wears a lavender hoodie.
+  if (leffe || bill) {
+    // Leffe wears a teal raincoat and ochre scarf; Bill wears a lavender hoodie.
     roundedBox(body, .76, .74, .10, outerFabric, 0, 1.33, -.255, .06);
-    if (nils) {
+    if (leffe) {
       roundedBox(body, .24, .62, .08, shirt, 0, 1.37, .288, .03);
       for (const side of [-1, 1]) {
         const lapel = roundedBox(body, .22, .55, .075, '#1b5765', side * .23, 1.41, .31, .025);
@@ -136,21 +136,21 @@ export function createCharacter(kind: CharacterKind): CharacterModel {
   ellipsoid(head, skin, 0.22, -0.093, 0.229, 0.12, 0.142, 0.09, 14);
   for (const side of [-1, 1]) {
     ellipsoid(head, skin, side * 0.362, -0.009, 0, 0.073, 0.115, 0.076, 14);
-    ellipsoid(head, ebbe ? '#d9aa95' : '#c18b6c', side * 0.399, -0.005, 0.035, 0.023, 0.058, 0.027, 10);
+    ellipsoid(head, bill ? '#d9aa95' : '#c18b6c', side * 0.399, -0.005, 0.035, 0.023, 0.058, 0.027, 10);
     ellipsoid(head, hair, side * 0.321, 0.13, -0.07, 0.05, 0.19, 0.178, 12);
-    stitch(head, [[side * 0.208, 0.125, 0.285], [side * 0.13, nils ? 0.136 : 0.151, 0.322], [side * 0.068, 0.123, 0.324]], nils ? 0.021 : 0.017, hair);
+    stitch(head, [[side * 0.208, 0.125, 0.285], [side * 0.13, leffe ? 0.136 : 0.151, 0.322], [side * 0.068, 0.123, 0.324]], leffe ? 0.021 : 0.017, hair);
   }
   const eyes: THREE.Group[] = [];
   for (const side of [-1, 1]) {
     const eye = new THREE.Group(); eye.position.set(side * 0.130, 0.047, 0.303);
     ellipsoid(eye, '#f1eadd', 0, 0, 0, 0.061, 0.043, 0.032, 14);
-    ellipsoid(eye, nils ? '#67796d' : '#667981', -side * 0.005, -0.001, 0.028, 0.025, 0.030, 0.011, 12);
+    ellipsoid(eye, leffe ? '#67796d' : '#667981', -side * 0.005, -0.001, 0.028, 0.025, 0.030, 0.011, 12);
     ellipsoid(eye, '#2c3532', -side * 0.005, -0.001, 0.038, 0.012, 0.020, 0.007, 10);
     ellipsoid(eye, '#fff7e6', -side * 0.009 + 0.006, 0.012, 0.044, 0.007, 0.009, 0.004, 8);
     head.add(eye); eyes.push(eye);
   }
   ellipsoid(head, skin, 0, -0.025, 0.321, 0.061, 0.126, 0.051, 16);
-  ellipsoid(head, ebbe ? '#dfb49c' : '#d39c74', 0, -0.085, 0.372, 0.070, 0.051, 0.055, 16);
+  ellipsoid(head, bill ? '#dfb49c' : '#d39c74', 0, -0.085, 0.372, 0.070, 0.051, 0.055, 16);
   for (const side of [-1, 1]) ellipsoid(head, '#a67456', side * 0.037, -0.110, 0.397, 0.011, 0.008, 0.005, 8);
   stitch(head, [[-0.082, -0.188, 0.304], [0, -0.218, 0.318], [0.082, -0.188, 0.304]], 0.012, '#895f51');
   if (rurik || clerk) for (const side of [-1, 1]) ellipsoid(head, hair, side * 0.058, -0.152, 0.319, 0.078, 0.036, 0.025, 12).rotation.z = side * 0.10;
@@ -162,8 +162,8 @@ export function createCharacter(kind: CharacterKind): CharacterModel {
   }
   if (clerk) {
     const cap = new THREE.Group(); cap.position.y = 0.275;
-    const capColor = nils ? '#285c47' : ebbe ? '#273a45' : '#b84739';
-    const trim = nils ? '#dba24d' : ebbe ? '#a66c5a' : '#eee0c4';
+    const capColor = leffe ? '#285c47' : bill ? '#273a45' : '#b84739';
+    const trim = leffe ? '#dba24d' : bill ? '#a66c5a' : '#eee0c4';
     const crown = mesh(new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), smoothMaterial(capColor));
     crown.scale.set(0.39, 0.247, 0.353); cap.add(crown);
     const band = mesh(new THREE.CylinderGeometry(0.386, 0.386, 0.044, 28), smoothMaterial(trim)); band.scale.z = 0.91; band.position.y = 0.008; cap.add(band);
@@ -173,18 +173,18 @@ export function createCharacter(kind: CharacterKind): CharacterModel {
     brimGeometry.rotateX(Math.PI / 2);
     const underside = mesh(brimGeometry, smoothMaterial(trim)); underside.position.set(0, 0.023, 0); cap.add(underside);
     const top = mesh(brimGeometry.clone(), smoothMaterial(capColor)); top.position.y = 0.044; cap.add(top);
-    stitch(cap, [[-0.32, 0.063, 0.32], [-0.24, 0.063, 0.51], [0, 0.063, 0.58], [0.24, 0.063, 0.51], [0.32, 0.063, 0.32]], 0.006, nils ? '#a8b07a' : '#968578');
-    for (const side of [-1, 1]) stitch(cap, [[side * 0.25, 0.047, 0.263], [side * 0.18, 0.18, 0.17], [0, 0.248, 0]], 0.006, nils ? '#729173' : '#647067');
+    stitch(cap, [[-0.32, 0.063, 0.32], [-0.24, 0.063, 0.51], [0, 0.063, 0.58], [0.24, 0.063, 0.51], [0.32, 0.063, 0.32]], 0.006, leffe ? '#a8b07a' : '#968578');
+    for (const side of [-1, 1]) stitch(cap, [[side * 0.25, 0.047, 0.263], [side * 0.18, 0.18, 0.17], [0, 0.248, 0]], 0.006, leffe ? '#729173' : '#647067');
     ellipsoid(cap, capColor, 0, 0.248, 0, 0.042, 0.021, 0.041, 12);
-    roundedBox(cap, clerk ? 0.20 : 0.17, 0.068, 0.014, clerk ? '#eee1c9' : nils ? '#c8b981' : '#b98574', 0, 0.12, 0.320, 0.015);
-    if (ebbe) stitch(cap, [[-0.053, 0.168, 0.279], [0, 0.185, 0.284], [0.058, 0.168, 0.279]], 0.008, '#b58979');
-    cap.rotation.z = nils ? 0.025 : -0.035;
+    roundedBox(cap, clerk ? 0.20 : 0.17, 0.068, 0.014, clerk ? '#eee1c9' : leffe ? '#c8b981' : '#b98574', 0, 0.12, 0.320, 0.015);
+    if (bill) stitch(cap, [[-0.053, 0.168, 0.279], [0, 0.185, 0.284], [0.058, 0.168, 0.279]], 0.008, '#b58979');
+    cap.rotation.z = leffe ? 0.025 : -0.035;
     head.add(cap);
   }
-  if (nils || ebbe) {
-    const hairTop = mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI * .48), smoothMaterial(nils ? '#51443e' : '#d4c5af'));
+  if (leffe || bill) {
+    const hairTop = mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI * .48), smoothMaterial(leffe ? '#51443e' : '#d4c5af'));
     hairTop.scale.set(.374, .45, .34); hairTop.position.y = .07; head.add(hairTop);
-    if (nils) {
+    if (leffe) {
       for (const side of [-1, 1]) {
         const lens = mesh(new THREE.TorusGeometry(.103, .014, 6, 18), smoothMaterial('#475c56'));
         lens.position.set(side * .15, .038, .351); head.add(lens);

@@ -54,7 +54,7 @@ try {
   console.log('✓ E enters the sedan and WASD accelerates it');
 
   await page.keyboard.press('v');
-  await waitText('.character-info strong', 'Ebbe');
+  await waitText('.character-info strong', 'Bill');
   console.log('✓ The player can switch characters');
 
   await openMap('Jaktmarken');

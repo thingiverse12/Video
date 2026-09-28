@@ -54,7 +54,7 @@ try {
   await waitText(page, '.interact-prompt', 'Öppna kylskåpet');
   assert.equal(await isOpen(), 'false');
   await page.keyboard.press('v');
-  await waitText(page, '.character-info strong', 'Ebbe');
+  await waitText(page, '.character-info strong', 'Bill');
   await page.keyboard.press('e');
   assert.equal(await isOpen(), 'true');
   console.log('✓ Both friends can open/close the fridge; pausing and the context button behave correctly');

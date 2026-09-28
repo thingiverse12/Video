@@ -54,16 +54,16 @@ try {
   assert.equal(pickup.hasRifle, true);
   assert.equal(pickup.progress.hunt, 1);
   assert.equal(pickup.money, 240);
-  console.log('✓ Nils physically enters the house, reaches the rack and collects one persistent rifle');
+  console.log('✓ Leffe physically enters the house, reaches the rack and collects one persistent rifle');
 
   const beforeSwitch = await readPosition(page);
   await page.keyboard.press('v');
-  await waitText(page, '.character-info strong', 'Ebbe');
+  await waitText(page, '.character-info strong', 'Bill');
   await waitText(page, '.equipment-status', 'Gevär med');
   const afterSwitch = await readPosition(page);
   assert.ok(Math.hypot(beforeSwitch.x - afterSwitch.x, beforeSwitch.z - afterSwitch.z) < 0.2, 'Switching inside keeps the active character in the room');
   assert.equal((await save()).hasRifle, true);
-  await screenshot('ebbe-equipped');
+  await screenshot('bill-equipped');
   await leaveHome(page);
   await travelTo(page, 'Jaktmarken');
   await waitText(page, '.objective-next', 'Sikta och träffa en älg');
@@ -73,12 +73,12 @@ try {
   assert.equal(await page.locator('.wallet strong').innerText(), '440');
   assert.equal((await save()).progress.hunt, 3);
   assert.equal((await save()).hasRifle, true);
-  console.log('✓ Ebbe shares the rifle, leaves through the door and can complete the cartoon elk hunt');
+  console.log('✓ Bill shares the rifle, leaves through the door and can complete the cartoon elk hunt');
 
   await page.reload({ waitUntil: 'networkidle', timeout: 90000 });
   await page.locator('.start-button').waitFor();
   await waitText(page, '.equipment-status', 'Gevär med');
-  assert.equal(await page.locator('.character-info strong').innerText(), 'Ebbe');
+  assert.equal(await page.locator('.character-info strong').innerText(), 'Bill');
   assert.equal(await page.locator('.wallet strong').innerText(), '440');
   await lowQuality(page);
   await page.locator('.start-button').click();
@@ -87,7 +87,7 @@ try {
   assert.equal(await page.locator('.game-stage').getAttribute('data-has-rifle'), 'true');
   assert.equal(await page.locator('.interact-prompt').filter({ hasText: 'Ta jaktgeväret' }).count(), 0);
   await page.keyboard.press('v');
-  await waitText(page, '.character-info strong', 'Nils');
+  await waitText(page, '.character-info strong', 'Leffe');
   await waitText(page, '.equipment-status', 'Gevär med');
   assert.equal(await page.locator('.wallet strong').innerText(), '440');
   console.log('✓ Reload preserves ownership, the empty rack, rewards and equipment when changing characters');
@@ -108,20 +108,20 @@ try {
   await page.getByRole('button', { name: /pekskärm/ }).click();
   await page.locator('.touch-actions button').filter({ hasText: /^E/ }).click();
   await waitText(page, '.equipment-status', 'Gevär med');
-  assert.equal((await save()).character, 'ebbe');
+  assert.equal((await save()).character, 'bill');
   assert.equal((await save()).progress.hunt, 1);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await screenshot('mobile-rifle');
-  console.log('✓ Reset returns the rifle to the house; Ebbe can collect it using the mobile E button');
+  console.log('✓ Reset returns the rifle to the house; Bill can collect it using the mobile E button');
 
   // Versions 1 and 2 must not grant the new item for free or delete earned money.
   for (const version of [1, 2]) {
-    await page.evaluate(version => localStorage.setItem('gramyren-adventure-v1', JSON.stringify({ version, money: 615, progress: { hunt: 2, rurik: 3, bailiff: 3, shop: 3 }, character: 'ebbe', activeMission: 'hunt', toolboxTaken: true })), version);
+    await page.evaluate(version => localStorage.setItem('gramyren-adventure-v1', JSON.stringify({ version, money: 615, progress: { hunt: 2, rurik: 3, bailiff: 3, shop: 3 }, character: 'bill', activeMission: 'hunt', toolboxTaken: true })), version);
     await page.reload({ waitUntil: 'networkidle', timeout: 90000 });
     await page.locator('.start-button').waitFor();
     await waitText(page, '.equipment-status', 'Inget gevär');
     assert.equal(await page.locator('.wallet strong').innerText(), '615');
-    assert.equal(await page.locator('.character-info strong').innerText(), 'Ebbe');
+    assert.equal(await page.locator('.character-info strong').innerText(), 'Bill');
     await page.keyboard.press('i');
     assert.equal(await page.getByRole('button', { name: 'Avklarat', exact: true }).count(), 3);
     await page.locator('.mission-tile').filter({ hasText: 'Ut i det fria' }).getByRole('button').click();
@@ -131,7 +131,7 @@ try {
     assert.equal(migrated.progress.hunt, 0);
     assert.equal(migrated.money, 615);
   }
-  await page.evaluate(() => localStorage.setItem('gramyren-adventure-v1', JSON.stringify({ version: 2, money: 975, progress: { hunt: 3, rurik: 3, bailiff: 3, shop: 3 }, character: 'nils', activeMission: 'hunt', toolboxTaken: true })));
+  await page.evaluate(() => localStorage.setItem('gramyren-adventure-v1', JSON.stringify({ version: 2, money: 975, progress: { hunt: 3, rurik: 3, bailiff: 3, shop: 3 }, character: 'leffe', activeMission: 'hunt', toolboxTaken: true })));
   await page.reload({ waitUntil: 'networkidle', timeout: 90000 });
   await page.locator('.start-button').waitFor();
   await waitText(page, '.equipment-status', 'Inget gevär');

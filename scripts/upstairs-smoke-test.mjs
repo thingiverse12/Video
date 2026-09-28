@@ -22,13 +22,13 @@ const stairsBase = async () => {
   // Through the hall and the open doorway on the front of the dining room.
   await walkTo(page, -9.4, -2.85, 0, 0.22);
   await walkTo(page, -14.4, -2.8, 0, 0.24);
-  await waitText(page, '.interact-prompt', 'Gå upp till Ebbes rum');
+  await waitText(page, '.interact-prompt', 'Gå upp till Bills rum');
 };
 const reachComputer = async () => {
   await walkTo(page, -11.35, -7.4, 0, 0.25);
   await walkTo(page, -10.6, -6.7, 0, 0.25);
   await walkTo(page, -7.4, -7.5, 0, 0.30);
-  await waitText(page, '.interact-prompt', 'Starta Ebbes dator');
+  await waitText(page, '.interact-prompt', 'Starta Bills dator');
 };
 const waitFloor = async floor => {
   await page.waitForFunction(floor => {
@@ -68,7 +68,7 @@ try {
   assert.equal((await data()).playerY, pausedHeight, 'Pausing stops the stair animation');
   await page.getByRole('button', { name: 'Fortsätt äventyret', exact: true }).click();
   await waitFloor(1);
-  await waitText(page, '.location-hud', 'Ebbes rum');
+  await waitText(page, '.location-hud', 'Bills rum');
   assert.equal((await data()).playerY, '3.65');
   assert.equal((await data()).fridgeOpen, 'false');
   assert.equal(await page.locator('.world-labels').filter({ hasText: 'Jaktgeväret' }).count(), 0, 'No ground-floor item labels bleed through the upper floor');
@@ -76,14 +76,14 @@ try {
 
   await reachComputer();
   assert.equal((await data()).computerOn, 'false');
-  await shot('ebbes-room');
+  await shot('bills-room');
   await page.keyboard.press('e');
   await waitText(page, '.home-hud', 'Datorn surrar');
   assert.equal((await data()).computerOn, 'true');
   assert.equal((await data()).hasRifle, 'false');
   await shot('old-computer-on');
   await page.keyboard.press('v');
-  await waitText(page, '.character-info strong', 'Ebbe');
+  await waitText(page, '.character-info strong', 'Bill');
   assert.equal((await data()).homeFloor, '1');
   assert.equal((await data()).playerY, '3.65');
   assert.equal(await page.locator('.wallet strong').innerText(), '240');

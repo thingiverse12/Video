@@ -31,7 +31,7 @@ try {
   assert.equal((await state()).shots, 0);
 
   await page.evaluate(() => localStorage.setItem('gramyren-adventure-v1', JSON.stringify({
-    version: 3, hasRifle: true, money: 240, character: 'nils', activeMission: 'hunt',
+    version: 3, hasRifle: true, money: 240, character: 'leffe', activeMission: 'hunt',
     progress: { hunt: 1, shop: 0, rurik: 0, bailiff: 0 }, carryingMeat: false, toolboxTaken: false,
   })));
   await page.reload({ waitUntil: 'networkidle' });

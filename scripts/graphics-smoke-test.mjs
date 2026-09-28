@@ -40,9 +40,9 @@ try {
     const normal = crown.getAttribute('normal'), position = crown.getAttribute('position');
     let outward = 0;
     for (let i = 0; i < normal.count; i++) if (normal.getX(i) * position.getX(i) + normal.getZ(i) * position.getZ(i) > 0) outward++;
-    const ebbe = createCharacter('ebbe');
+    const bill = createCharacter('bill');
     let purpleBack = false;
-    ebbe.body.traverse(object => {
+    bill.body.traverse(object => {
       if (!object.isMesh || !object.material.map) return;
       const canvas = object.material.map.image;
       if (!canvas?.getContext) return;
@@ -53,8 +53,8 @@ try {
     });
     let sway = 0;
     for (let i = 0; i < 180; i++) {
-      animateCharacter(ebbe, i / 60, i % 3 ? 7.9 : 0, 0, 0, 1 / 60);
-      sway = Math.max(sway, Math.abs(ebbe.body.position.y), ...ebbe.body.rotation.toArray().slice(0, 3).map(Math.abs), ...ebbe.head.rotation.toArray().slice(0, 3).map(Math.abs));
+      animateCharacter(bill, i / 60, i % 3 ? 7.9 : 0, 0, 0, 1 / 60);
+      sway = Math.max(sway, Math.abs(bill.body.position.y), ...bill.body.rotation.toArray().slice(0, 3).map(Math.abs), ...bill.head.rotation.toArray().slice(0, 3).map(Math.abs));
     }
     const car = createCar(); let glossyBlue = false;
     const carProfile = { boot: 0, cabin: 0, bonnet: 0 };
@@ -90,7 +90,7 @@ try {
   assert.equal(art.shadowNonInteractive, true); assert.equal(art.shadowAboveRoad, true); assert.equal(art.shadowTransparent, true);
   assert.ok(art.crownVertices >= 60 && art.outward > .95 && art.finiteNormals);
   assert.ok(art.grassVertices >= 20 && art.grassTexture === 256 && art.repeat > 1);
-  assert.equal(art.purpleBack, true, 'Ebbe wears a purple hoodie on his back too');
+  assert.equal(art.purpleBack, true, 'Bill wears a purple hoodie on his back too');
   assert.equal(art.sway, 0, 'The visual update never restores body/head rocking');
   assert.equal(art.glossyBlue, true); assert.ok(art.carName.includes('sedan')); assert.equal(art.elkHasShadow, true);
   assert.ok(art.carProfile.cabin > 1.85 && art.carProfile.boot > 1.26 && art.carProfile.boot < 1.4 && art.carProfile.bonnet < 1.25, 'Separate low boot and high passenger roof');
