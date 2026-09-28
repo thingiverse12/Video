@@ -61,6 +61,16 @@ if (defaultBranch) {
     console.log(`::warning title=VERCEL_API_CHECK::Kunde inte läsa standardgrenen (${error.message}).`);
   }
 }
+// The repository's homepage field is the address players are given; check it too.
+const publicSite = (process.env.PUBLIC_SITE_URL ?? '').trim();
+if (publicSite) {
+  try {
+    const url = new URL(publicSite);
+    if (url.protocol === 'https:' && !candidates.some(entry => entry.url === url.origin)) {
+      candidates.unshift({ label: `Publicerad adress (${url.hostname})`, url: url.origin, isPublicSite: true });
+    }
+  } catch { console.log('::warning title=VERCEL_API_CHECK::PUBLIC_SITE_URL är inte en giltig URL.'); }
+}
 
 if (!candidates.length) {
   console.log('::warning title=VERCEL_API_CHECK::Ingen lyckad Vercel-utplacering hittades för den här committen.');
@@ -69,6 +79,19 @@ if (!candidates.length) {
 
 const lines = [];
 for (const candidate of candidates) {
+  if (candidate.isPublicSite) {
+    try {
+      const page = await fetch(candidate.url, { signal: AbortSignal.timeout(20_000) });
+      const html = await page.text();
+      if (page.ok && /<title>[^<]*Gråmyren/i.test(html)) {
+        lines.push(`${candidate.label}: spelet svarar (HTTP ${page.status})`);
+      } else {
+        lines.push(`${candidate.label}: svarade HTTP ${page.status}${page.status === 401 || page.status === 403 ? ' (inloggningsskydd)' : ''}`);
+      }
+    } catch {
+      lines.push(`${candidate.label}: kunde inte nås`);
+    }
+  }
   try {
     const response = await fetch(new URL('/api/ai', candidate.url), { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(20_000) });
     const body = await response.text();
