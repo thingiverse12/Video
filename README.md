@@ -1,6 +1,6 @@
 # Gråmyren
 
-Ett fristående svenskt 3D-skogäventyr för webbläsare. Spela som vännerna Nils och Ebbe, som rustar upp en skogsstuga i en fiktiv by, kör en obrandad blå fyrdörrars sedan, utforska skogen och välj bland fyra uppdrag. Spelets figurer, skyltar, porträtt, miljöer och musik skapas i kod; inga externa fotografier, inspelningar eller fordons-/butikslogotyper ingår i bygget.
+Ett fristående svenskt 3D-skogäventyr för webbläsare. Spela som vännerna Leffe och Bill, som rustar upp en skogsstuga i en fiktiv by, kör en obrandad blå fyrdörrars sedan, utforska skogen och välj bland fyra uppdrag. Spelets figurer, skyltar, porträtt, miljöer och musik skapas i kod; inga externa fotografier, inspelningar eller fordons-/butikslogotyper ingår i bygget.
 
 ## Spela lokalt
 
@@ -15,7 +15,7 @@ npm run dev -- --port 5173
 
 ## Världen
 
-- **Hemma:** slitna soffor, tjock-tv framför soffan, smutsig diskho, avskilda rum och ett litet E-öppningsbart kylskåp med en halv gurka och en grön tub örtkräm. Trätrappan leder till Ebbes rum på en separat övervåning med en gammal dator.
+- **Hemma:** slitna soffor, tjock-tv framför soffan, smutsig diskho, avskilda rum och ett litet E-öppningsbart kylskåp med en halv gurka och en grön tub örtkräm. Trätrappan leder till Bills rum på en separat övervåning med en gammal dator.
 - **Myrboden:** fiktiv matbutik med köttdisk. Försök ta ett paket och ta det hem; Marta kan stoppa dig.
 - **Jaktmarken:** hämta först geväret i huset, sikta manuellt och jaga en tecknad älg med synliga skott.
 - **Reparationsboden:** prata, slåss eller försök ta en verktygslåda. **Mätarlaget:** envisa stigplanerare kan dyka upp på gården. **Myrsjön:** en lugn sjö att utforska.

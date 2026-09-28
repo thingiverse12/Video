@@ -4,7 +4,7 @@ import { sealPreviewResult, publicPreviewDetails } from './netlify-preview-envel
 import { emitEncryptedResult } from './emit-netlify-result.mjs';
 
 const repository = 'thingiverse12/Video';
-const branch = 'arena/01a0dde8-video';
+const branch = 'arena/01a0e8e8-video';
 const out = '.netlify/preview-result';
 
 function main() {
@@ -54,6 +54,7 @@ function main() {
   }
   const message = `Preview: ${deployed.siteUrl}\nClaim/access details are encrypted for the deployment owner. Anonymous sites must be claimed within 60 minutes.\n`;
   console.log(message);
+  console.log(`::notice title=NETLIFY_PUBLIC_URL::${deployed.siteUrl}`);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Netlify preview\n\n[Open preview](${deployed.siteUrl})\n\nAccess and ownership details are in the encrypted result artifact. Claim within 60 minutes.\n`);
 }
 
