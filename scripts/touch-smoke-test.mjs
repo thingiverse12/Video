@@ -220,7 +220,7 @@ try {
   await page.locator('.speedometer').waitFor({ state: 'hidden' });
   await page.getByRole('button', { name: 'Byt till Ebbe', exact: true }).tap();
   await page.getByRole('button', { name: 'Byt till Nils', exact: true }).waitFor();
-  console.log('✓ Blocked walking settles; sedan acceleration/braking, E and character switching still work');
+  console.log('✓ Blocked walking settles; kombi acceleration/braking, E and character switching still work');
 
   if (process.env.SCREENSHOTS) {
     await mkdir('screenshots', { recursive: true });

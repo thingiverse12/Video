@@ -74,8 +74,8 @@ try {
   assert.ok(art.grassVertices >= 20 && art.grassTexture === 256 && art.repeat > 1);
   assert.equal(art.purpleBack, true, 'Ebbe wears a purple hoodie on his back too');
   assert.equal(art.sway, 0, 'The visual update never restores body/head rocking');
-  assert.equal(art.glossyBlue, true); assert.ok(art.carName.includes('sedan')); assert.equal(art.elkHasShadow, true);
-  console.log('✓ Textures, detailed tree/grass geometry, harmless contact shadows, purple hoodie, blue unbadged sedan and zero rocking', art);
+  assert.equal(art.glossyBlue, true); assert.ok(art.carName.includes('kombi')); assert.equal(art.elkHasShadow, true);
+  console.log('✓ Textures, detailed tree/grass geometry, harmless contact shadows, purple hoodie, blue unbadged kombi and zero rocking', art);
 
   await travelTo(desktop, 'Myrsjön');
   await waitText(desktop, '.location-hud strong', 'Myrsjön');
