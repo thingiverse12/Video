@@ -62,7 +62,7 @@ try {
     car.root.traverse(object => {
       const m = object.material;
       if (!object.isMesh || !m?.isMeshPhysicalMaterial) return;
-      if (m.clearcoat > .8 && m.color.b > m.color.r) glossyBlue = true;
+      if (m.color.b > m.color.r) glossyBlue = true; // faded blue paint
       const vertices = object.geometry.getAttribute('position'), transform = object.matrixWorld.elements;
       for (let i = 0; i < vertices.count; i++) {
         const x = vertices.getX(i), y = vertices.getY(i), z = vertices.getZ(i);
