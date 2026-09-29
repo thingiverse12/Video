@@ -3,7 +3,7 @@ import { box, ellipsoid, makeTextTexture, mesh, roundedBox, smoothMaterial } fro
 import { mergeStaticMeshes } from './optimize';
 import { contactShadow } from './look';
 
-export type CharacterKind = 'leffe' | 'bill' | 'rurik' | 'bailiff' | 'shopkeeper';
+export type CharacterKind = 'leffe' | 'bill' | 'rurik' | 'bailiff' | 'shopkeeper' | 'inspector';
 export interface CharacterModel {
   root: THREE.Group;
   body: THREE.Group;
@@ -121,13 +121,13 @@ function fabric(base: string, stripe: string, plaid = true) {
 
 /** Original, articulated miniature figures with different silhouettes and clothing. */
 export function createCharacter(kind: CharacterKind): CharacterModel {
-  const leffe = kind === 'leffe', bill = kind === 'bill', rurik = kind === 'rurik', surveyor = kind === 'bailiff', clerk = kind === 'shopkeeper';
+  const leffe = kind === 'leffe', bill = kind === 'bill', rurik = kind === 'rurik', surveyor = kind === 'bailiff', clerk = kind === 'shopkeeper', inspector = kind === 'inspector';
   // Vännerna är rejäla karlar: bredare bål, mage över bältet, skägg och varselväst.
   const stout = leffe || bill;
   const skin = leffe ? '#dcb38f' : bill ? '#ebcbb5' : rurik ? '#c39573' : clerk ? '#c99b78' : '#d4b197';
   const hair = leffe ? '#74533a' : bill ? '#9a784d' : '#67513d';
-  const coat = leffe ? '#246b78' : bill ? '#715787' : rurik ? '#969054' : clerk ? '#bc4439' : '#ca9f43';
-  const denim = leffe ? '#3c4942' : bill ? '#415e6b' : rurik ? '#495f68' : '#4d625b';
+  const coat = leffe ? '#246b78' : bill ? '#715787' : rurik ? '#969054' : clerk ? '#bc4439' : inspector ? '#46525f' : '#ca9f43';
+  const denim = leffe ? '#3c4942' : bill ? '#415e6b' : rurik ? '#495f68' : inspector ? '#39424e' : '#4d625b';
   const shirt = fabric(leffe ? '#d4bb72' : '#c9c8ca', leffe ? '#a6854a' : '#8e839c', false);
   const outerFabric = fabric(coat, coat, false);
   const trouserFabric = fabric(denim, denim, false);
@@ -193,6 +193,14 @@ export function createCharacter(kind: CharacterKind): CharacterModel {
     roundedBox(arms[0], 0.41, 0.52, 0.10, '#8c754b', 0, -0.61, 0.18, 0.025);
     roundedBox(arms[0], 0.32, 0.34, 0.012, '#d7d1a4', 0, -0.57, 0.242, 0.004);
     for (let j = 0; j < 3; j++) box(arms[0], 0.20, 0.009, 0.008, '#638078', 0, -0.49 - j * 0.056, 0.25);
+  }
+  if (inspector) {
+    // Skattemasarna: mörk kavaj, smal slips och portföljer fulla med blanketter.
+    roundedBox(body, 0.40, 0.46, 0.05, '#e8e4d4', 0, 1.47, 0.275, 0.028);
+    roundedBox(body, 0.085, 0.34, 0.03, '#8c3b34', 0, 1.42, 0.312, 0.016);
+    roundedBox(body, 0.26, 0.13, 0.045, '#2f3942', 0, 1.12, 0.30, 0.022);
+    roundedBox(arms[0], 0.40, 0.30, 0.11, '#6b5138', 0, -0.60, 0.16, 0.024);
+    roundedBox(arms[1], 0.28, 0.20, 0.055, '#d7d1a4', 0, -0.56, 0.155, 0.018);
   }
   if (rurik) {
     roundedBox(body, 0.25, 0.10, 0.05, '#b5b083', 0, 1.69, 0.25, 0.04);

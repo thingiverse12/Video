@@ -209,4 +209,22 @@ const rurikHome = { x: 35.4, z: -17.9 };
   ok('en tom tabell kolliderar aldrig', !colliders.collidesAt(colliders.buildColliderTable([]), 0, 0, 5));
 }
 
+// 8. Skattemasarnas besök: det korta klippet vid 13 sekunder
+{
+  const visit = rules.createSkatteVisit();
+  ok('besöket börjar i vänteläge utan händelser', visit.phase === 'waiting' && rules.skatteVisitStep(visit, 0, 0.05) === null);
+  ok('inget besök före tretton sekunder', rules.skatteVisitStep(visit, rules.SKATTE_ARRIVAL_SECONDS - 0.05, 0.05) === null && visit.phase === 'waiting');
+  ok('klippet startar när bilen rullar in vid 13 sekunder', rules.SKATTE_ARRIVAL_SECONDS === 13 && rules.skatteVisitStep(visit, rules.SKATTE_ARRIVAL_SECONDS, 0.05) === 'cutscene-start' && visit.phase === 'cutscene');
+  ok('mitten av klippet är tyst', rules.skatteVisitStep(visit, rules.SKATTE_ARRIVAL_SECONDS, rules.SKATTE_CUTSCENE_SECONDS / 2) === null && visit.phase === 'cutscene');
+  ok('klippet är kort: inspektörerna kliver ur efter ' + rules.SKATTE_CUTSCENE_SECONDS + ' sekunder', rules.skatteVisitStep(visit, rules.SKATTE_ARRIVAL_SECONDS, rules.SKATTE_CUTSCENE_SECONDS / 2) === 'arrived' && visit.phase === 'visit' && visit.timer === 0);
+  ok('besöket på gården varar i ' + rules.SKATTE_STAY_SECONDS + ' sekunder', rules.skatteVisitStep(visit, 0, rules.SKATTE_STAY_SECONDS) === 'leave' && visit.phase === 'leave');
+  ok('inspektörerna går tillbaka till bilen', rules.skatteVisitStep(visit, 0, rules.SKATTE_LEAVE_SECONDS) === 'done' && visit.phase === 'done');
+  ok('efter avslutat besök kommer inget nytt', rules.skatteVisitStep(visit, 999, 10) === null && visit.phase === 'done');
+
+  const aborted = rules.createSkatteVisit();
+  aborted.phase = 'visit'; aborted.timer = 3;
+  ok('ett avbrutet besök går inte att ångra', rules.skatteVisitAborted(aborted) === true && aborted.phase === 'done' && rules.skatteVisitAborted(aborted) === false);
+  ok('besöket rör aldrig plånboken', fresh().money === INITIAL_SNAPSHOT.money);
+}
+
 console.log(`✓ ${checks} spelregelkontroller gick igenom utan webbläsare`);

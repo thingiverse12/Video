@@ -18,7 +18,7 @@ npm run dev -- --port 5173
 - **Hemma:** slitna soffor, tjock-tv framför soffan, smutsig diskho, avskilda rum och ett litet E-öppningsbart kylskåp med en halv gurka och en grön tub örtkräm. Trätrappan leder till Bills rum på en separat övervåning med en gammal dator.
 - **Myrboden:** fiktiv matbutik med köttdisk. Försök ta ett paket och ta det hem; Marta kan stoppa dig.
 - **Jaktmarken:** hämta först geväret i huset, sikta manuellt och jaga en tecknad älg med synliga skott.
-- **Reparationsboden:** prata, slåss eller försök ta en verktygslåda. **Mätarlaget:** envisa stigplanerare kan dyka upp på gården. **Myrsjön:** en lugn sjö att utforska.
+- **Reparationsboden:** prata, slåss eller försök ta en verktygslåda. **Mätarlaget:** envisa stigplanerare kan dyka upp på gården. **Skattemasarna:** spelets fiktiva skatteparodi kommer i ett kort klipp tretton sekunder efter start — deras bil rullar in, inspektörerna stämmer av era inkomster och åker vidare. **Myrsjön:** en lugn sjö att utforska.
 
 Ljud och bakgrundsmusik är separata, avstängda från början och skapas lokalt med Web Audio efter att spelaren aktiverat dem. Ingen inspelad dialog utlovas.
 
@@ -62,6 +62,7 @@ npx playwright install chromium   # en gång, om Chromium inte redan finns
 npm run dev -- --port 5173       # i en separat terminal
 npm run test:smoke
 npm run test:shop
+npm run test:skatte
 npm run test:home
 npm run test:upstairs
 npm run test:rifle
@@ -76,7 +77,7 @@ npm run test:deploy
 npm run test:rights  # begränsad kontroll av gamla namn och medföljande licenser
 ```
 
-Browser-testerna använder `http://localhost:5173` som standard; ändra med `TEST_URL` och/eller `CHROMIUM_EXECUTABLE`. `SCREENSHOTS=1` sparar testbilder i den ignorerade mappen `screenshots/`. Netlify använder `netlify.toml` (byggkommando `npm run build`, publiceringsmapp `dist`) och SPA-omskrivningen i `public/_redirects`. Tidigare Netlify-förhandsvisningar med en äldre version är fortfarande åtkomliga; den som har Netlify-åtkomst måste ta ned eller ersätta dem. Den här kodändringen uppdaterar **inte** adresserna automatiskt.
+Browser-testerna använder `http://localhost:5173` som standard; ändra med `TEST_URL` och/eller `CHROMIUM_EXECUTABLE`. `SCREENSHOTS=1` sparar testbilder i den ignorerade mappen `screenshots/`. `node scripts/record-skatte-clip.mjs` spelar in ett kort webm-klipp av Skattemasarnas ankomst till den ignorerade mappen `clips/`. Netlify använder `netlify.toml` (byggkommando `npm run build`, publiceringsmapp `dist`) och SPA-omskrivningen i `public/_redirects`. Tidigare Netlify-förhandsvisningar med en äldre version är fortfarande åtkomliga; den som har Netlify-åtkomst måste ta ned eller ersätta dem. Den här kodändringen uppdaterar **inte** adresserna automatiskt.
 
 ## Publicera med serverfunktion
 

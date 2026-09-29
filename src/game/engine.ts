@@ -3,7 +3,7 @@ import { animateCharacter, createCar, createCharacter, createShoppingBag, materi
 import { createWorld, type World } from './world';
 import { buildColliderTable, collidesAt, type ColliderTable } from './colliders';
 import { groundHeight, isInsideHome, isInsideShop, nearBreadMachine, nearComputer, nearFridge, nearLadder, nearRifleRack, nearStairs, walkableHeight } from './terrain';
-import { advanceProgress, applyShotImpact, bailiffChasedOff, canUseRifle, carEntryWaypoint, caughtInShop, clerkNotices, pickUpRifle, respawnPenalty, shopRiskStep, takeMeat, takeToolbox, trackMission, SHOP_CLERK_ANGER_SECONDS, SHOP_CLERK_CATCH_DISTANCE, SHOP_CLERK_FORGET_DISTANCE, SHOP_GRACE_SECONDS, type ProgressContext } from './rules';
+import { advanceProgress, applyShotImpact, bailiffChasedOff, canUseRifle, carEntryWaypoint, caughtInShop, clerkNotices, createSkatteVisit, pickUpRifle, respawnPenalty, shopRiskStep, skatteVisitAborted, skatteVisitStep, takeMeat, takeToolbox, trackMission, SHOP_CLERK_ANGER_SECONDS, SHOP_CLERK_CATCH_DISTANCE, SHOP_CLERK_FORGET_DISTANCE, SHOP_GRACE_SECONDS, SKATTE_CUTSCENE_SECONDS, type ProgressContext, type SkatteVisit } from './rules';
 import { restoreSave, serializeSave, SAVE_KEY } from './save';
 import { GameAudio } from './audio';
 import { outdoorReflections, skyDome } from './look';
@@ -24,6 +24,8 @@ interface Actor {
   cooldown: number;
   punch: number;
   speed: number;
+  /** Tillfälligt mål som går före det vanliga AI-målet, t.ex. Skattemasarna på väg till bilen. */
+  goalOverride: THREE.Vector3 | null;
 }
 interface Particle { object: THREE.Mesh; velocity: THREE.Vector3; life: number; total: number; }
 interface Speech { id: string; text: string; position: THREE.Vector3; actor?: Actor; until: number; }
@@ -44,6 +46,9 @@ const scratchTarget = new THREE.Vector3(), scratchOffset = new THREE.Vector3(), 
 const scratchLabel = new THREE.Vector3(), scratchProject = new THREE.Vector3(), scratchBurst = new THREE.Vector3();
 const INTRO_TARGET = new THREE.Vector3(-1.8, 1.2, .6);
 const FLEE_GOAL = new THREE.Vector3(20, 0, 62);
+/** Skattemasarnas bil: samma infart som mätarlagets, men en egen grå bil. */
+const SKATTE_CAR_START = new THREE.Vector3(16, 0, 38), SKATTE_CAR_PARK = new THREE.Vector3(10.6, 0, 9);
+const SKATTE_CAR_DOOR = new THREE.Vector3(11.4, 0, 8.6);
 const COMPANION_WAIT_HOME = new THREE.Vector3(HOME.door.x + 2.6, 0, HOME.door.z + 1.3);
 const COMPANION_WAIT_SHOP = new THREE.Vector3(SHOP.door.x + 2.7, 0, SHOP.door.z + 1.1);
 const STAIRS_BASE = new THREE.Vector3(HOME.stairsBase.x, HOME.groundY, HOME.stairsBase.z);
@@ -120,6 +125,14 @@ export class GameEngine {
   private punchTimer = 0;
   private bailiffArrival = -1;
   private bailiffFled = 0;
+  /** Skattemasarnas besök: bil, inspektörer och fas i det korta klippet. */
+  private skatteCar: CarModel;
+  private skatte: Actor[] = [];
+  private skatteVisit: SkatteVisit = createSkatteVisit();
+  private skatteFocus = new THREE.Vector3();
+  private cutsceneFocus: THREE.Vector3 | null = null;
+  private skatteCarLeaving = false;
+  private skatteLine = 0;
   private toolboxTaken = false;
   private ready = false;
   private needsRender = true;
@@ -182,6 +195,10 @@ export class GameEngine {
     this.officialCar.root.visible = false;
     this.officialCar.root.position.set(16, 0, 37); this.officialCar.root.rotation.y = Math.PI + 0.16;
     this.scene.add(this.officialCar.root);
+    this.skatteCar = createCar('#8a9199', true, 'skattemasarnas bil');
+    this.skatteCar.root.visible = false;
+    this.skatteCar.root.position.copy(SKATTE_CAR_START); this.skatteCar.root.rotation.y = Math.PI + 0.16;
+    this.scene.add(this.skatteCar.root);
     this.avatars = {
       leffe: this.createActor('leffe', 6.1, 9.2),
       bill: this.createActor('bill', 8.5, 8.15),
@@ -200,15 +217,17 @@ export class GameEngine {
       this.rifles[avatar].visible = false;
     }
     this.bailiffs = [this.createActor('bailiff', 12, 12, 'matare-1'), this.createActor('bailiff', 14, 10, 'matare-2')];
-    this.runOverCandidates = [this.rurik, this.shopkeeper, ...this.bailiffs];
+    this.skatte = [this.createActor('inspector', 10.2, 5.4, 'skatte-1'), this.createActor('inspector', 12.1, 3.6, 'skatte-2')];
+    this.runOverCandidates = [this.rurik, this.shopkeeper, ...this.bailiffs, ...this.skatte];
     this.groundColliders = buildColliderTable(this.world.colliders);
     this.upstairsColliders = buildColliderTable(this.world.home.upstairs.colliders);
     this.loftColliders = buildColliderTable(this.world.home.loft.colliders);
     this.progressContext = { player: this.playerPosition, rurik: this.rurik.model.root.position, toolboxTaken: false, claimed: this.rewardClaimed };
     this.bailiffs.forEach(a => a.model.root.visible = false);
+    this.skatte.forEach(a => a.model.root.visible = false);
     this.hunting = new HuntingProjectiles(this.world,
-      () => [this.companion, this.rurik, this.shopkeeper, ...this.bailiffs].map(actor => ({ root: actor.model.root })),
-      () => [this.car.root, this.officialCar.root], impact => this.onShotImpact(impact));
+      () => [this.companion, this.rurik, this.shopkeeper, ...this.bailiffs, ...this.skatte].map(actor => ({ root: actor.model.root })),
+      () => [this.car.root, this.officialCar.root, this.skatteCar.root], impact => this.onShotImpact(impact));
     this.scene.add(this.hunting.root);
 
     this.ring = new THREE.Mesh(new THREE.RingGeometry(0.72, 0.81, 40), new THREE.MeshBasicMaterial({ color: '#ecd28e', transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false }));
@@ -238,7 +257,7 @@ export class GameEngine {
     const model = createCharacter(kind);
     model.root.position.set(x, this.walkableHeight(x, z), z);
     this.scene.add(model.root);
-    return { id, model, health: 3, home: new THREE.Vector3(x, 0, z), angry: 0, stunned: 0, flee: false, cooldown: 0, punch: 0, speed: 0 };
+    return { id, model, health: 3, home: new THREE.Vector3(x, 0, z), angry: 0, stunned: 0, flee: false, cooldown: 0, punch: 0, speed: 0, goalOverride: null };
   }
 
   private get player() { return this.avatars[this.state.character]; }
@@ -728,6 +747,7 @@ export class GameEngine {
       target.angry = 30; this.state.wanted = Math.max(2, this.state.wanted);
       this.say(target, 'Det här är en matbutik, inte en boxningsklubb!');
     } else if (target === this.companion) this.say(target, target.id === 'bill' ? 'Aj! Vi är ju på samma lag!' : 'Men skärp dig, Bill!');
+    else if (target.id.startsWith('skatte')) this.say(target, 'Det här kommer med i protokollet!');
     else this.say(target, 'Det här står inte i blanketten!');
     if (target.health <= 0) {
       if (target.id.startsWith('matare')) {
@@ -736,6 +756,14 @@ export class GameEngine {
         if (bailiffChasedOff(this.state, this.bailiffFled, this.rewardClaimed)) {
           this.audio.play('coin'); this.save();
           this.callbacks.onToast({ title: 'Stigen tar en annan väg!', detail: 'Mätarlaget lämnade gården. +200 kr', kind: 'success' });
+        }
+      } else if (target.id.startsWith('skatte')) {
+        target.flee = true; target.goalOverride = null;
+        this.say(target, 'Vi noterar det här!');
+        if (this.skatte.every(a => a.flee) && skatteVisitAborted(this.skatteVisit)) {
+          this.cutsceneFocus = null;
+          if (this.skatteCar.root.visible) this.skatteCarLeaving = true;
+          this.callbacks.onToast({ title: 'Skattemasarna avbröt besöket', detail: 'De springer till bilen. Det här kommer med i nästa deklaration.', kind: 'warning' });
         }
       } else {
         target.stunned = 7;
@@ -921,6 +949,8 @@ export class GameEngine {
         this.burst(above(this.playerPosition, 1.8, scratchBurst), '#e8ca91', 6);
         if (this.state.health <= 0) this.respawn();
       }
+    } else if (actor.goalOverride) {
+      goal = actor.goalOverride; speed = 3.6;
     } else if (distance(current, actor.home) > 2) { goal = actor.home; speed = 2.0; }
     if (goal) {
       if (actor === this.shopkeeper) {
@@ -953,6 +983,7 @@ export class GameEngine {
     this.player.model.root.position.set(-5, 0, 4); this.companion.model.root.position.set(-3, 0, 5);
     this.rurik.angry = 0; this.rurik.model.root.position.copy(this.rurik.home);
     this.bailiffs.forEach(a => { if (!a.flee) { a.model.root.position.copy(a.home); a.cooldown = 10; } });
+    this.skatte.forEach(a => { if (!a.flee) { a.model.root.position.copy(a.home); a.cooldown = 10; } });
     this.callbacks.onToast({ title: 'En ofrivillig tupplur', detail: 'Tillbaka på gården, 25 kr fattigare. Alla är hela igen.', kind: 'warning' });
     this.save();
   }
@@ -1160,6 +1191,70 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Skattemasarnas besök — det korta klippet: bilen rullar in på gården 13
+   * sekunder efter start, inspektörerna kliver ur medan kameran följer dem,
+   * stämmer av era inkomster en stund och åker sedan vidare. Ingen peng
+   * byter händ; bara tid, repliker och en kameraåkning.
+   */
+  private updateSkatte(dt: number) {
+    const event = skatteVisitStep(this.skatteVisit, this.activeTime, dt);
+    if (event === 'cutscene-start') {
+      this.skatteCar.root.visible = true;
+      this.skatteCar.root.position.copy(SKATTE_CAR_START);
+      this.skatteCar.root.rotation.y = Math.PI + 0.16;
+      this.skatteLine = 0;
+      this.audio.play('warning');
+      this.callbacks.onToast({ title: 'Oväntat besök!', detail: 'Skattemasarna kommer för att stämma av era inkomster.', kind: 'warning' });
+      // Klippet sveper med bilen in; med nedtonade rörelser stannar kameran hos spelaren.
+      if (!this.reducedMotion) this.cutsceneFocus = this.skatteFocus;
+    } else if (event === 'arrived') {
+      this.cutsceneFocus = null;
+    } else if (event === 'leave') {
+      this.say(this.skatte[0], 'Tack för att vi störde. Vi återkommer vid nästa deklaration.');
+      for (const a of this.skatte) if (!a.flee) a.goalOverride = SKATTE_CAR_DOOR;
+    } else if (event === 'done') {
+      this.cutsceneFocus = null;
+      this.skatteCarLeaving = true;
+      for (const a of this.skatte) { a.model.root.visible = false; a.goalOverride = null; }
+    }
+    const phase = this.skatteVisit.phase;
+    if (phase === 'cutscene') {
+      const t = Math.min(1, this.skatteVisit.timer / SKATTE_CUTSCENE_SECONDS);
+      this.skatteCar.root.position.lerpVectors(SKATTE_CAR_START, SKATTE_CAR_PARK, t);
+      if (this.skatteVisit.timer > SKATTE_CUTSCENE_SECONDS - 1.7 && !this.skatte[0].model.root.visible) {
+        for (let i = 0; i < this.skatte.length; i++) {
+          const a = this.skatte[i];
+          a.model.root.visible = true;
+          a.model.root.position.set(SKATTE_CAR_DOOR.x + 1.1 + i * 1.15, 0, SKATTE_CAR_DOOR.z - 1.2 - i * 2.3);
+          a.health = 3; a.flee = false; a.stunned = 0;
+        }
+        this.say(this.skatte[1], 'God dag! Vi är från Skattemasarna.');
+      }
+      // Kameran glider från bilen till inspektörerna när de kliver ur.
+      if (this.skatte[0].model.root.visible) {
+        this.skatteFocus.set((this.skatte[0].model.root.position.x + this.skatte[1].model.root.position.x) / 2, 1.7,
+          (this.skatte[0].model.root.position.z + this.skatte[1].model.root.position.z) / 2);
+      } else {
+        this.skatteFocus.set(this.skatteCar.root.position.x, 1.5, this.skatteCar.root.position.z);
+      }
+    } else if (phase === 'visit') {
+      const timer = this.skatteVisit.timer;
+      if (this.skatteLine === 0 && timer > 4.2) { this.skatteLine = 1; this.say(this.skatte[1], 'Vi har några frågor om era inkomster.'); }
+      else if (this.skatteLine === 1 && timer > 9.2) { this.skatteLine = 2; this.say(this.skatte[0], 'Allt ni tjänar ska med i deklarationen. Även köttet.'); }
+    } else if (phase === 'leave') {
+      for (const a of this.skatte) {
+        if (a.flee || !a.goalOverride) continue;
+        if (distance(a.model.root.position, a.goalOverride) < 1.5) { a.model.root.visible = false; a.goalOverride = null; }
+      }
+    }
+    if (this.skatteCarLeaving) {
+      this.skatteCar.root.rotation.y = angleLerp(this.skatteCar.root.rotation.y, 0.17, dt);
+      this.skatteCar.root.position.z += dt * 4;
+      if (this.skatteCar.root.position.z > 65) { this.skatteCar.root.visible = false; this.skatteCarLeaving = false; }
+    }
+  }
+
   private updateEnvironment(dt: number) {
     const water = this.world.water.material as THREE.MeshStandardMaterial;
     if (water.bumpMap) water.bumpMap.offset.set(this.elapsed * .005, this.elapsed * .003);
@@ -1240,15 +1335,15 @@ export class GameEngine {
     // The body may lean in a turn, but its contact shadow stays flat on the road.
     this.car.shadow.rotation.z = -this.car.root.rotation.z;
     this.officialCar.shadow.rotation.z = -this.officialCar.root.rotation.z;
-    const desiredTarget = this.state.started ? above(this.playerPosition, this.state.inCar ? 1.25 : 1.3, scratchTarget) : INTRO_TARGET;
+    const desiredTarget = this.cutsceneFocus ?? (this.state.started ? above(this.playerPosition, this.state.inCar ? 1.25 : 1.3, scratchTarget) : INTRO_TARGET);
     // Med nedtonade rörelser följer kameran stramare och zoomar utan långa svep.
     const ease = this.reducedMotion ? 4 : 1;
     this.cameraTarget.lerp(desiredTarget, 1 - Math.exp(-dt * ease * (this.state.started ? 5 : 1)));
-    if (this.state.inCar && !this.dragging && Math.abs(this.carVelocity) > 1.8) {
+    if (this.state.inCar && !this.dragging && !this.cutsceneFocus && Math.abs(this.carVelocity) > 1.8) {
       this.cameraYaw = angleLerp(this.cameraYaw, this.car.root.rotation.y + Math.PI, 1 - Math.exp(-dt * 1.45));
     }
-    const dist = this.state.started ? (this.state.aiming ? this.aimingDistance() : this.cameraDistance + (this.state.inCar ? 4 : 0)) : 44;
-    const elevation = this.state.started ? this.cameraElevation : this.cameraElevation - 0.06;
+    const dist = this.cutsceneFocus ? 19.5 : (this.state.started ? (this.state.aiming ? this.aimingDistance() : this.cameraDistance + (this.state.inCar ? 4 : 0)) : 44);
+    const elevation = this.cutsceneFocus ? 0.40 : (this.state.started ? this.cameraElevation : this.cameraElevation - 0.06);
     const offset = scratchOffset.set(Math.sin(this.cameraYaw) * Math.cos(elevation) * dist, Math.sin(elevation) * dist, Math.cos(this.cameraYaw) * Math.cos(elevation) * dist);
     positionFollowCamera(this.camera.position, this.cameraTarget, this.cameraOffset, offset, dt * ease);
     this.camera.position.y = Math.max(this.camera.position.y, groundHeight(this.camera.position.x, this.camera.position.z) + 2.4);
@@ -1278,6 +1373,8 @@ export class GameEngine {
       this.updateActor(this.rurik, dt);
       for (const bailiff of this.bailiffs) this.updateActor(bailiff, dt);
       this.updateBailiffs(dt);
+      this.updateSkatte(dt);
+      for (const inspector of this.skatte) this.updateActor(inspector, dt);
       this.hunting.update(dt);
       this.updateProgress();
     } else {
@@ -1362,6 +1459,7 @@ export class GameEngine {
       if (elk.alive && distance(this.playerPosition, elk.model.root.position) < 25) add(`elk-${elk.phase}`, 'Skogens konung', above(elk.model.root.position, 4.8), 'target');
     }
     for (const b of this.bailiffs) if (b.model.root.visible && !speaking.has(b.id) && distance(this.playerPosition, b.model.root.position) < 25) add(b.id, b.flee ? 'På väg härifrån' : 'Mätarlaget', above(b.model.root.position, 3.3), 'target');
+    for (const s of this.skatte) if (s.model.root.visible && !speaking.has(s.id) && distance(this.playerPosition, s.model.root.position) < 25) add(s.id, s.flee ? 'På väg härifrån' : 'Skattemasarna', above(s.model.root.position, 3.3), 'target');
     for (const s of this.speech) {
       add(s.id, s.text, above(s.actor ? s.actor.model.root.position : s.position, this.state.inCar && s.actor === this.player ? 3.3 : 3.7), 'speech');
     }
@@ -1474,6 +1572,9 @@ export class GameEngine {
     this.world.toolbox.visible = true; this.bailiffArrival = -1; this.bailiffFled = 0;
     this.bailiffs.forEach(a => { a.model.root.visible = false; a.flee = false; a.health = 3; a.stunned = 0; a.angry = 0; });
     this.officialCar.root.visible = false;
+    this.skatteVisit = createSkatteVisit(); this.skatteLine = 0; this.cutsceneFocus = null; this.skatteCarLeaving = false;
+    this.skatte.forEach(a => { a.model.root.visible = false; a.flee = false; a.health = 3; a.stunned = 0; a.angry = 0; a.goalOverride = null; });
+    this.skatteCar.root.visible = false; this.skatteCar.root.position.copy(SKATTE_CAR_START);
     this.shopkeeper.model.root.position.copy(this.shopkeeper.home); this.shopkeeper.angry = 0; this.shopkeeper.health = 3; this.shopkeeper.stunned = 0;
     this.world.shop.structure.visible = true; this.world.shop.loot.visible = true; this.shopGraceUntil = 0; this.shopCamera = null; this.updateEquipment();
     this.rurik.model.root.position.copy(this.rurik.home); this.rurik.health = 3; this.rurik.angry = 0; this.rurik.stunned = 0;

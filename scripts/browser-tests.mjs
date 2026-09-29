@@ -23,6 +23,7 @@ export const SUITES = [
   ['home', 'home-smoke-test.mjs', 'Stugan: dörr, kylskåp och dator'],
   ['upstairs', 'upstairs-smoke-test.mjs', 'Trappan, övervåningen, loftstegen och bakmaskinen'],
   ['shop', 'shop-smoke-test.mjs', 'Myrboden: köttet, Marta och risken'],
+  ['skatte', 'skatte-smoke-test.mjs', 'Skattemasarnas besök: klippet vid 13 sekunder och avskedet'],
   ['shooting', 'shooting-smoke-test.mjs', 'Skott: träff, miss, blockerat'],
   ['aim', 'aim-controls-smoke-test.mjs', 'Siktkontroller med mus och tangentbord'],
   ['touch', 'touch-smoke-test.mjs', 'Pekskärmsstyrning'],

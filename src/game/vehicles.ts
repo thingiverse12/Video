@@ -30,8 +30,8 @@ function loft(sections: { z: number; w: number; top: number; bottom: number }[])
 }
 
 /** Original, unbadged blue four-door sedan with a separate boot. */
-export function createCar(color = '#7195b4', official = false): CarModel {
-  const root = new THREE.Group(); root.name = official ? 'mätarlagets terrängbil' : 'blå sedan — Blå faran';
+export function createCar(color = '#7195b4', official = false, name = official ? 'mätarlagets terrängbil' : 'blå sedan — Blå faran'): CarModel {
+  const root = new THREE.Group(); root.name = name;
   const shadow = contactShadow(3.35, 6.45, .38); shadow.rotation.reorder('ZXY'); root.add(shadow);
   // Sun-faded, slightly chalky light blue paint rather than a glossy new finish.
   const paint = new THREE.MeshPhysicalMaterial({ color, roughness: 0.55, metalness: 0.18, clearcoat: 0.3, clearcoatRoughness: 0.5 });

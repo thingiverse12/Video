@@ -170,6 +170,66 @@ export function bailiffChasedOff(state: GameSnapshot, fledCount: number, claimed
   return true;
 }
 
+// Skattemasarnas besök — spelets fiktiva skatteparodi (i samma anda som
+// Mätarlaget): ett kort klipp där byråkraternas bil rullar in på gården strax
+// efter att ni startat, inspektörerna kliver ur och stämmer av era inkomster,
+// och sedan åker de vidare. Bara tid styr besöket; inga pengar byter händ.
+
+/** Spelet har gått i 13 sekunder när bilen rullar in. */
+export const SKATTE_ARRIVAL_SECONDS = 13;
+/** Längden på det korta klippet: bilen kör fram, inspektörerna kliver ur. */
+export const SKATTE_CUTSCENE_SECONDS = 5.4;
+/** Hur länge inspektörerna stannar kvar på gården och småpratar. */
+export const SKATTE_STAY_SECONDS = 15;
+/** Tiden från att de går tillbaka tills bilen kört iväg. */
+export const SKATTE_LEAVE_SECONDS = 6;
+
+export type SkattePhase = 'waiting' | 'cutscene' | 'visit' | 'leave' | 'done';
+export type SkatteEvent = 'cutscene-start' | 'arrived' | 'leave' | 'done';
+export interface SkatteVisit {
+  phase: SkattePhase;
+  /** Tid i den nuvarande fasen, i sekunder. */
+  timer: number;
+}
+
+export function createSkatteVisit(): SkatteVisit {
+  return { phase: 'waiting', timer: 0 };
+}
+
+/**
+ * Ett tidssteg för besöket. Returnerar händelsen som just skedde (eller null)
+ * så att motorn kan koppla in ljud, toast, repliker och kameran i rätt ögonblick.
+ */
+export function skatteVisitStep(visit: SkatteVisit, activeTime: number, dt: number): SkatteEvent | null {
+  if (visit.phase === 'done') return null;
+  if (visit.phase === 'waiting') {
+    if (activeTime < SKATTE_ARRIVAL_SECONDS) return null;
+    visit.phase = 'cutscene'; visit.timer = 0;
+    return 'cutscene-start';
+  }
+  visit.timer += dt;
+  if (visit.phase === 'cutscene' && visit.timer >= SKATTE_CUTSCENE_SECONDS) {
+    visit.phase = 'visit'; visit.timer = 0;
+    return 'arrived';
+  }
+  if (visit.phase === 'visit' && visit.timer >= SKATTE_STAY_SECONDS) {
+    visit.phase = 'leave'; visit.timer = 0;
+    return 'leave';
+  }
+  if (visit.phase === 'leave' && visit.timer >= SKATTE_LEAVE_SECONDS) {
+    visit.phase = 'done'; visit.timer = 0;
+    return 'done';
+  }
+  return null;
+}
+
+/** Besöket avbryts när inspektörerna sprungit iväg. Redan avslutat lämnas orört. */
+export function skatteVisitAborted(visit: SkatteVisit) {
+  if (visit.phase === 'done') return false;
+  visit.phase = 'done'; visit.timer = 0;
+  return true;
+}
+
 /**
  * Uppdragsövergångar som beror på var spelaren är. Muterar tillståndet och
  * returnerar vilka övergångar som skedde, så att motorn kan visa rätt toast.
