@@ -4,7 +4,7 @@ import { sealPreviewResult, publicPreviewDetails } from './netlify-preview-envel
 import { emitEncryptedResult } from './emit-netlify-result.mjs';
 
 const repository = 'thingiverse12/Video';
-const branch = 'arena/01a0e99b-video';
+const branch = 'arena/01a0e9e1-video';
 const out = '.netlify/preview-result';
 
 // Netlify's anonymous deploy path refuses to run when a project contains
