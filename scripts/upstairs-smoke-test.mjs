@@ -100,6 +100,50 @@ try {
   await shot('mobile-upstairs');
   await page.getByRole('button', { name: 'Visa touchkontroller', exact: true }).click();
   await page.setViewportSize({ width: 1440, height: 900 });
+
+  // Loftet: den branta stegen från Bills rum, och bakmaskinen som gått sedan i julas.
+  await walkTo(page, -10.6, -6.7, 0, 0.3);
+  await walkTo(page, -11.0, -5.6, 0, 0.30);
+  await waitText(page, '.interact-prompt', 'Klättra upp på loftet');
+  await waitText(page, '.world-labels', 'Loftstegen');
+  assert.equal((await data()).breadMachineOn, 'true');
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => document.querySelector('.game-stage')?.dataset.onLadder === 'true');
+  await waitText(page, '.home-hud', 'Pinne för pinne');
+  await waitFloor(2);
+  assert.equal((await data()).onLadder, 'false');
+  assert.equal((await data()).playerY, '5.95');
+  await waitText(page, '.location-hud', 'Loftet');
+  await waitText(page, '.home-hud', 'bränt bröd');
+  await waitText(page, '.world-labels', 'igång sedan i julas');
+  assert.equal(await page.locator('.world-labels').filter({ hasText: 'Bills gamla dator' }).count(), 0, 'Bills room labels do not bleed through the loft');
+  await shot('loft');
+  console.log('✓ The loft ladder climbs rung by rung to a third floor under the roof');
+
+  await walkTo(page, -6.8, -6.75, 0, 0.45);
+  await waitText(page, '.interact-prompt', 'Stäng av bakmaskinen');
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => document.querySelector('.game-stage')?.dataset.breadMachineOn === 'false');
+  await waitText(page, '.home-hud', 'Äntligen tyst');
+  await waitText(page, '.world-labels', 'avstängd');
+  await waitText(page, '.interact-prompt', 'Sätt på bakmaskinen igen');
+  assert.equal(await page.locator('.wallet strong').innerText(), '240', 'Switching off the bread machine is not a paid job');
+  await shot('bread-machine-off');
+  await page.locator('.interact-prompt').click();
+  await page.waitForFunction(() => document.querySelector('.game-stage')?.dataset.breadMachineOn === 'true');
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => document.querySelector('.game-stage')?.dataset.breadMachineOn === 'false');
+  console.log('✓ Bills bread machine can be switched off (and, against better judgement, on again)');
+
+  await walkTo(page, -10.55, -5.45, 0, 0.35);
+  await waitText(page, '.interact-prompt', 'Klättra ner från loftet');
+  await page.keyboard.press('e');
+  await waitFloor(1);
+  assert.equal((await data()).playerY, '3.65');
+  await waitText(page, '.location-hud', 'Bills rum');
+  assert.equal((await data()).breadMachineOn, 'false', 'The bread machine stays off after climbing down');
+  console.log('✓ The ladder leads back down to Bills room');
+
   await walkTo(page, -10.6, -6.7, 0, 0.3);
   await walkTo(page, -11.35, -7.4, 0, 0.25);
   await walkTo(page, -14.4, -7.45, 0, 0.25);
@@ -127,6 +171,7 @@ try {
   assert.equal((await data()).onStairs, 'false');
   assert.equal((await data()).computerOn, 'false');
   assert.equal((await data()).hasRifle, 'true');
+  assert.equal((await data()).breadMachineOn, 'false', 'The switched-off bread machine is saved');
   assert.equal(await page.locator('.wallet strong').innerText(), '440');
   await lowQuality(page); await page.locator('.start-button').click();
   await enterHome(page); await walkTo(page, -9.4, -5.8, 0, 0.25); await stairsBase();
@@ -136,6 +181,7 @@ try {
   await page.getByRole('button', { name: 'Ja, börja om', exact: true }).click();
   const reset = await data();
   assert.equal(reset.homeFloor, '0'); assert.equal(reset.insideHome, 'false'); assert.equal(reset.computerOn, 'false'); assert.equal(reset.onStairs, 'false');
+  assert.equal(reset.breadMachineOn, 'true', 'Resetting the game starts the bread machine again');
   assert.equal(await page.evaluate(() => localStorage.getItem('gramyren-adventure-v1')), null);
   assert.deepEqual(errors, [], 'No browser exceptions');
   console.log('✓ Reload preserves earned progress; resetting upstairs returns cleanly to the yard');

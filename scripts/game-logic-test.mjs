@@ -159,6 +159,18 @@ const rurikHome = { x: 35.4, z: -17.9 };
   const halfShop = fresh();
   save.restoreSave(JSON.stringify({ version: 3, progress: { shop: 2 }, carryingMeat: false }), halfShop);
   ok('steg 2 utan kött backar till steg 1', halfShop.progress.shop === 1);
+
+  // Bills bakmaskin på loftet: igång tills någon stänger av den, och avstängningen sparas.
+  const bakery = fresh();
+  ok('bakmaskinen är igång från början', bakery.breadMachineOn === true);
+  bakery.breadMachineOn = false;
+  const bakeryRaw = JSON.stringify(save.serializeSave(bakery, false));
+  const bakeryRestored = fresh();
+  save.restoreSave(bakeryRaw, bakeryRestored);
+  ok('avstängd bakmaskin följer med i sparningen', bakeryRestored.breadMachineOn === false);
+  const oldSave = fresh();
+  save.restoreSave(JSON.stringify({ version: 3, money: 300 }), oldSave);
+  ok('äldre sparningar utan fältet får maskinen igång', oldSave.breadMachineOn === true && oldSave.money === 300);
   ok('sparfilens nyckel och version är de motorn använder', save.SAVE_KEY === 'gramyren-adventure-v1' && save.SAVE_VERSION === 3);
 }
 
@@ -166,6 +178,11 @@ const rurikHome = { x: 35.4, z: -17.9 };
 {
   ok('byn är platt och utkanten kuperad', terrain.groundHeight(0, 0) === 0 && terrain.groundHeight(20, -30) === 0 && terrain.groundHeight(0, -100) > 2);
   ok('golvet i stugan och butiken går före marken', terrain.walkableHeight(HOME.center.x, HOME.center.z) === HOME.groundY && terrain.walkableHeight(HOME.center.x, HOME.center.z, 1) === HOME.upperY && terrain.walkableHeight(SHOP.center.x, SHOP.center.z) === 0.155);
+  ok('loftet är ett tredje plan inne i stugan', terrain.walkableHeight(HOME.center.x, HOME.center.z, 2) === HOME.loftY && HOME.loftY > HOME.upperY && terrain.walkableHeight(HOME.center.x + 30, HOME.center.z, 2) !== HOME.loftY);
+  ok('loftstegen nås från Bills rum och från loftet, inte från bottenvåningen', terrain.nearLadder(HOME.ladderBase, 1) && terrain.nearLadder(HOME.ladderTop, 2) && !terrain.nearLadder(HOME.ladderBase, 0) && !terrain.nearLadder({ x: HOME.ladderBase.x + 3, z: HOME.ladderBase.z }, 1));
+  ok('trätrappan går inte att använda från loftet', !terrain.nearStairs(HOME.stairsTop, 2) && terrain.nearStairs(HOME.stairsTop, 1));
+  ok('bakmaskinen nås bara framför bordet på loftet', terrain.nearBreadMachine({ x: HOME.breadMachine.x - 0.75, z: HOME.breadMachine.z + 0.45 }, 2) && !terrain.nearBreadMachine({ x: HOME.breadMachine.x - 0.75, z: HOME.breadMachine.z + 0.45 }, 1) && !terrain.nearBreadMachine({ x: HOME.breadMachine.x - 4, z: HOME.breadMachine.z }, 2));
+  ok('bakmaskinens bord står på loftet', HOME.breadMachine.x > HOME.loft.minX && HOME.breadMachine.x < HOME.loft.maxX && Math.abs(HOME.breadMachine.z - HOME.center.z) < HOME.loft.halfDepth);
   ok('sjöns mitt ligger under vattenytan', terrain.groundHeight(terrain.LAKE.x, terrain.LAKE.z) < terrain.LAKE.surfaceY - 0.5);
   ok('marken stiger genom vattenytan innan spegeln tar slut', terrain.groundHeight(terrain.LAKE.x - terrain.LAKE.rx, terrain.LAKE.z) > terrain.LAKE.surfaceY);
   ok('stranden och den platta byn ligger ovanför vattenytan', terrain.groundHeight(terrain.LAKE.x - terrain.LAKE.rx - 3, terrain.LAKE.z) >= 0 && 0 > terrain.LAKE.surfaceY);

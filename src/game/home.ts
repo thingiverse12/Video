@@ -24,7 +24,7 @@ export function createHomeInterior() {
   // Stugan är timrad: liggande furustockar med knutar i hörnen. Långsidorna ligger
   // ett halvt varv förskjutna så att knutarna griper i varandra som i en riktig timring.
   for (const x of [-5.43, 5.43]) logWall(interior, [x, -3.92], [x, 3.93], HOME.groundY - 0.03, 4, { stagger: true, tone: x < 0 ? 0 : 2 });
-  logWall(interior, [-5.43, -3.92], [5.43, -3.92], HOME.groundY - 0.03, 4, { tone: 1 });
+  logWall(interior, [-5.43, -3.92], [5.43, -3.92], HOME.groundY - 0.03, 5, { tone: 1 });
   // Den låga framväggen är delad kring ytterdörren, precis som utsidan; dörrposterna är grövre virke.
   logWall(interior, [-5.43, 3.93], [2.33, 3.93], HOME.groundY - 0.03, 2, { tone: 3, endOverhang: 0 });
   logWall(interior, [4.04, 3.93], [5.43, 3.93], HOME.groundY - 0.03, 2, { tone: 2, startOverhang: 0 });

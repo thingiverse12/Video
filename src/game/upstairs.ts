@@ -126,7 +126,7 @@ export function createUpstairs() {
   }
   // Samma timring som på bottenvåningen: stockvarven fortsätter upp genom huset.
   for (const x of [-5.44, 5.44]) { logWall(root, [x, -3.94], [x, 3.94], -0.02, 4, { stagger: true, tone: x < 0 ? 1 : 3 }); block(x, 0, 0.20, 8.2); }
-  for (const z of [-3.94, 3.94]) { logWall(root, [-5.44, z], [5.44, z], -0.02, 4, { tone: z < 0 ? 2 : 0 }); block(0, z, 11.0, 0.20); }
+  for (const z of [-3.94, 3.94]) { logWall(root, [-5.44, z], [5.44, z], -0.02, z < 0 ? 5 : 4, { tone: z < 0 ? 2 : 0 }); block(0, z, 11.0, 0.20); }
   block(-4.46, 1.36, 1.93, 4.33);
   for (let z = -0.70; z < 3.62; z += 0.38) roundedBox(root, 0.065, 0.89, 0.065, '#a08055', -3.48, 0.44, z, 0.01);
   roundedBox(root, 0.09, 0.085, 4.42, '#b99c6b', -3.48, 0.92, 1.41, 0.025);

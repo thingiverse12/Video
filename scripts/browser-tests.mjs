@@ -21,7 +21,7 @@ export const SUITES = [
   ['smoke', 'smoke-test.mjs', 'Hela äventyret: gevär, bil, jakt, Rurik, mätarlaget, sparning, pekskärm'],
   ['rifle', 'rifle-smoke-test.mjs', 'Geväret: hämtning, sikte och spärrar'],
   ['home', 'home-smoke-test.mjs', 'Stugan: dörr, kylskåp och dator'],
-  ['upstairs', 'upstairs-smoke-test.mjs', 'Trappan och övervåningen'],
+  ['upstairs', 'upstairs-smoke-test.mjs', 'Trappan, övervåningen, loftstegen och bakmaskinen'],
   ['shop', 'shop-smoke-test.mjs', 'Myrboden: köttet, Marta och risken'],
   ['shooting', 'shooting-smoke-test.mjs', 'Skott: träff, miss, blockerat'],
   ['aim', 'aim-controls-smoke-test.mjs', 'Siktkontroller med mus och tangentbord'],

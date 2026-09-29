@@ -3,6 +3,7 @@ import { beam, box, cylinder, ellipsoid, mesh, roundedBox, sign, smoothMaterial 
 import { mergeStaticMeshes } from './optimize';
 import { HOME } from './types';
 import { logWall, LOG_PITCH } from './timber';
+import { checkedOilcloth } from './furniture';
 
 // Loftet: ett halvplan under taknocken ovanför Bills rum. Här står Bills bakmaskin,
 // som han "bara skulle testa" förra julen och sedan glömde. Den har gått hela året.
@@ -25,8 +26,9 @@ export function createLoftLadder(parent: THREE.Object3D) {
     const rung = cylinder(parent, 0.028, 0.028, 0.60, y % 0.6 < 0.01 ? '#b28d5c' : '#a8845a', x, y, LADDER_Z, 8);
     rung.rotation.x = Math.PI / 2;
   }
-  // Gummifötter och ett par slitmärken på golvet där stegen stått i åratal.
+  // Gummifötter, och en bit av loftets kantbjälke så att stegen syns luta mot något även från rummet.
   for (const side of [-1, 1]) box(parent, 0.10, 0.04, 0.09, '#3f3d36', LADDER_FOOT_X, 0.02, LADDER_Z + side * 0.30);
+  box(parent, 0.18, 0.22, 1.6, '#6e5a42', LADDER_FOOT_X + RISE * LADDER_LEAN + 0.16, RISE - 0.20, LADDER_Z);
   const label = sign(parent, 'UPP PÅ LOFTET', LADDER_FOOT_X + 0.62, 1.55, LADDER_Z + 0.75, 1.30, 0.28, '#d7c596');
   label.rotation.y = -Math.PI / 2;
 }
@@ -46,17 +48,21 @@ export function createLoft() {
   for (const z of [-LOFT_HALF_DEPTH + 0.6, 0.4, LOFT_HALF_DEPTH - 0.7]) for (let x = LOFT_MIN_X + 0.4; x < LOFT_MAX_X; x += 1.1) box(root, 0.05, 0.004, 0.012, '#6b5537', x + (z > 0 ? 0.3 : 0), 0.002, z);
   for (const x of [LOFT_MIN_X + 0.05, centreX, LOFT_MAX_X - 0.05]) box(root, 0.16, 0.20, LOFT_HALF_DEPTH * 2, '#6e5a42', x, -0.27, 0);
 
-  // Timrad gavel som smalnar av mot nocken, och låga knävägar under takfallen.
-  const gableTop = logWall(root, [LOFT_MAX_X, -LOFT_HALF_DEPTH], [LOFT_MAX_X, LOFT_HALF_DEPTH], 0, 7, { tone: 1, taperPerRow: 0.365, startOverhang: 0.24, endOverhang: 0.24 });
+  // Timrad gavel som smalnar av mot nocken (kapad i genomskärningen, som resten av
+  // stugan) och låga knävägar under takfallen. Takstolarna visas bara som stumpar
+  // från knäväggarna, så att varken kameran eller figuren fastnar i taket.
+  logWall(root, [LOFT_MAX_X, -LOFT_HALF_DEPTH], [LOFT_MAX_X, LOFT_HALF_DEPTH], 0, 9, { tone: 1, taperPerRow: 0.21, startOverhang: 0.24, endOverhang: 0.24 });
   for (const side of [-1, 1]) {
     logWall(root, [LOFT_MIN_X, side * LOFT_HALF_DEPTH], [LOFT_MAX_X, side * LOFT_HALF_DEPTH], 0, 2, { stagger: true, tone: side < 0 ? 2 : 3, startOverhang: 0.12 });
   }
-  // Nockås och takstolar: bara några få, så att kameran ser in på loftet.
-  const ridgeY = gableTop + 0.05, kneeY = LOG_PITCH * 2 + 0.05;
-  beam(root, new THREE.Vector3(LOFT_MIN_X - 0.3, ridgeY, 0), new THREE.Vector3(LOFT_MAX_X + 0.25, ridgeY, 0), 0.075, '#8a6c47', 8);
-  for (const x of [LOFT_MIN_X + 0.35, LOFT_MIN_X + 2.05, LOFT_MIN_X + 3.75, LOFT_MIN_X + 5.45]) {
-    for (const side of [-1, 1]) beam(root, new THREE.Vector3(x, kneeY, side * (LOFT_HALF_DEPTH + 0.1)), new THREE.Vector3(x, ridgeY - 0.02, side * 0.08), 0.055, '#96774f', 6);
+  const kneeY = LOG_PITCH * 2 + 0.05, rafterCutY = 1.15, rafterRun = (rafterCutY - kneeY) / Math.tan(0.86);
+  for (let x = LOFT_MIN_X + 0.35; x < LOFT_MAX_X - 0.2; x += 1.08) {
+    for (const side of [-1, 1]) {
+      beam(root, new THREE.Vector3(x, kneeY, side * (LOFT_HALF_DEPTH + 0.1)), new THREE.Vector3(x, rafterCutY, side * (LOFT_HALF_DEPTH + 0.1 - rafterRun)), 0.055, '#96774f', 6);
+    }
   }
+  // Hammarbandet ovanpå knäväggarna binder ihop takstolsstumparna.
+  for (const side of [-1, 1]) box(root, LOFT_MAX_X - LOFT_MIN_X + 0.3, 0.09, 0.14, '#8a6c47', centreX, kneeY - 0.02, side * (LOFT_HALF_DEPTH + 0.06));
   // Räcke längs den öppna kanten, med en lucka där stegen kommer upp.
   const gap: [number, number] = [LADDER_Z - 0.42, LADDER_Z + 0.42];
   for (const [z0, z1] of [[-LOFT_HALF_DEPTH, gap[0]], [gap[1], LOFT_HALF_DEPTH]] as [number, number][]) {
@@ -67,30 +73,30 @@ export function createLoft() {
   for (const z of gap) ellipsoid(root, '#b69a6a', LOFT_MIN_X + 0.08, 0.98, z, 0.07, 0.07, 0.07, 12);
   sign(root, 'LOFTET', LOFT_MIN_X + 0.35, 1.22, LADDER_Z + 1.30, 1.05, 0.28, '#d7c596');
 
-  // Bakmaskinen står på ett litet bord vid gaveln, med locket på glänt.
+  // Bakmaskinen står på ett litet bord med rödrutig vaxduk vid gaveln, med locket på glänt.
   const table = new THREE.Group();
   const bx = HOME.breadMachine.x - HOME.center.x, bz = HOME.breadMachine.z - HOME.center.z;
   table.position.set(bx, 0, bz);
-  roundedBox(table, 0.98, 0.07, 0.64, '#a98459', 0, 0.76, 0, 0.015);
-  for (const x of [-0.42, 0.42]) for (const z of [-0.25, 0.25]) box(table, 0.07, 0.74, 0.07, '#7d6141', x, 0.37, z);
+  roundedBox(table, 1.08, 0.10, 0.74, checkedOilcloth(), 0, 0.745, 0, 0.02);
+  for (const x of [-0.42, 0.42]) for (const z of [-0.25, 0.25]) box(table, 0.07, 0.70, 0.07, '#7d6141', x, 0.35, z);
   box(table, 0.86, 0.05, 0.05, '#7d6141', 0, 0.20, -0.25);
-  root.add(table); block(bx, bz, 1.0, 0.7);
-  const machine = new THREE.Group(); machine.position.set(-0.08, 0.795, 0.02); table.add(machine);
-  roundedBox(machine, 0.40, 0.34, 0.34, '#e6dfcb', 0, 0.17, 0, 0.04);
-  roundedBox(machine, 0.41, 0.05, 0.35, '#8e8877', 0, 0.025, 0, 0.012);
-  roundedBox(machine, 0.30, 0.16, 0.24, '#1b1714', 0, 0.36, 0, 0.03); // den förkolnade limpan
-  for (let i = 0; i < 4; i++) box(machine, 0.03, 0.01, 0.02, '#0f0d0b', -0.10 + i * 0.07, 0.445, -0.03 + (i % 2) * 0.05);
-  const lid = new THREE.Group(); lid.position.set(0, 0.34, -0.17); lid.rotation.x = -0.62; machine.add(lid);
-  roundedBox(lid, 0.38, 0.06, 0.34, '#d5cdb4', 0, 0.03, 0.17, 0.015);
-  box(lid, 0.16, 0.012, 0.13, '#2a3130', 0, 0.062, 0.17);
-  roundedBox(lid, 0.14, 0.03, 0.05, '#c2b99f', 0, 0.075, 0.325, 0.01);
+  root.add(table); block(bx, bz, 1.1, 0.8);
+  const machine = new THREE.Group(); machine.position.set(-0.10, 0.795, 0.02); table.add(machine);
+  roundedBox(machine, 0.48, 0.40, 0.40, '#e6dfcb', 0, 0.20, 0, 0.045);
+  roundedBox(machine, 0.49, 0.05, 0.41, '#8e8877', 0, 0.025, 0, 0.012);
+  roundedBox(machine, 0.36, 0.18, 0.28, '#1b1714', 0, 0.42, 0, 0.035); // den förkolnade limpan
+  for (let i = 0; i < 4; i++) box(machine, 0.035, 0.012, 0.024, '#0f0d0b', -0.12 + i * 0.08, 0.515, -0.04 + (i % 2) * 0.06);
+  const lid = new THREE.Group(); lid.position.set(0, 0.40, -0.20); lid.rotation.x = -0.62; machine.add(lid);
+  roundedBox(lid, 0.46, 0.06, 0.40, '#d5cdb4', 0, 0.03, 0.20, 0.015);
+  box(lid, 0.20, 0.012, 0.15, '#2a3130', 0, 0.062, 0.20);
+  roundedBox(lid, 0.16, 0.03, 0.05, '#c2b99f', 0, 0.075, 0.385, 0.01);
   // Manöverpanel: en gulgrön display, fyra knappar och en röd lampa som blinkar när den går.
-  box(machine, 0.28, 0.11, 0.012, '#3b4340', 0, 0.20, 0.176);
+  box(machine, 0.34, 0.13, 0.012, '#3b4340', 0, 0.23, 0.206);
   const lcd = new THREE.MeshStandardMaterial({ color: '#8fbf7e', emissive: '#9fd28c', emissiveIntensity: 0.9, roughness: 0.4 });
-  box(machine, 0.11, 0.045, 0.006, lcd, -0.06, 0.215, 0.184);
-  for (let i = 0; i < 4; i++) roundedBox(machine, 0.028, 0.02, 0.008, i === 3 ? '#c3574a' : '#d9d2bb', 0.03 + i * 0.033, 0.168, 0.184, 0.004);
+  box(machine, 0.13, 0.05, 0.006, lcd, -0.075, 0.25, 0.214);
+  for (let i = 0; i < 4; i++) roundedBox(machine, 0.032, 0.022, 0.008, i === 3 ? '#c3574a' : '#d9d2bb', 0.035 + i * 0.038, 0.19, 0.214, 0.004);
   const led = new THREE.MeshStandardMaterial({ color: '#ff5a3c', emissive: '#ff3b1f', emissiveIntensity: 1.2, roughness: 0.3 });
-  ellipsoid(machine, led, 0.085, 0.228, 0.185, 0.014, 0.014, 0.008, 10);
+  ellipsoid(machine, led, 0.10, 0.265, 0.215, 0.016, 0.016, 0.008, 10);
   // Sladden går ned från bordet till en skarvsladdsvinda på golvet: därför har den kunnat gå så länge.
   const cord = new THREE.CatmullRomCurve3([
     new THREE.Vector3(-0.15, 0.06, -0.15), new THREE.Vector3(-0.32, -0.02, -0.34), new THREE.Vector3(-0.50, -0.55, -0.42),
@@ -110,11 +116,11 @@ export function createLoft() {
   for (let i = 0; i < 5; i++) box(table, 0.08 + (i % 3) * 0.04, 0.004, 0.06, '#f4efe1', -0.35 + i * 0.13, 0.797, 0.22 - (i % 2) * 0.1);
   // Rök från maskinen; motorn låter den stiga när bakmaskinen är igång.
   const smoke: THREE.Mesh[] = [];
-  for (let i = 0; i < 5; i++) {
-    const puff = mesh(new THREE.IcosahedronGeometry(0.09, 1), new THREE.MeshStandardMaterial({ color: '#d8d4c6', transparent: true, opacity: 0.2, depthWrite: false }), false);
-    puff.position.set(bx - 0.08, 1.30 + i * 0.25, bz + 0.02); root.add(puff); smoke.push(puff);
+  for (let i = 0; i < 7; i++) {
+    const puff = mesh(new THREE.IcosahedronGeometry(0.12, 1), new THREE.MeshStandardMaterial({ color: '#cfc9b9', transparent: true, opacity: 0.2, depthWrite: false }), false);
+    puff.position.set(bx - 0.10, 1.35 + i * 0.25, bz + 0.02); root.add(puff); smoke.push(puff);
   }
-  const smokeOrigin = new THREE.Vector3(bx - 0.08, 1.28, bz + 0.02);
+  const smokeOrigin = new THREE.Vector3(bx - 0.10, 1.33, bz + 0.02);
   const label = sign(root, 'BILLS BAKMASKIN', LOFT_MAX_X - 0.14, 1.28, bz, 1.55, 0.28, '#dfd2a9'); label.rotation.y = -Math.PI / 2;
   // Väggalmanackan hänger kvar på december: ingen har varit här uppe sedan dess.
   const calendar = sign(root, 'DECEMBER', LOFT_MAX_X - 0.14, 0.86, bz + 1.35, 0.62, 0.50, '#f1e9d3'); calendar.rotation.y = -Math.PI / 2;
@@ -134,10 +140,11 @@ export function createLoft() {
     box(root, 0.30, 0.16, 0.012, '#f1e9d3', x, h * 0.55, z + 0.315);
   }
   block(0.65, -1.68, 1.5, 0.7);
-  // En naken glödlampa i en sladd från nockåsen.
-  cylinder(root, 0.006, 0.006, 0.60, '#3c3f38', 2.0, ridgeY - 0.30, 0, 6);
-  cylinder(root, 0.035, 0.03, 0.06, '#8d8f86', 2.0, ridgeY - 0.63, 0, 10);
-  ellipsoid(root, new THREE.MeshStandardMaterial({ color: '#fff1c8', emissive: '#ffd27a', emissiveIntensity: 1.1, roughness: 0.3 }), 2.0, ridgeY - 0.73, 0, 0.055, 0.075, 0.055, 12);
+  // En vägglampa på gaveln ovanför bordet: svängd arm, plåtskärm och en varm glödlampa.
+  const lampArm = beam(root, new THREE.Vector3(LOFT_MAX_X - 0.12, 1.62, bz + 0.55), new THREE.Vector3(LOFT_MAX_X - 0.55, 1.78, bz + 0.55), 0.014, '#3c3f38', 6);
+  lampArm.castShadow = false;
+  cylinder(root, 0.16, 0.05, 0.16, '#5a6d5c', LOFT_MAX_X - 0.58, 1.70, bz + 0.55, 12);
+  ellipsoid(root, new THREE.MeshStandardMaterial({ color: '#fff1c8', emissive: '#ffd27a', emissiveIntensity: 1.1, roughness: 0.3 }), LOFT_MAX_X - 0.58, 1.60, bz + 0.55, 0.05, 0.065, 0.05, 12);
 
   mergeStaticMeshes(root, new Set<THREE.Object3D>(smoke));
   root.visible = false;
