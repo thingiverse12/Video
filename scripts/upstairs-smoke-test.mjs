@@ -93,7 +93,7 @@ try {
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Spelguide', exact: true }).click();
-  await page.getByRole('button', { name: /pekskärm/ }).click();
+  await page.getByRole('button', { name: /touchkontroller här/ }).click();
   await page.locator('.touch-actions button').filter({ hasText: /^E/ }).click();
   assert.equal((await data()).computerOn, 'true');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

@@ -61,7 +61,7 @@ try {
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Spelguide', exact: true }).click();
-  await page.getByRole('button', { name: /pekskärm/ }).click();
+  await page.getByRole('button', { name: /touchkontroller här/ }).click();
   const touchE = page.locator('.touch-actions button').filter({ hasText: /^E/ });
   await touchE.click(); assert.equal(await isOpen(), 'false');
   await touchE.click(); assert.equal(await isOpen(), 'true');
