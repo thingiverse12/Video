@@ -16,6 +16,8 @@ export interface SaveData {
   character: PlayerId;
   activeMission: MissionId;
   toolboxTaken: boolean;
+  /** Bills bakmaskin på loftet; saknas fältet (äldre sparningar) är den fortfarande igång. */
+  breadMachineOn?: boolean;
 }
 
 export interface RestoredSave {
@@ -34,6 +36,7 @@ export function serializeSave(state: GameSnapshot, toolboxTaken: boolean): SaveD
     character: state.character,
     activeMission: state.activeMission,
     toolboxTaken,
+    breadMachineOn: state.breadMachineOn,
   };
 }
 
@@ -65,6 +68,7 @@ export function restoreSave(raw: string | null | undefined, state: GameSnapshot)
   if (version === 1) state.activeMission = 'shop';
   state.carryingMeat = data.carryingMeat === true && state.progress.shop === 2;
   if (state.progress.shop === 2 && !state.carryingMeat) state.progress.shop = 1;
+  state.breadMachineOn = data.breadMachineOn !== false;
   state.saved = true;
   return { toolboxTaken: data.toolboxTaken === true, claimed };
 }

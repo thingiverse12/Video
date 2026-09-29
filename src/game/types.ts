@@ -13,6 +13,9 @@ export interface Destination {
   z: number;
 }
 
+/** 0 = bottenvåningen, 1 = övervåningen (Bills rum), 2 = loftet under taket. */
+export type HomeFloor = 0 | 1 | 2;
+
 export const HOME = {
   center: { x: -10, z: -6 },
   groundY: 0.565,
@@ -20,6 +23,12 @@ export const HOME = {
   stairsBase: { x: -14.4, z: -2.8 },
   stairsTop: { x: -14.4, z: -7.45 },
   computer: { x: -8.5, z: -9.0 },
+  /** Loftet under taknocken: ett halvplan över Bills rum, nått via en brant loftstege. */
+  loftY: 5.95,
+  loft: { minX: -11.30, maxX: -4.56, halfDepth: 2.35 },
+  ladderBase: { x: -11.55, z: -5.45 },
+  ladderTop: { x: -10.75, z: -5.45 },
+  breadMachine: { x: -5.70, z: -7.30 },
   door: { x: -6.95, z: 0.8 },
   entry: { x: -6.95, z: -3.2 },
   rifle: { x: -13.2, z: -9.1 },
@@ -101,9 +110,13 @@ export interface GameSnapshot {
   insideShop: boolean;
   insideHome: boolean;
   fridgeOpen: boolean;
-  homeFloor: 0 | 1;
+  homeFloor: HomeFloor;
+  /** Sant under hela trapp- eller stegklättringen; `onLadder` skiljer loftstegen från trätrappan. */
   onStairs: boolean;
+  onLadder: boolean;
   computerOn: boolean;
+  /** Bills bakmaskin på loftet har gått sedan förra julen tills någon stänger av den. Sparas. */
+  breadMachineOn: boolean;
   hasRifle: boolean;
   aiming: boolean;
   aimPlaced: boolean;
@@ -150,7 +163,9 @@ export const INITIAL_SNAPSHOT: GameSnapshot = {
   fridgeOpen: false,
   homeFloor: 0,
   onStairs: false,
+  onLadder: false,
   computerOn: false,
+  breadMachineOn: true,
   hasRifle: false,
   aiming: false,
   aimPlaced: false,

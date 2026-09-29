@@ -4,7 +4,9 @@ import { createHuntingRifle } from './equipment';
 import { mergeStaticMeshes } from './optimize';
 import { HOME } from './types';
 import { createUpstairs, createWoodenStaircase } from './upstairs';
-import { createOldFridge, createOldSink, createOldTelevision, createWornSofa, oldRug, oldWallpaper } from './furniture';
+import { createLoft } from './loft';
+import { logWall, plankWall } from './timber';
+import { createOldFridge, createOldSink, createOldTelevision, createWornSofa, oldRug } from './furniture';
 
 /** An accessible cutaway room inside the existing red house. The outside keeps
  * its original silhouette; this room is shown only while a playable character is inside. */
@@ -14,21 +16,19 @@ export function createHomeInterior() {
   interior.position.set(HOME.center.x, 0, HOME.center.z);
   const colliders: { type: 'box'; x: number; z: number; w: number; d: number }[] = [];
   const blockFurniture = (x: number, z: number, w: number, d: number) => colliders.push({ type: 'box', x: HOME.center.x + x, z: HOME.center.z + z, w, d });
-  const wallpaper = oldWallpaper();
   box(interior, 11.0, 0.18, 8.0, '#837354', 0, 0.445, 0);
   for (let x = -5.33; x < 5.4; x += 0.38) {
     box(interior, 0.36, 0.025, 7.91, ['#a88d61', '#b19a73', '#99815b'][Math.round((x + 5.33) / 0.38) % 3], x, 0.547, 0);
     for (const z of [-1.45, 1.38]) box(interior, 0.35, 0.007, 0.017, '#99845f', x, 0.563, z + (Math.round(x * 10) % 3) * 0.23);
   }
-  for (const x of [-5.43, 5.43]) {
-    box(interior, 0.17, 1.08, 8, wallpaper, x, 1.085, 0);
-    box(interior, 0.19, 0.07, 8, '#bba77c', x, 1.66, 0);
-  }
-  box(interior, 11, 1.08, 0.17, wallpaper, 0, 1.085, -3.92);
-  box(interior, 11, 0.065, 0.20, '#bba77c', 0, 1.66, -3.92);
-  // The low front wall is split around the door, like the actual exterior.
-  box(interior, 7.75, 0.58, 0.16, wallpaper, -1.55, 0.845, 3.93);
-  box(interior, 1.42, 0.58, 0.16, wallpaper, 4.75, 0.845, 3.93);
+  // Stugan är timrad: liggande furustockar med knutar i hörnen. Långsidorna ligger
+  // ett halvt varv förskjutna så att knutarna griper i varandra som i en riktig timring.
+  for (const x of [-5.43, 5.43]) logWall(interior, [x, -3.92], [x, 3.93], HOME.groundY - 0.03, 4, { stagger: true, tone: x < 0 ? 0 : 2 });
+  logWall(interior, [-5.43, -3.92], [5.43, -3.92], HOME.groundY - 0.03, 4, { tone: 1 });
+  // Den låga framväggen är delad kring ytterdörren, precis som utsidan; dörrposterna är grövre virke.
+  logWall(interior, [-5.43, 3.93], [2.33, 3.93], HOME.groundY - 0.03, 2, { tone: 3, endOverhang: 0 });
+  logWall(interior, [4.04, 3.93], [5.43, 3.93], HOME.groundY - 0.03, 2, { tone: 2, startOverhang: 0 });
+  for (const x of [2.40, 3.97]) roundedBox(interior, 0.14, 0.86, 0.24, '#8d6b45', x, HOME.groundY + 0.40, 3.93, 0.02);
   box(interior, 1.53, 0.025, 1.08, '#64765b', 3.05, 0.574, 2.91);
   for (let x = 2.40; x < 3.8; x += 0.19) box(interior, 0.045, 0.008, 0.97, '#9da585', x, 0.595, 2.91);
 
@@ -72,10 +72,10 @@ export function createHomeInterior() {
 
   // Low cutaway partition walls make distinct TV and dining rooms. The gaps
   // are real, collidable doorways, wide enough for a playable character on keyboard/touch.
+  // Innerväggarna är av stående pärlspont, som i timrade stugor.
   const partition = (x: number, z: number, w: number, d: number) => {
-    box(interior, w, 1.40, d, wallpaper, x, HOME.groundY + 0.70, z);
-    box(interior, w + 0.035, 0.065, d + 0.035, '#a28a61', x, HOME.groundY + 1.43, z);
-    box(interior, w + 0.015, 0.10, d + 0.015, '#8c7653', x, HOME.groundY + 0.05, z);
+    if (w > d) plankWall(interior, [x - w / 2, z], [x + w / 2, z], HOME.groundY, 1.40, d);
+    else plankWall(interior, [x, z - d / 2], [x, z + d / 2], HOME.groundY, 1.40, w);
     blockFurniture(x, z, w, d);
   };
   partition(1.83, -3.325, 0.15, 1.15);
@@ -103,6 +103,7 @@ export function createHomeInterior() {
   }
   const staircase = createWoodenStaircase();
   const upstairs = createUpstairs();
+  const loft = createLoft();
   // The first low treads can be approached from the dining room; E handles the
   // full climb, so no one can walk into the void or get trapped in the railings.
   blockFurniture(HOME.stairsBase.x - HOME.center.x, 0.81, 1.50, 3.18);
@@ -124,5 +125,5 @@ export function createHomeInterior() {
   for (let j = 0; j < 5; j++) ellipsoid(interior, '#7c925c', -4.78 + Math.cos(j * 2.4) * 0.20, 1.24 + (j % 2) * 0.17, -2.05 + Math.sin(j * 2.4) * 0.15, 0.19, 0.31, 0.14, 12);
   mergeStaticMeshes(interior, new Set([rifle, fridge.root]));
   interior.visible = false;
-  return { interior, rifle, fridge, colliders, staircase, upstairs };
+  return { interior, rifle, fridge, colliders, staircase, upstairs, loft };
 }

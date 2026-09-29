@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { animateCharacter, createCar, createCharacter, createShoppingBag, material, mesh, type CharacterModel, type CharacterKind, type CarModel } from './models';
 import { createWorld, type World } from './world';
 import { buildColliderTable, collidesAt, type ColliderTable } from './colliders';
-import { groundHeight, isInsideHome, isInsideShop, nearComputer, nearFridge, nearRifleRack, nearStairs, walkableHeight } from './terrain';
+import { groundHeight, isInsideHome, isInsideShop, nearBreadMachine, nearComputer, nearFridge, nearLadder, nearRifleRack, nearStairs, walkableHeight } from './terrain';
 import { advanceProgress, applyShotImpact, bailiffChasedOff, canUseRifle, carEntryWaypoint, caughtInShop, clerkNotices, pickUpRifle, respawnPenalty, shopRiskStep, takeMeat, takeToolbox, trackMission, SHOP_CLERK_ANGER_SECONDS, SHOP_CLERK_CATCH_DISTANCE, SHOP_CLERK_FORGET_DISTANCE, SHOP_GRACE_SECONDS, type ProgressContext } from './rules';
 import { restoreSave, serializeSave, SAVE_KEY } from './save';
 import { GameAudio } from './audio';
@@ -11,7 +11,7 @@ import { GameInput } from './input';
 import { positionFollowCamera } from './camera';
 import { createHuntingRifle } from './equipment';
 import { HuntingProjectiles, RIFLE_MUZZLE, SHOT_INTERVAL, type ShotImpact } from './hunting';
-import { DESTINATIONS, INITIAL_SNAPSHOT, MISSIONS, SHOP, HOME, type PlayerId, type DestinationId, type GameCallbacks, type GameSnapshot, type MissionId, type WorldLabel } from './types';
+import { DESTINATIONS, INITIAL_SNAPSHOT, MISSIONS, SHOP, HOME, type PlayerId, type DestinationId, type GameCallbacks, type GameSnapshot, type HomeFloor, type MissionId, type WorldLabel } from './types';
 
 interface Actor {
   id: string;
@@ -48,6 +48,9 @@ const COMPANION_WAIT_HOME = new THREE.Vector3(HOME.door.x + 2.6, 0, HOME.door.z 
 const COMPANION_WAIT_SHOP = new THREE.Vector3(SHOP.door.x + 2.7, 0, SHOP.door.z + 1.1);
 const STAIRS_BASE = new THREE.Vector3(HOME.stairsBase.x, HOME.groundY, HOME.stairsBase.z);
 const STAIRS_TOP = new THREE.Vector3(HOME.stairsTop.x, HOME.upperY, HOME.stairsTop.z);
+const LADDER_BASE = new THREE.Vector3(HOME.ladderBase.x, HOME.upperY, HOME.ladderBase.z);
+const LADDER_TOP = new THREE.Vector3(HOME.ladderTop.x, HOME.loftY, HOME.ladderTop.z);
+const LOFT_CENTRE_X = (HOME.loft.minX + HOME.loft.maxX) / 2, LOFT_HALF_WIDTH = (HOME.loft.maxX - HOME.loft.minX) / 2;
 /** Punkten `dy` meter ovanför `position`, i en delad vektor. Använd resultatet direkt. */
 const above = (position: THREE.Vector3, dy: number, into = scratchLabel) => { into.copy(position); into.y += dy; return into; };
 // Math.sqrt i stället för Math.hypot: hypot allokerar i V8 och det här anropas varje simuleringssteg.
@@ -72,7 +75,7 @@ export class GameEngine {
   private aimPoint = new THREE.Vector3();
   private aimRay = new THREE.Raycaster();
   private shotFeedbackTime = 0;
-  private stairTravel: { direction: 'up' | 'down'; elapsed: number; start: THREE.Vector3 } | null = null;
+  private stairTravel: { direction: 'up' | 'down'; kind: 'stairs' | 'ladder'; elapsed: number; start: THREE.Vector3 } | null = null;
   private homeCamera: { elevation: number; distance: number } | null = null;
   private shopGraceUntil = 0;
   private shopCamera: { elevation: number; distance: number } | null = null;
@@ -82,6 +85,7 @@ export class GameEngine {
   /** Kolliderare i typade fält, en tabell per våning. */
   private groundColliders: ColliderTable;
   private upstairsColliders: ColliderTable;
+  private loftColliders: ColliderTable;
   /** Återanvänds varje steg av updateProgress i stället för ett nytt objekt per bildruta. */
   private progressContext: ProgressContext;
   private ring: THREE.Mesh;
@@ -199,6 +203,7 @@ export class GameEngine {
     this.runOverCandidates = [this.rurik, this.shopkeeper, ...this.bailiffs];
     this.groundColliders = buildColliderTable(this.world.colliders);
     this.upstairsColliders = buildColliderTable(this.world.home.upstairs.colliders);
+    this.loftColliders = buildColliderTable(this.world.home.loft.colliders);
     this.progressContext = { player: this.playerPosition, rurik: this.rurik.model.root.position, toolboxTaken: false, claimed: this.rewardClaimed };
     this.bailiffs.forEach(a => a.model.root.visible = false);
     this.hunting = new HuntingProjectiles(this.world,
@@ -536,7 +541,7 @@ export class GameEngine {
     }
     const dest = DESTINATIONS.find(d => d.id === id)!;
     this.cancelHunting();
-    this.stairTravel = null; this.state.onStairs = false; this.state.homeFloor = 0;
+    this.stairTravel = null; this.state.onStairs = false; this.state.onLadder = false; this.state.homeFloor = 0;
     this.start();
     this.input.clear(); this.stopCameraDrag();
     this.carVelocity = 0;
@@ -574,17 +579,24 @@ export class GameEngine {
       this.emit(); return;
     }
     const p = this.playerPosition;
+    if (this.state.homeFloor === 2) {
+      if (nearBreadMachine(p, this.state.homeFloor)) { this.toggleBreadMachine(); return; }
+      if (nearLadder(p, this.state.homeFloor)) { this.beginStairTravel('ladder'); return; }
+      this.callbacks.onToast({ title: 'Loftet', detail: 'Bakmaskinen står vid gaveln: E stänger av den. Loftstegen vid räcket tar dig ner till Bills rum.', kind: 'info' });
+      return;
+    }
     if (this.state.homeFloor === 1) {
       if (nearComputer(p, this.state.homeFloor)) {
         this.state.computerOn = !this.state.computerOn;
         this.world.home.upstairs.computer.setPowered(this.state.computerOn);
         this.audio.play('click'); this.emit(); return;
       }
-      if (nearStairs(p, this.state.homeFloor)) { this.beginStairTravel(); return; }
-      this.callbacks.onToast({ title: 'Bills rum', detail: 'Gå fram till datorn och tryck E, eller gå tillbaka till trätrappan för att komma ner.', kind: 'info' });
+      if (nearLadder(p, this.state.homeFloor)) { this.beginStairTravel('ladder'); return; }
+      if (nearStairs(p, this.state.homeFloor)) { this.beginStairTravel('stairs'); return; }
+      this.callbacks.onToast({ title: 'Bills rum', detail: 'Gå fram till datorn och tryck E, klättra upp på loftet via stegen, eller gå tillbaka till trätrappan för att komma ner.', kind: 'info' });
       return;
     }
-    if (nearStairs(p, this.state.homeFloor)) { this.beginStairTravel(); return; }
+    if (nearStairs(p, this.state.homeFloor)) { this.beginStairTravel('stairs'); return; }
     if (!this.state.hasRifle && nearRifleRack(p)) {
       pickUpRifle(this.state);
       this.world.home.rifle.visible = false;
@@ -761,13 +773,15 @@ export class GameEngine {
     this.save();
   }
 
-  private collides(position: THREE.Vector3, radius: number, includeCar: boolean, floor: 0 | 1 = 0) {
+  private collides(position: THREE.Vector3, radius: number, includeCar: boolean, floor: HomeFloor = 0) {
     if (Math.abs(position.x) > 89 || Math.abs(position.z) > 89) return true;
     if (floor === 1 && (Math.abs(position.x - HOME.center.x) > 5.44 - radius || Math.abs(position.z - HOME.center.z) > 3.94 - radius)) return true;
+    // Loftet är ett halvplan: utanför plankorna finns bara luften ovanför Bills rum.
+    if (floor === 2 && (Math.abs(position.x - LOFT_CENTRE_X) > LOFT_HALF_WIDTH - radius || Math.abs(position.z - HOME.center.z) > HOME.loft.halfDepth - radius)) return true;
     // The sedan can park outside, but it cannot be driven through the shop doorway.
     if (radius > 1 && Math.abs(position.x - HOME.center.x) < 5.7 + radius && Math.abs(position.z - HOME.center.z) < 4.2 + radius) return true;
     if (radius > 1 && Math.abs(position.x - SHOP.center.x) < 7.4 + radius && position.z > SHOP.center.z - 5.5 - radius && position.z < SHOP.center.z + 5.3 + radius) return true;
-    if (collidesAt(floor === 1 ? this.upstairsColliders : this.groundColliders, position.x, position.z, radius)) return true;
+    if (collidesAt(floor === 2 ? this.loftColliders : floor === 1 ? this.upstairsColliders : this.groundColliders, position.x, position.z, radius)) return true;
     if (includeCar && floor === 0) {
       const local = scratchLocal.copy(position).sub(this.car.root.position).applyAxisAngle(up, -this.car.root.rotation.y);
       if (Math.abs(local.x) < 1.04 + radius && Math.abs(local.z) < 2.48 + radius) return true;
@@ -943,7 +957,7 @@ export class GameEngine {
     this.save();
   }
 
-  private walkableHeight(x: number, z: number, floor: 0 | 1 = 0) { return walkableHeight(x, z, floor); }
+  private walkableHeight(x: number, z: number, floor: HomeFloor = 0) { return walkableHeight(x, z, floor); }
 
   private updateEquipment() {
     for (const avatar of ['leffe', 'bill'] as PlayerId[]) {
@@ -966,11 +980,12 @@ export class GameEngine {
     }
   }
 
-  private beginStairTravel() {
+  /** Trätrappan går mellan botten- och övervåningen, loftstegen mellan Bills rum och loftet. */
+  private beginStairTravel(kind: 'stairs' | 'ladder') {
     this.cancelHunting();
-    const direction = this.state.homeFloor === 0 ? 'up' : 'down';
-    this.stairTravel = { direction, elapsed: 0, start: this.playerPosition.clone() };
-    this.state.onStairs = true; this.state.fridgeOpen = false;
+    const direction = (kind === 'stairs' ? this.state.homeFloor === 0 : this.state.homeFloor === 1) ? 'up' : 'down';
+    this.stairTravel = { direction, kind, elapsed: 0, start: this.playerPosition.clone() };
+    this.state.onStairs = true; this.state.onLadder = kind === 'ladder'; this.state.fridgeOpen = false;
     this.input.clear(); this.stopCameraDrag(); this.punchTimer = 0; this.huntingTimer = 0;
     this.cameraYaw = 0; this.cameraElevation = 0.87; this.cameraDistance = 14.8;
     this.audio.play('step'); this.emit();
@@ -979,28 +994,55 @@ export class GameEngine {
   private updateStairTravel(dt: number) {
     const travel = this.stairTravel!;
     travel.elapsed += dt;
-    const from = travel.direction === 'up' ? STAIRS_BASE : STAIRS_TOP, to = travel.direction === 'up' ? STAIRS_TOP : STAIRS_BASE;
+    const ladder = travel.kind === 'ladder';
+    const lower = ladder ? LADDER_BASE : STAIRS_BASE, upper = ladder ? LADDER_TOP : STAIRS_TOP;
+    const from = travel.direction === 'up' ? lower : upper, to = travel.direction === 'up' ? upper : lower;
+    const lowerFloor: HomeFloor = ladder ? 1 : 0, upperFloor: HomeFloor = ladder ? 2 : 1;
+    const duration = ladder ? 2.2 : 2.85;
     if (travel.elapsed < 0.35) this.playerPosition.lerpVectors(travel.start, from, travel.elapsed / 0.35);
     else {
-      const t = THREE.MathUtils.clamp((travel.elapsed - 0.35) / 2.85, 0, 1);
+      const t = THREE.MathUtils.clamp((travel.elapsed - 0.35) / duration, 0, 1);
       this.playerPosition.lerpVectors(from, to, t);
-      const heightFraction = THREE.MathUtils.clamp((HOME.center.z + 3.06 - this.playerPosition.z) / 3.84, 0, 1);
-      this.playerPosition.y = HOME.groundY + Math.ceil(heightFraction * 14) / 14 * (HOME.upperY - HOME.groundY);
-      if (travel.direction === 'down' && t > 0.12) this.state.homeFloor = 0;
-      if (travel.direction === 'up' && t > 0.9) this.state.homeFloor = 1;
+      if (ladder) {
+        // Pinne för pinne uppför stegen: åtta steg på 2,3 meter.
+        const climbed = travel.direction === 'up' ? t : 1 - t;
+        this.playerPosition.y = HOME.upperY + Math.ceil(climbed * 8) / 8 * (HOME.loftY - HOME.upperY);
+      } else {
+        const heightFraction = THREE.MathUtils.clamp((HOME.center.z + 3.06 - this.playerPosition.z) / 3.84, 0, 1);
+        this.playerPosition.y = HOME.groundY + Math.ceil(heightFraction * 14) / 14 * (HOME.upperY - HOME.groundY);
+      }
+      if (travel.direction === 'down' && t > 0.12) this.state.homeFloor = lowerFloor;
+      if (travel.direction === 'up' && t > 0.9) this.state.homeFloor = upperFloor;
       if (t === 1) {
         this.playerPosition.copy(to);
-        this.state.homeFloor = travel.direction === 'up' ? 1 : 0;
-        this.state.onStairs = false; this.stairTravel = null; this.input.clear(); this.stopCameraDrag();
-        this.cameraElevation = this.state.homeFloor === 1 ? 0.86 : 0.90;
-        this.cameraDistance = this.state.homeFloor === 1 ? 14.5 : 13.8;
+        this.state.homeFloor = travel.direction === 'up' ? upperFloor : lowerFloor;
+        this.state.onStairs = false; this.state.onLadder = false; this.stairTravel = null; this.input.clear(); this.stopCameraDrag();
+        this.cameraElevation = this.state.homeFloor === 0 ? 0.90 : 0.86;
+        this.cameraDistance = this.state.homeFloor === 2 ? 13.6 : this.state.homeFloor === 1 ? 14.5 : 13.8;
         this.updateHome(); this.emit();
       }
     }
-    this.player.model.root.rotation.y = travel.direction === 'up' ? Math.PI : 0;
+    // Trappan går rakt in i huset (−z); stegen lutar mot loftet åt +x och klättras med ansiktet mot pinnarna.
+    this.player.model.root.rotation.y = ladder ? Math.PI / 2 : travel.direction === 'up' ? Math.PI : 0;
     animateCharacter(this.player.model, this.elapsed, 2.8, 0, 0, dt);
     above(this.playerPosition, 0.035, this.ring.position);
     if (this.activeTime - this.lastStep > 0.24) { this.audio.play('step'); this.lastStep = this.activeTime; }
+  }
+
+  private toggleBreadMachine() {
+    this.state.breadMachineOn = !this.state.breadMachineOn;
+    this.world.home.loft.setRunning(this.state.breadMachineOn);
+    this.audio.play('click');
+    const bill = this.avatars.bill, leffe = this.avatars.leffe;
+    if (!this.state.breadMachineOn) {
+      this.say(bill, 'Oj. Den skulle bara gå över natten…');
+      this.say(leffe, 'Bill. Det var i julas.');
+      this.callbacks.onToast({ title: 'Bakmaskinen är avstängd', detail: 'Den har gått sedan förra julen. Limpan är numera en tegelsten och loftet luktar bränt bröd i ett år till.', kind: 'success' });
+    } else {
+      this.say(bill, 'Bara en limpa till. Jag lovar.');
+      this.callbacks.onToast({ title: 'Bakmaskinen är igång igen', detail: 'Den röda lampan blinkar och det ryker. Leffe suckar.', kind: 'info' });
+    }
+    this.save(); this.emit();
   }
 
   private updateHome() {
@@ -1016,13 +1058,15 @@ export class GameEngine {
     }
     this.state.insideHome = inside;
     if (!inside) {
-      this.state.fridgeOpen = false; this.state.homeFloor = 0; this.state.onStairs = false;
+      this.state.fridgeOpen = false; this.state.homeFloor = 0; this.state.onStairs = false; this.state.onLadder = false;
       this.stairTravel = null; this.state.computerOn = false; this.world.home.upstairs.computer.setPowered(false);
     }
     this.world.home.shell.visible = !inside;
     this.world.home.interior.visible = inside;
     this.world.home.staircase.visible = inside;
-    this.world.home.upstairs.root.visible = inside && this.state.homeFloor === 1;
+    // Övervåningen syns även från loftet (loftet är ett halvplan ovanför Bills rum), loftet bara uppifrån.
+    this.world.home.upstairs.root.visible = inside && this.state.homeFloor >= 1;
+    this.world.home.loft.root.visible = inside && this.state.homeFloor === 2;
   }
 
   private updateShop(dt: number) {
@@ -1130,6 +1174,18 @@ export class GameEngine {
       p.position.set(-12.6 + phase * 0.45, 8.7 + phase * 1.04, -6.8 + Math.sin(phase) * 0.15);
       p.scale.setScalar(0.5 + phase * 0.20);
       (p.material as THREE.MeshStandardMaterial).opacity = (1 - phase / 5.6) * 0.20;
+    }
+    const loft = this.world.home.loft;
+    if (loft.root.visible && this.state.breadMachineOn) {
+      // Bakmaskinen på loftet: lampan blinkar och det stiger tunn rök ur locket.
+      loft.led.emissiveIntensity = 0.5 + 0.9 * (Math.sin(this.elapsed * 6) > 0 ? 1 : 0);
+      for (let i = 0; i < loft.smoke.length; i++) {
+        const puff = loft.smoke[i];
+        const phase = (this.elapsed * 0.45 + i * 0.5) % 2.4;
+        puff.position.set(loft.smokeOrigin.x + Math.sin(phase * 2.1 + i) * 0.06, loft.smokeOrigin.y + phase * 0.42, loft.smokeOrigin.z + Math.cos(phase * 1.7) * 0.05);
+        puff.scale.setScalar(0.6 + phase * 0.55);
+        (puff.material as THREE.MeshStandardMaterial).opacity = (1 - phase / 2.4) * 0.28;
+      }
     }
     for (let i = 0; i < clouds.length; i++) { const c = clouds[i]; c.position.x += dt * (0.09 + i * 0.005); if (c.position.x > 145) c.position.x = -145; }
     for (let i = 0; i < birds.length; i++) {
@@ -1275,9 +1331,15 @@ export class GameEngine {
         if (!speaking.has(avatar.id) && avatar.model.root.visible) add(avatar.id, avatar.id === 'leffe' ? 'Leffe' : 'Bill', above(avatar.model.root.position, 3.45), 'name');
       }
     }
+    if (this.state.insideHome && this.state.homeFloor === 2) {
+      add('ladder-down', 'Stegen ner · E', new THREE.Vector3(HOME.ladderTop.x, HOME.loftY + 1.35, HOME.ladderTop.z + 0.1), 'target');
+      add('bread-machine', this.state.breadMachineOn ? 'Bills bakmaskin · igång sedan i julas' : 'Bills bakmaskin · avstängd', new THREE.Vector3(HOME.breadMachine.x, HOME.loftY + 1.95, HOME.breadMachine.z), 'target');
+      return labels;
+    }
     if (this.state.insideHome && this.state.homeFloor === 1) {
       add('stairs-down', 'Trappan ner · E', new THREE.Vector3(HOME.stairsTop.x, HOME.upperY + 1.20, HOME.stairsTop.z + 0.15), 'target');
       add('bill-computer', this.state.computerOn ? 'Bills dator · på' : 'Bills gamla dator · E', new THREE.Vector3(HOME.computer.x, HOME.upperY + 2.52, HOME.computer.z), 'target');
+      add('loft-ladder', 'Loftstegen · E', new THREE.Vector3(HOME.ladderBase.x, HOME.upperY + 2.30, HOME.ladderBase.z), 'target');
       return labels;
     }
     if (distance(this.playerPosition, this.car.root.position) < 22 && !this.state.inCar) add('sedan', 'Blå faran · sedan', above(this.car.root.position, 2.70), 'car');
@@ -1312,8 +1374,13 @@ export class GameEngine {
     if (this.state.inCar) return 'Kliv ur bilen';
     const p = this.playerPosition;
     const floor = this.state.homeFloor;
+    if (floor === 2) {
+      if (nearBreadMachine(p, floor)) return this.state.breadMachineOn ? 'Stäng av bakmaskinen' : 'Sätt på bakmaskinen igen';
+      return nearLadder(p, floor) ? 'Klättra ner från loftet' : null;
+    }
     if (floor === 1) {
       if (nearComputer(p, floor)) return this.state.computerOn ? 'Stäng av Bills dator' : 'Starta Bills dator';
+      if (nearLadder(p, floor)) return 'Klättra upp på loftet';
       return nearStairs(p, floor) ? 'Gå nerför trätrappan' : null;
     }
     if (nearStairs(p, floor)) return 'Gå upp till Bills rum';
@@ -1336,7 +1403,7 @@ export class GameEngine {
   private location() {
     const p = this.playerPosition;
     if (this.state.onStairs) return 'Trätrappan · mellan våningarna';
-    if (this.state.insideHome) return this.state.homeFloor === 1 ? 'Bills rum · övervåningen' : 'Inne i vännernas stuga';
+    if (this.state.insideHome) return this.state.homeFloor === 2 ? 'Loftet · under taket' : this.state.homeFloor === 1 ? 'Bills rum · övervåningen' : 'Inne i vännernas stuga';
     if (Math.hypot(p.x - SHOP.center.x, p.z - SHOP.center.z) < 21) return this.state.insideShop ? 'Inne på Myrboden' : 'Myrboden';
     const near = (x: number, z: number, radius: number) => Math.hypot(p.x - x, p.z - z) < radius;
     if (p.z < -35 && near(48, -49, 22)) return 'Myrsjön';
@@ -1386,6 +1453,7 @@ export class GameEngine {
     for (const id of restored.claimed) this.rewardClaimed.add(id);
     this.toolboxTaken = restored.toolboxTaken;
     this.world.home.rifle.visible = !this.state.hasRifle;
+    this.world.home.loft.setRunning(this.state.breadMachineOn);
     this.world.shop.loot.visible = !this.state.carryingMeat && this.state.progress.shop < 3;
     this.world.toolbox.visible = !this.toolboxTaken;
     this.updateEquipment();
@@ -1398,8 +1466,8 @@ export class GameEngine {
     this.state = structuredClone(INITIAL_SNAPSHOT);
     this.state.ready = true; this.state.sound = sound; this.state.music = music;
     this.huntingTimer = 0; this.homeCamera = null; this.stairTravel = null;
-    this.world.home.staircase.visible = false; this.world.home.upstairs.root.visible = false;
-    this.world.home.upstairs.computer.setPowered(false);
+    this.world.home.staircase.visible = false; this.world.home.upstairs.root.visible = false; this.world.home.loft.root.visible = false;
+    this.world.home.upstairs.computer.setPowered(false); this.world.home.loft.setRunning(true);
     this.world.home.rifle.visible = true; this.world.home.shell.visible = true; this.world.home.interior.visible = false;
     this.world.home.fridge.door.rotation.y = 0; this.world.home.fridge.contents.visible = false;
     this.activeTime = 0; this.rewardClaimed.clear(); this.toolboxTaken = false;

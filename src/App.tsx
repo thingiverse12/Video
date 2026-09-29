@@ -5,7 +5,7 @@ import {
   Coins, Compass, Coffee, Flag, Footprints, Heart, HelpCircle, Home, Keyboard,
   Leaf, Map as MapIcon, MapPin, Maximize2, Minimize2, Mouse, Navigation, Pause,
   Play, RotateCcw, Settings2, ShieldAlert, Sparkles, Sun, TreePine, Trees,
-  Volume2, VolumeX, Waves, X, Zap, Store, Beef, ShoppingBag, Refrigerator, Monitor, Music2,
+  Volume2, VolumeX, Waves, X, Zap, Store, Beef, ShoppingBag, Refrigerator, Monitor, Music2, Croissant,
 } from 'lucide-react';
 import type { GameEngine } from './game/engine';
 import { DESTINATIONS, INITIAL_SNAPSHOT, MISSIONS, MISSION_IDS, type DestinationId, type GameSnapshot, type Menu, type MissionId, type ToastMessage } from './game/types';
@@ -188,10 +188,14 @@ export default function App() {
   const completed = missionIds.filter(id => state.progress[id] === 3).length;
   const place = DESTINATIONS.find(d => d.id === selectedPlace)!;
   const waypoint = state.waypoint ? DESTINATIONS.find(d => d.id === state.waypoint) : null;
-  const homeInfo = state.onStairs
+  const homeInfo = state.onLadder
+    ? { kicker: 'LOFTSTEGEN', title: 'Pinne för pinne…', text: 'Stegen är brant och knarrar. Håll i dig.' }
+    : state.onStairs
     ? { kicker: 'DEN GAMLA TRÄTRAPPAN', title: 'Ett steg i taget…', text: 'Vännerna går mellan våningarna. Snart framme.' }
+    : state.homeFloor === 2
+      ? { kicker: 'LOFTET · UNDER TAKET', title: state.breadMachineOn ? 'Det luktar bränt bröd.' : 'Äntligen tyst där uppe.', text: state.breadMachineOn ? 'Bills bakmaskin har gått sedan i julas. E vid bordet stänger av den. Stegen vid räcket går ner.' : 'Bakmaskinen är avstängd. Limpan får stå kvar som minne. Stegen vid räcket går ner igen.' }
     : state.homeFloor === 1
-      ? { kicker: 'ÖVERVÅNINGEN · BILLS RUM', title: state.computerOn ? 'Datorn surrar.' : 'Bills krypin.', text: state.computerOn ? 'Den gamla datorn är igång. E stänger av. E vid trappan går ner igen.' : 'Gå fram till den gamla datorn och tryck E. Trätrappan tar dig ner igen.' }
+      ? { kicker: 'ÖVERVÅNINGEN · BILLS RUM', title: state.computerOn ? 'Datorn surrar.' : 'Bills krypin.', text: state.computerOn ? 'Den gamla datorn är igång. E stänger av. Loftstegen går upp, trappan går ner.' : 'Gå fram till den gamla datorn och tryck E. Loftstegen vid dörren går upp på loftet, trätrappan tar dig ner.' }
       : state.fridgeOpen
         ? { kicker: 'DEN GAMLA KYLEN', title: 'Lite kvar i kylen.', text: 'örtkräm och en halv gurka på hyllan. E vid kylen stänger dörren.' }
         : { kicker: 'TV-RUM · MATPLATS', title: state.hasRifle ? 'Välkommen hem.' : 'Glöm inte geväret.', text: state.hasRifle ? 'E öppnar kylen. Vid matplatsens trätrappa går E upp till Bills rum.' : 'Geväret står längst in till vänster. Trätrappan vid matplatsen går upp till Bill.' };
@@ -219,7 +223,7 @@ export default function App() {
     </header>
 
     <main className="main-content">
-      <section className={`game-stage ${state.started ? 'is-playing' : 'is-intro'} ${!state.ready ? 'is-loading' : ''} ${state.aiming ? 'is-aiming' : ''}`} aria-label="Leffe och Bill — spelet" data-input-mode={mobilePlayer ? 'touch' : 'keyboard'} data-player-x={state.position.x.toFixed(2)} data-player-z={state.position.z.toFixed(2)} data-inside-home={state.insideHome} data-has-rifle={state.hasRifle} data-fridge-open={state.fridgeOpen} data-home-floor={state.homeFloor} data-on-stairs={state.onStairs} data-computer-on={state.computerOn} data-player-y={state.position.y.toFixed(2)} data-music={state.music} data-camera-yaw={state.cameraYaw.toFixed(4)} data-camera-distance={(state.cameraDistance ?? 15.8).toFixed(2)} data-player-heading={state.position.heading.toFixed(4)} data-walk-speed={state.walkSpeed.toFixed(3)} data-render-quality={highQuality ? 'finfin' : 'lagom'} data-reduced-motion={reducedMotion} data-aiming={state.aiming} data-aim-placed={state.aimPlaced} data-shots-fired={state.shotsFired} data-shots-hit={state.shotsHit} data-projectiles={JSON.stringify(state.projectiles)} data-hunt-targets={JSON.stringify(state.huntTargets)} data-shot-feedback={state.shotFeedback}>
+      <section className={`game-stage ${state.started ? 'is-playing' : 'is-intro'} ${!state.ready ? 'is-loading' : ''} ${state.aiming ? 'is-aiming' : ''}`} aria-label="Leffe och Bill — spelet" data-input-mode={mobilePlayer ? 'touch' : 'keyboard'} data-player-x={state.position.x.toFixed(2)} data-player-z={state.position.z.toFixed(2)} data-inside-home={state.insideHome} data-has-rifle={state.hasRifle} data-fridge-open={state.fridgeOpen} data-home-floor={state.homeFloor} data-on-stairs={state.onStairs} data-computer-on={state.computerOn} data-on-ladder={state.onLadder} data-bread-machine-on={state.breadMachineOn} data-player-y={state.position.y.toFixed(2)} data-music={state.music} data-camera-yaw={state.cameraYaw.toFixed(4)} data-camera-distance={(state.cameraDistance ?? 15.8).toFixed(2)} data-player-heading={state.position.heading.toFixed(4)} data-walk-speed={state.walkSpeed.toFixed(3)} data-render-quality={highQuality ? 'finfin' : 'lagom'} data-reduced-motion={reducedMotion} data-aiming={state.aiming} data-aim-placed={state.aimPlaced} data-shots-fired={state.shotsFired} data-shots-hit={state.shotsHit} data-projectiles={JSON.stringify(state.projectiles)} data-hunt-targets={JSON.stringify(state.huntTargets)} data-shot-feedback={state.shotFeedback}>
         <div className="scene-container" ref={sceneRef} />
         <div className="scene-vignette" />
         {!state.started && <div className="intro-shade" />}
@@ -263,8 +267,8 @@ export default function App() {
             {state.carryingMeat ? <><div className="shop-risk-label"><span>{state.shopRisk > 0 ? 'Marta är er på spåren' : 'Ni har skakat av er Marta'}</span><b>{Math.round(state.shopRisk)}%</b></div><div className="shop-risk-meter" role="progressbar" aria-label="Risk att bli upptäckt" aria-valuenow={Math.round(state.shopRisk)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${state.shopRisk}%` }} /></div><p>Gå eller kör bilen hem. Snabbresa är pausad medan ni har köttet.</p><button onClick={() => { setSelectedPlace('home'); setMenu('map'); }}><MapPin size={12} />Visa gården<ArrowUpRight size={12} /></button></> : <p>{state.progress.shop === 3 ? 'Ni har klarat butiksuppdraget. Marta behöver en paus från er.' : 'Gå till köttdisken till vänster. E försöker ta ett paket. Blir ni tagna kan ni försöka igen.'}</p>}
           </aside>}
 
-          {state.started && state.insideHome && <aside className={`home-hud ${state.hasRifle ? 'equipped' : ''} ${state.fridgeOpen ? 'fridge-open' : ''} ${state.homeFloor === 1 ? 'upstairs' : ''}`} aria-label="Hemma hos vännerna">
-            <span className="home-hud-icon">{state.onStairs ? <ArrowUp size={19} /> : state.homeFloor === 1 ? <Monitor size={19} /> : state.fridgeOpen ? <Refrigerator size={19} /> : <Home size={19} />}</span>
+          {state.started && state.insideHome && <aside className={`home-hud ${state.hasRifle ? 'equipped' : ''} ${state.fridgeOpen ? 'fridge-open' : ''} ${state.homeFloor === 1 ? 'upstairs' : state.homeFloor === 2 ? 'loft' : ''}`} aria-label="Hemma hos vännerna">
+            <span className="home-hud-icon">{state.onStairs ? <ArrowUp size={19} /> : state.homeFloor === 2 ? <Croissant size={19} /> : state.homeFloor === 1 ? <Monitor size={19} /> : state.fridgeOpen ? <Refrigerator size={19} /> : <Home size={19} />}</span>
             <div><small>{homeInfo.kicker}</small><strong>{homeInfo.title}</strong><p>{homeInfo.text}</p></div>
           </aside>}
 

@@ -141,6 +141,7 @@ export function respawnPenalty(state: GameSnapshot) {
   state.inCar = false;
   state.wanted = 0;
   state.onStairs = false;
+  state.onLadder = false;
   state.homeFloor = 0;
 }
 

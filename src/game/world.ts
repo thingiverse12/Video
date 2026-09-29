@@ -302,7 +302,7 @@ export function createWorld(): World {
   root.add(home);
   mergeStaticMeshes(home);
   const homeRoom = createHomeInterior();
-  root.add(homeRoom.interior, homeRoom.staircase, homeRoom.upstairs.root);
+  root.add(homeRoom.interior, homeRoom.staircase, homeRoom.upstairs.root, homeRoom.loft.root);
   colliders.push(
     { type: 'box', x: -15.5, z: -6, w: 0.24, d: 8.25 },
     { type: 'box', x: -4.5, z: -6, w: 0.24, d: 8.25 },
@@ -498,6 +498,6 @@ export function createWorld(): World {
     }
     bird.position.set(3 + i * 2, 19 + i * 0.3, -30 + i); root.add(bird); birds.push(bird);
   }
-  mergeStaticMeshes(root, new Set<THREE.Object3D>([...elk.map(e => e.model.root), toolbox, home, homeRoom.interior, homeRoom.staircase, homeRoom.upstairs.root, shop.structure, shop.loot, ...smoke, ...clouds, water, ...birds]));
+  mergeStaticMeshes(root, new Set<THREE.Object3D>([...elk.map(e => e.model.root), toolbox, home, homeRoom.interior, homeRoom.staircase, homeRoom.upstairs.root, homeRoom.loft.root, shop.structure, shop.loot, ...smoke, ...clouds, water, ...birds]));
   return { root, colliders, elk, toolbox, smoke, clouds, water, birds, shop, updateAimingFoliage, home: { shell: home, ...homeRoom } };
 }
