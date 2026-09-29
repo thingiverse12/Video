@@ -16,6 +16,7 @@ import { HuntingControls } from './components/HuntingControls';
 import { Skogsprataren } from './components/Skogsprataren';
 import { isMobilePlayer } from './game/mobile';
 
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 const missionIds = MISSION_IDS;
 const MissionIcon = ({ id, size = 19 }: { id: MissionId; size?: number }) => id === 'shop' ? <ShoppingBag size={size} /> : id === 'hunt' ? <TreePine size={size} /> : id === 'rurik' ? <Backpack size={size} /> : <BriefcaseBusiness size={size} />;
 const Key = ({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) => <kbd className={`keycap ${wide ? 'wide' : ''}`}>{children}</kbd>;
@@ -78,11 +79,22 @@ export default function App() {
   const [fullscreen, setFullscreen] = useState(false);
   const [mobilePlayer, setMobilePlayer] = useState(isMobilePlayer);
   const [highQuality, setHighQuality] = useState(() => !isMobilePlayer());
+  // Nedtonade rörelser följer systeminställningen; CSS-övergångarna sköts i styles.css,
+  // kamerasvep, partiklar och bilens kränging dämpas i motorn.
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia(REDUCED_MOTION_QUERY).matches);
   const [volume, setVolume] = useState(45);
   const [musicVolume, setMusicVolume] = useState(30);
   const [confirmReset, setConfirmReset] = useState(false);
   const [guideTab, setGuideTab] = useState<'controls' | 'world'>('controls');
   const [showTouch, setShowTouch] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(REDUCED_MOTION_QUERY);
+    const update = () => setReducedMotion(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  useEffect(() => { engine.current?.setReducedMotion(reducedMotion); }, [reducedMotion]);
 
   useEffect(() => {
     const pointer = window.matchMedia('(pointer: coarse)');
@@ -116,6 +128,7 @@ export default function App() {
         });
         // A dev hot refresh should honour the preset already shown in the UI.
         engine.current.setQuality(highQuality);
+        engine.current.setReducedMotion(window.matchMedia(REDUCED_MOTION_QUERY).matches);
       } catch (e) {
         console.error('Kunde inte starta spelvärlden:', e);
         setError('Din webbläsare kunde inte starta 3D-världen. Prova en uppdaterad webbläsare med WebGL och hårdvaruacceleration.');
@@ -206,7 +219,7 @@ export default function App() {
     </header>
 
     <main className="main-content">
-      <section className={`game-stage ${state.started ? 'is-playing' : 'is-intro'} ${!state.ready ? 'is-loading' : ''} ${state.aiming ? 'is-aiming' : ''}`} aria-label="Leffe och Bill — spelet" data-input-mode={mobilePlayer ? 'touch' : 'keyboard'} data-player-x={state.position.x.toFixed(2)} data-player-z={state.position.z.toFixed(2)} data-inside-home={state.insideHome} data-has-rifle={state.hasRifle} data-fridge-open={state.fridgeOpen} data-home-floor={state.homeFloor} data-on-stairs={state.onStairs} data-computer-on={state.computerOn} data-player-y={state.position.y.toFixed(2)} data-music={state.music} data-camera-yaw={state.cameraYaw.toFixed(4)} data-camera-distance={(state.cameraDistance ?? 15.8).toFixed(2)} data-player-heading={state.position.heading.toFixed(4)} data-walk-speed={state.walkSpeed.toFixed(3)} data-render-quality={highQuality ? 'finfin' : 'lagom'} data-aiming={state.aiming} data-aim-placed={state.aimPlaced} data-shots-fired={state.shotsFired} data-shots-hit={state.shotsHit} data-projectiles={JSON.stringify(state.projectiles)} data-hunt-targets={JSON.stringify(state.huntTargets)} data-shot-feedback={state.shotFeedback}>
+      <section className={`game-stage ${state.started ? 'is-playing' : 'is-intro'} ${!state.ready ? 'is-loading' : ''} ${state.aiming ? 'is-aiming' : ''}`} aria-label="Leffe och Bill — spelet" data-input-mode={mobilePlayer ? 'touch' : 'keyboard'} data-player-x={state.position.x.toFixed(2)} data-player-z={state.position.z.toFixed(2)} data-inside-home={state.insideHome} data-has-rifle={state.hasRifle} data-fridge-open={state.fridgeOpen} data-home-floor={state.homeFloor} data-on-stairs={state.onStairs} data-computer-on={state.computerOn} data-player-y={state.position.y.toFixed(2)} data-music={state.music} data-camera-yaw={state.cameraYaw.toFixed(4)} data-camera-distance={(state.cameraDistance ?? 15.8).toFixed(2)} data-player-heading={state.position.heading.toFixed(4)} data-walk-speed={state.walkSpeed.toFixed(3)} data-render-quality={highQuality ? 'finfin' : 'lagom'} data-reduced-motion={reducedMotion} data-aiming={state.aiming} data-aim-placed={state.aimPlaced} data-shots-fired={state.shotsFired} data-shots-hit={state.shotsHit} data-projectiles={JSON.stringify(state.projectiles)} data-hunt-targets={JSON.stringify(state.huntTargets)} data-shot-feedback={state.shotFeedback}>
         <div className="scene-container" ref={sceneRef} />
         <div className="scene-vignette" />
         {!state.started && <div className="intro-shade" />}

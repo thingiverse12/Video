@@ -6,6 +6,8 @@ export const SHOT_SPEED = 28;
 export const SHOT_RANGE = 56;
 export const SHOT_INTERVAL = .72;
 export const RIFLE_MUZZLE = new THREE.Vector3(0, 1.515, .035);
+/** Delad riktningsvektor för kulorna: update() körs varje steg och ska inte skapa skräp. */
+const scratchDirection = new THREE.Vector3();
 export type ShotImpact = { kind: 'elk' | 'obstacle' | 'person' | 'ground' | 'miss'; point: THREE.Vector3; distance: number; elk?: ElkEntity };
 type Person = { root: THREE.Object3D };
 interface Projectile { id: number; object: THREE.Group; velocity: THREE.Vector3; travelled: number; }
@@ -127,7 +129,7 @@ export class HuntingProjectiles {
     if (dt <= 0) return;
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const shot = this.projectiles[i];
-      const direction = shot.velocity.clone().normalize();
+      const direction = scratchDirection.copy(shot.velocity).normalize();
       const step = Math.min(SHOT_SPEED * dt, SHOT_RANGE - shot.travelled);
       const impact = this.trace(shot.object.position, direction, step);
       if (impact) {
@@ -139,7 +141,7 @@ export class HuntingProjectiles {
         shot.travelled += step;
         if (shot.travelled >= SHOT_RANGE - 1e-6) {
           this.projectiles.splice(i, 1); shot.object.removeFromParent();
-          this.onImpact({ kind: 'miss', point: shot.object.position.clone(), distance: shot.travelled });
+          this.onImpact({ kind: 'miss', point: shot.object.position.clone(), distance: shot.travelled }); // tillåten allokering: en gång per skott
         }
       }
     }
