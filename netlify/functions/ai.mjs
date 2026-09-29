@@ -10,13 +10,14 @@
 //
 // This handler is served ONLY at /api/ai, so it takes precedence over the
 // single-page-app rewrite in public/_redirects.
-import { handleAiRequest, jsonResponse } from '../../server/ai-core.mjs';
+import { clientAddress, handleAiRequest, jsonResponse } from '../../server/ai-core.mjs';
 
 export const config = {
   path: ['/api/ai'],
   method: ['GET', 'HEAD', 'POST'],
   // Modest per-IP limit so a published site cannot be used to burn someone
-  // else's provider credits. Requires a claimed Netlify site.
+  // else's provider credits. Requires a claimed Netlify site. The shared core
+  // counts per IP in memory as well, so the limit holds on every host.
   rateLimit: {
     action: 'rate_limit',
     aggregateBy: 'ip',
@@ -25,7 +26,7 @@ export const config = {
   },
 };
 
-export default async function handler(request) {
+export default async function handler(request, context) {
   let body;
   if (request.method === 'POST') {
     try {
@@ -34,6 +35,6 @@ export default async function handler(request) {
       body = '';
     }
   }
-  const result = await handleAiRequest({ method: request.method, body, env: process.env });
+  const result = await handleAiRequest({ method: request.method, body, env: process.env, clientIp: clientAddress(request.headers, context?.ip) });
   return jsonResponse(result);
 }
