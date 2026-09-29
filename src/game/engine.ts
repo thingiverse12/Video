@@ -960,7 +960,8 @@ export class GameEngine {
         this.player.model.arms[0].rotation.x = -1.26;
         this.player.model.arms[1].rotation.x = -1.40;
       } else {
-        rifle.position.set(0.18, 0.73, -0.31); rifle.rotation.set(0, 0, -0.37);
+        // Utanpå varselvästens ryggstycke (yttre yta z ≈ −0.35), inte inuti det.
+        rifle.position.set(0.18, 0.73, -0.40); rifle.rotation.set(0, 0, -0.37);
       }
     }
   }
