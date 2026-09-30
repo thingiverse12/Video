@@ -7,6 +7,8 @@ dist/
 .DS_Store
 screenshots/
 test-results/
+# Genererade videoklipp (t.ex. clips/skateverket-klipp.webm) hålls utanför Git.
+clips/
 
 # Netlify linking state and local environment values must stay out of Git.
 .netlify/

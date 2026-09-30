@@ -10,7 +10,11 @@ export const MAX_PROMPT_CHARS = 1200;
 export const MAX_SYSTEM_CHARS = 800;
 export const DEFAULT_MAX_TOKENS = 400;
 export const MAX_TOKENS_LIMIT = 800;
-export const REQUEST_TIMEOUT_MS = 25_000;
+/** Tidsgräns mot leverantören. Ett hängande svar blir 504 i stället för en död funktion. */
+export const REQUEST_TIMEOUT_MS = 15_000;
+/** Anrop per IP och minut till POST /api/ai; samma tal som Netlify-funktionens rateLimit. */
+export const RATE_LIMIT_WINDOW_MS = 60_000;
+export const RATE_LIMIT_MAX_REQUESTS = 20;
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-5';
@@ -29,6 +33,56 @@ export const JSON_HEADERS = {
   'cache-control': 'no-store',
   'x-content-type-options': 'nosniff',
 };
+
+/**
+ * Räknare per anropare i minnet. Räcker för en funktion av den här storleken:
+ * varje varm funktionsinstans skyddar sig själv, utan databas eller extern kö.
+ * Fasta fönster: första anropet öppnar fönstret, det (limit + 1):a inom fönstret
+ * nekas med hur många sekunder som återstår.
+ */
+export function createRateLimiter({ windowMs = RATE_LIMIT_WINDOW_MS, limit = RATE_LIMIT_MAX_REQUESTS, maxKeys = 5000 } = {}) {
+  const windows = new Map();
+  const sweep = now => {
+    for (const [key, entry] of windows) if (entry.resetAt <= now) windows.delete(key);
+    // Fortfarande fullt: släpp de äldsta fönstren så att en ny nyckel får plats.
+    for (const key of windows.keys()) { if (windows.size < maxKeys) break; windows.delete(key); }
+  };
+  return {
+    /** Registrerar ett anrop och säger om det får gå vidare. */
+    hit(key, now = Date.now()) {
+      const id = typeof key === 'string' && key ? key : 'unknown';
+      let entry = windows.get(id);
+      if (!entry || entry.resetAt <= now) {
+        if (windows.size >= maxKeys) sweep(now);
+        entry = { count: 0, resetAt: now + windowMs };
+        windows.set(id, entry);
+      }
+      entry.count += 1;
+      const allowed = entry.count <= limit;
+      return {
+        allowed,
+        limit,
+        remaining: Math.max(0, limit - entry.count),
+        retryAfterSeconds: allowed ? 0 : Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
+      };
+    },
+    get size() { return windows.size; },
+  };
+}
+
+const defaultLimiter = createRateLimiter();
+
+/** Plockar ut anroparens IP ur de rubriker Netlify och Vercel sätter. Ingen rubrik → 'unknown'. */
+export function clientAddress(headers, fallback = '') {
+  const read = name => {
+    if (!headers) return '';
+    if (typeof headers.get === 'function') return headers.get(name) || '';
+    const direct = headers[name] ?? headers[name.toLowerCase()];
+    return Array.isArray(direct) ? direct[0] || '' : typeof direct === 'string' ? direct : '';
+  };
+  const forwarded = read('x-forwarded-for').split(',')[0].trim();
+  return read('x-nf-client-connection-ip').trim() || forwarded || read('x-real-ip').trim() || trimmed(fallback) || 'unknown';
+}
 
 class UpstreamError extends Error {
   constructor(message, status) {
@@ -105,6 +159,7 @@ export function describeAiConfig(config) {
       reason: config?.reason ?? 'missing-key',
       hint: 'Sätt AI_API_KEY (och gärna AI_MODEL) som miljövariabel på värden, och publicera igen. Nyckeln stannar på servern.',
       maxPromptChars: MAX_PROMPT_CHARS,
+      limitPerMinute: RATE_LIMIT_MAX_REQUESTS,
     };
   }
   return {
@@ -114,22 +169,35 @@ export function describeAiConfig(config) {
     provider: config.provider,
     model: config.model,
     maxPromptChars: MAX_PROMPT_CHARS,
+    limitPerMinute: RATE_LIMIT_MAX_REQUESTS,
   };
 }
 
-async function requestJson(url, options, fetchImpl, timeoutMs) {
+/**
+ * Samma sak som AbortSignal.timeout(ms), men med en timer som håller processen
+ * vid liv tills den löst ut. Signalen avbryter både anslutningen och läsningen
+ * av svarskroppen, så en leverantör som hänger kan aldrig hålla funktionen upptagen.
+ */
+function timeoutSignal(timeoutMs) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(new DOMException(`Tidsgränsen på ${timeoutMs} ms passerades.`, 'TimeoutError')), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timer) };
+}
+
+async function requestJson(url, options, fetchImpl, timeoutMs) {
+  const timeout = timeoutSignal(timeoutMs);
   try {
-    const response = await fetchImpl(url, { ...options, signal: controller.signal });
+    const response = await fetchImpl(url, { ...options, signal: timeout.signal });
     const raw = await response.text();
     let parsed = null;
     try { parsed = raw ? JSON.parse(raw) : null; } catch { /* keep the raw text for diagnostics */ }
     return { response, parsed, raw };
   } finally {
-    clearTimeout(timer);
+    timeout.clear();
   }
 }
+
+const isTimeout = error => error?.name === 'TimeoutError' || error?.name === 'AbortError';
 
 function upstreamMessage(parsed, raw, secrets) {
   const detail = parsed?.error?.message || parsed?.message || parsed?.error || raw;
@@ -211,12 +279,20 @@ const fail = (status, error, message, extra = {}) => ({
  * Host-independent request handler. Returns { status, headers, json } and never
  * exposes the provider key, not even through a provider error message.
  */
-export async function handleAiRequest({ method = 'GET', body, env = {}, fetchImpl = fetch, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
+export async function handleAiRequest({ method = 'GET', body, env = {}, fetchImpl = fetch, timeoutMs = REQUEST_TIMEOUT_MS, clientIp = 'unknown', limiter = defaultLimiter, now = Date.now() } = {}) {
   const verb = String(method || 'GET').toUpperCase();
   const config = readAiConfig(env);
 
   if (verb === 'GET' || verb === 'HEAD') return { status: 200, headers: JSON_HEADERS, json: describeAiConfig(config) };
   if (verb !== 'POST') return fail(405, 'method-not-allowed', 'Använd GET för status eller POST med { "prompt": "..." }.');
+
+  // Gränsen per anropare räknas före all annan kontroll, så att inte heller
+  // ogiltiga anrop kan användas för att hålla funktionen sysselsatt.
+  const quota = limiter.hit(clientIp, now);
+  if (!quota.allowed) {
+    const limited = fail(429, 'rate-limited', `För många anrop: högst ${quota.limit} per minut och anropare. Försök igen om ${quota.retryAfterSeconds} sekunder.`, { retryAfterSeconds: quota.retryAfterSeconds });
+    return { ...limited, headers: { ...JSON_HEADERS, 'retry-after': String(quota.retryAfterSeconds) } };
+  }
 
   const { value, error } = parseRequestBody(body);
   if (error) return fail(400, 'invalid-json', 'Kroppen måste vara giltig JSON.');
@@ -256,10 +332,10 @@ export async function handleAiRequest({ method = 'GET', body, env = {}, fetchImp
     if (error?.name === 'UpstreamError') {
       return fail(502, 'upstream-failed', error.message, { upstreamStatus: error.status });
     }
-    const message = error?.name === 'AbortError'
-      ? 'Tjänsten svarade inte i tid.'
-      : redactSecrets(error?.message ?? 'Okänt fel.', [config.key]);
-    return fail(502, 'request-failed', message);
+    if (isTimeout(error)) {
+      return fail(504, 'upstream-timeout', `Tjänsten svarade inte inom ${Math.round(timeoutMs / 1000)} sekunder. Försök igen om en stund.`, { timeoutMs });
+    }
+    return fail(502, 'request-failed', redactSecrets(error?.message ?? 'Okänt fel.', [config.key]));
   }
 }
 

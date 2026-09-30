@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { beam, box, cylinder, ellipsoid, mesh, roundedBox, sign, smoothMaterial } from './primitives';
-import { createWornSofa, oldRug, oldWallpaper } from './furniture';
+import { createWornSofa, oldRug } from './furniture';
 import { mergeStaticMeshes } from './optimize';
 import { HOME } from './types';
+import { createLoftLadder } from './loft';
+import { logWall, plankWall } from './timber';
 
 export function createWoodenStaircase() {
   const root = new THREE.Group(); root.name = 'Gammal trätrappa till övervåningen';
@@ -114,7 +116,6 @@ export function createUpstairs() {
   root.position.set(HOME.center.x, HOME.upperY, HOME.center.z);
   const colliders: { type: 'box'; x: number; z: number; w: number; d: number }[] = [];
   const block = (x: number, z: number, w: number, d: number) => colliders.push({ type: 'box', x: HOME.center.x + x, z: HOME.center.z + z, w, d });
-  const paper = oldWallpaper();
   // A genuine stairwell opening in the upper floor, with railings around it.
   box(root, 8.90, 0.16, 8, '#7d684d', 1.05, -0.09, 0);
   box(root, 2.10, 0.16, 3.20, '#7d684d', -4.45, -0.09, -2.40);
@@ -123,14 +124,15 @@ export function createUpstairs() {
     const left = x < -3.4;
     box(root, 0.323, 0.022, left ? 3.13 : 7.90, ['#a28b66', '#b19b75', '#a99168'][Math.round((x + 5.30) / 0.34) % 3], x, -0.011, left ? -2.39 : 0);
   }
-  for (const x of [-5.44, 5.44]) { box(root, 0.14, 1.09, 8, paper, x, 0.545, 0); box(root, 0.17, 0.07, 8, '#b59d74', x, 1.13, 0); block(x, 0, 0.20, 8.2); }
-  for (const z of [-3.94, 3.94]) { box(root, 10.85, 1.09, 0.14, paper, 0, 0.545, z); box(root, 11, 0.07, 0.17, '#b59d74', 0, 1.13, z); block(0, z, 11.0, 0.20); }
+  // Samma timring som på bottenvåningen: stockvarven fortsätter upp genom huset.
+  for (const x of [-5.44, 5.44]) { logWall(root, [x, -3.94], [x, 3.94], -0.02, 4, { stagger: true, tone: x < 0 ? 1 : 3 }); block(x, 0, 0.20, 8.2); }
+  for (const z of [-3.94, 3.94]) { logWall(root, [-5.44, z], [5.44, z], -0.02, z < 0 ? 5 : 4, { tone: z < 0 ? 2 : 0 }); block(0, z, 11.0, 0.20); }
   block(-4.46, 1.36, 1.93, 4.33);
   for (let z = -0.70; z < 3.62; z += 0.38) roundedBox(root, 0.065, 0.89, 0.065, '#a08055', -3.48, 0.44, z, 0.01);
   roundedBox(root, 0.09, 0.085, 4.42, '#b99c6b', -3.48, 0.92, 1.41, 0.025);
   for (const z of [-0.80, 3.60]) { box(root, 1.86, 0.078, 0.09, '#b99c6b', -4.42, 0.92, z); for (const x of [-5.2, -4.84, -4.0, -3.65]) box(root, 0.065, 0.88, 0.065, '#a08055', x, 0.44, z); }
   // Room doorway off the landing; walls stay low in the cutaway view.
-  for (const [z, d] of [[-3.18, 1.50], [1.85, 4.18]]) { box(root, 0.15, 1.31, d, paper, -2.30, 0.655, z); box(root, 0.19, 0.07, d, '#b69b70', -2.30, 1.345, z); block(-2.30, z, 0.15, d); }
+  for (const [z, d] of [[-3.18, 1.50], [1.85, 4.18]]) { plankWall(root, [-2.30, z - d / 2], [-2.30, z + d / 2], 0, 1.31, 0.15); block(-2.30, z, 0.15, d); }
   for (const z of [-2.38, -0.22]) box(root, 0.15, 2.67, 0.12, '#997b54', -2.30, 1.335, z);
   box(root, 0.18, 0.12, 2.30, '#997b54', -2.30, 2.73, -1.30);
   const roomSign = sign(root, 'BILLS RUM', -2.30, 2.98, -1.30, 1.65, 0.33, '#ded0a7'); roomSign.rotation.y = -Math.PI / 2;
@@ -165,6 +167,8 @@ export function createUpstairs() {
   box(root, 0.62, 0.085, 0.42, '#8b6a48', -1.08, 0.12, 1.79);
   for (let i = 0; i < 3; i++) box(root, 0.29, 0.055, 0.38, ['#b6a16c', '#70846e', '#a38259'][i], -1.08, 0.19 + i * 0.06, 1.79);
   sign(root, 'STÖR EJ. SPELAR.', -0.85, 1.17, -3.83, 1.76, 0.35, '#c6c3a0');
+  // Loftstegen står lutad mot loftkanten inne i rummet, nära dörröppningen.
+  createLoftLadder(root);
   mergeStaticMeshes(root);
   root.visible = false;
   return { root, colliders, computer };

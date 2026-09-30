@@ -323,3 +323,17 @@ export function oldRug() {
   });
   return new THREE.MeshStandardMaterial({ map: texture, roughness: 1 });
 }
+
+/** Rödrutig vaxduk, som på var och varannan stugbord. */
+export function checkedOilcloth() {
+  const texture = canvasTexture(256, 256, ctx => {
+    ctx.fillStyle = '#f3ede0'; ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = '#c8433a';
+    for (let y = 0; y < 256; y += 32) for (let x = 0; x < 256; x += 32) if ((x / 32 + y / 32) % 2 === 0) ctx.fillRect(x, y, 32, 32);
+    ctx.fillStyle = '#e39a92';
+    for (let y = 0; y < 256; y += 32) for (let x = 0; x < 256; x += 32) if ((x / 32 + y / 32) % 2 === 1) { ctx.fillRect(x + 12, y, 8, 32); ctx.fillRect(x, y + 12, 32, 8); }
+    for (let i = 0; i < 600; i++) { ctx.fillStyle = i % 2 ? '#ffffff22' : '#4a2a2014'; ctx.fillRect((i * 97) % 256, (i * 57) % 256, 3, 1); }
+  });
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  return new THREE.MeshStandardMaterial({ map: texture, roughness: 0.55 });
+}

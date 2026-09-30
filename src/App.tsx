@@ -5,7 +5,7 @@ import {
   Coins, Compass, Coffee, Flag, Footprints, Heart, HelpCircle, Home, Keyboard,
   Leaf, Map as MapIcon, MapPin, Maximize2, Minimize2, Mouse, Navigation, Pause,
   Play, RotateCcw, Settings2, ShieldAlert, Sparkles, Sun, TreePine, Trees,
-  Volume2, VolumeX, Waves, X, Zap, Store, Beef, ShoppingBag, Refrigerator, Monitor, Music2,
+  Volume2, VolumeX, Waves, X, Zap, Store, Beef, ShoppingBag, Refrigerator, Monitor, Music2, Croissant,
 } from 'lucide-react';
 import type { GameEngine } from './game/engine';
 import { DESTINATIONS, INITIAL_SNAPSHOT, MISSIONS, MISSION_IDS, type DestinationId, type GameSnapshot, type Menu, type MissionId, type ToastMessage } from './game/types';
@@ -16,6 +16,7 @@ import { HuntingControls } from './components/HuntingControls';
 import { Skogsprataren } from './components/Skogsprataren';
 import { isMobilePlayer } from './game/mobile';
 
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 const missionIds = MISSION_IDS;
 const MissionIcon = ({ id, size = 19 }: { id: MissionId; size?: number }) => id === 'shop' ? <ShoppingBag size={size} /> : id === 'hunt' ? <TreePine size={size} /> : id === 'rurik' ? <Backpack size={size} /> : <BriefcaseBusiness size={size} />;
 const Key = ({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) => <kbd className={`keycap ${wide ? 'wide' : ''}`}>{children}</kbd>;
@@ -78,11 +79,22 @@ export default function App() {
   const [fullscreen, setFullscreen] = useState(false);
   const [mobilePlayer, setMobilePlayer] = useState(isMobilePlayer);
   const [highQuality, setHighQuality] = useState(() => !isMobilePlayer());
+  // Nedtonade rörelser följer systeminställningen; CSS-övergångarna sköts i styles.css,
+  // kamerasvep, partiklar och bilens kränging dämpas i motorn.
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia(REDUCED_MOTION_QUERY).matches);
   const [volume, setVolume] = useState(45);
   const [musicVolume, setMusicVolume] = useState(30);
   const [confirmReset, setConfirmReset] = useState(false);
   const [guideTab, setGuideTab] = useState<'controls' | 'world'>('controls');
   const [showTouch, setShowTouch] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(REDUCED_MOTION_QUERY);
+    const update = () => setReducedMotion(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  useEffect(() => { engine.current?.setReducedMotion(reducedMotion); }, [reducedMotion]);
 
   useEffect(() => {
     const pointer = window.matchMedia('(pointer: coarse)');
@@ -116,6 +128,7 @@ export default function App() {
         });
         // A dev hot refresh should honour the preset already shown in the UI.
         engine.current.setQuality(highQuality);
+        engine.current.setReducedMotion(window.matchMedia(REDUCED_MOTION_QUERY).matches);
       } catch (e) {
         console.error('Kunde inte starta spelvärlden:', e);
         setError('Din webbläsare kunde inte starta 3D-världen. Prova en uppdaterad webbläsare med WebGL och hårdvaruacceleration.');
@@ -175,10 +188,14 @@ export default function App() {
   const completed = missionIds.filter(id => state.progress[id] === 3).length;
   const place = DESTINATIONS.find(d => d.id === selectedPlace)!;
   const waypoint = state.waypoint ? DESTINATIONS.find(d => d.id === state.waypoint) : null;
-  const homeInfo = state.onStairs
+  const homeInfo = state.onLadder
+    ? { kicker: 'LOFTSTEGEN', title: 'Pinne för pinne…', text: 'Stegen är brant och knarrar. Håll i dig.' }
+    : state.onStairs
     ? { kicker: 'DEN GAMLA TRÄTRAPPAN', title: 'Ett steg i taget…', text: 'Vännerna går mellan våningarna. Snart framme.' }
+    : state.homeFloor === 2
+      ? { kicker: 'LOFTET · UNDER TAKET', title: state.breadMachineOn ? 'Det luktar bränt bröd.' : 'Äntligen tyst där uppe.', text: state.breadMachineOn ? 'Bills bakmaskin har gått sedan i julas. E vid bordet stänger av den. Stegen vid räcket går ner.' : 'Bakmaskinen är avstängd. Limpan får stå kvar som minne. Stegen vid räcket går ner igen.' }
     : state.homeFloor === 1
-      ? { kicker: 'ÖVERVÅNINGEN · BILLS RUM', title: state.computerOn ? 'Datorn surrar.' : 'Bills krypin.', text: state.computerOn ? 'Den gamla datorn är igång. E stänger av. E vid trappan går ner igen.' : 'Gå fram till den gamla datorn och tryck E. Trätrappan tar dig ner igen.' }
+      ? { kicker: 'ÖVERVÅNINGEN · BILLS RUM', title: state.computerOn ? 'Datorn surrar.' : 'Bills krypin.', text: state.computerOn ? 'Den gamla datorn är igång. E stänger av. Loftstegen går upp, trappan går ner.' : 'Gå fram till den gamla datorn och tryck E. Loftstegen vid dörren går upp på loftet, trätrappan tar dig ner.' }
       : state.fridgeOpen
         ? { kicker: 'DEN GAMLA KYLEN', title: 'Lite kvar i kylen.', text: 'örtkräm och en halv gurka på hyllan. E vid kylen stänger dörren.' }
         : { kicker: 'TV-RUM · MATPLATS', title: state.hasRifle ? 'Välkommen hem.' : 'Glöm inte geväret.', text: state.hasRifle ? 'E öppnar kylen. Vid matplatsens trätrappa går E upp till Bills rum.' : 'Geväret står längst in till vänster. Trätrappan vid matplatsen går upp till Bill.' };
@@ -206,7 +223,7 @@ export default function App() {
     </header>
 
     <main className="main-content">
-      <section className={`game-stage ${state.started ? 'is-playing' : 'is-intro'} ${!state.ready ? 'is-loading' : ''} ${state.aiming ? 'is-aiming' : ''}`} aria-label="Leffe och Bill — spelet" data-input-mode={mobilePlayer ? 'touch' : 'keyboard'} data-player-x={state.position.x.toFixed(2)} data-player-z={state.position.z.toFixed(2)} data-inside-home={state.insideHome} data-has-rifle={state.hasRifle} data-fridge-open={state.fridgeOpen} data-home-floor={state.homeFloor} data-on-stairs={state.onStairs} data-computer-on={state.computerOn} data-player-y={state.position.y.toFixed(2)} data-music={state.music} data-camera-yaw={state.cameraYaw.toFixed(4)} data-camera-distance={(state.cameraDistance ?? 15.8).toFixed(2)} data-player-heading={state.position.heading.toFixed(4)} data-walk-speed={state.walkSpeed.toFixed(3)} data-render-quality={highQuality ? 'finfin' : 'lagom'} data-aiming={state.aiming} data-aim-placed={state.aimPlaced} data-shots-fired={state.shotsFired} data-shots-hit={state.shotsHit} data-projectiles={JSON.stringify(state.projectiles)} data-hunt-targets={JSON.stringify(state.huntTargets)} data-shot-feedback={state.shotFeedback}>
+      <section className={`game-stage ${state.started ? 'is-playing' : 'is-intro'} ${!state.ready ? 'is-loading' : ''} ${state.aiming ? 'is-aiming' : ''}`} aria-label="Leffe och Bill — spelet" data-input-mode={mobilePlayer ? 'touch' : 'keyboard'} data-player-x={state.position.x.toFixed(2)} data-player-z={state.position.z.toFixed(2)} data-inside-home={state.insideHome} data-has-rifle={state.hasRifle} data-fridge-open={state.fridgeOpen} data-home-floor={state.homeFloor} data-on-stairs={state.onStairs} data-computer-on={state.computerOn} data-on-ladder={state.onLadder} data-bread-machine-on={state.breadMachineOn} data-player-y={state.position.y.toFixed(2)} data-music={state.music} data-camera-yaw={state.cameraYaw.toFixed(4)} data-camera-distance={(state.cameraDistance ?? 15.8).toFixed(2)} data-player-heading={state.position.heading.toFixed(4)} data-walk-speed={state.walkSpeed.toFixed(3)} data-render-quality={highQuality ? 'finfin' : 'lagom'} data-reduced-motion={reducedMotion} data-aiming={state.aiming} data-aim-placed={state.aimPlaced} data-shots-fired={state.shotsFired} data-shots-hit={state.shotsHit} data-projectiles={JSON.stringify(state.projectiles)} data-hunt-targets={JSON.stringify(state.huntTargets)} data-shot-feedback={state.shotFeedback}>
         <div className="scene-container" ref={sceneRef} />
         <div className="scene-vignette" />
         {!state.started && <div className="intro-shade" />}
@@ -250,8 +267,8 @@ export default function App() {
             {state.carryingMeat ? <><div className="shop-risk-label"><span>{state.shopRisk > 0 ? 'Marta är er på spåren' : 'Ni har skakat av er Marta'}</span><b>{Math.round(state.shopRisk)}%</b></div><div className="shop-risk-meter" role="progressbar" aria-label="Risk att bli upptäckt" aria-valuenow={Math.round(state.shopRisk)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${state.shopRisk}%` }} /></div><p>Gå eller kör bilen hem. Snabbresa är pausad medan ni har köttet.</p><button onClick={() => { setSelectedPlace('home'); setMenu('map'); }}><MapPin size={12} />Visa gården<ArrowUpRight size={12} /></button></> : <p>{state.progress.shop === 3 ? 'Ni har klarat butiksuppdraget. Marta behöver en paus från er.' : 'Gå till köttdisken till vänster. E försöker ta ett paket. Blir ni tagna kan ni försöka igen.'}</p>}
           </aside>}
 
-          {state.started && state.insideHome && <aside className={`home-hud ${state.hasRifle ? 'equipped' : ''} ${state.fridgeOpen ? 'fridge-open' : ''} ${state.homeFloor === 1 ? 'upstairs' : ''}`} aria-label="Hemma hos vännerna">
-            <span className="home-hud-icon">{state.onStairs ? <ArrowUp size={19} /> : state.homeFloor === 1 ? <Monitor size={19} /> : state.fridgeOpen ? <Refrigerator size={19} /> : <Home size={19} />}</span>
+          {state.started && state.insideHome && <aside className={`home-hud ${state.hasRifle ? 'equipped' : ''} ${state.fridgeOpen ? 'fridge-open' : ''} ${state.homeFloor === 1 ? 'upstairs' : state.homeFloor === 2 ? 'loft' : ''}`} aria-label="Hemma hos vännerna">
+            <span className="home-hud-icon">{state.onStairs ? <ArrowUp size={19} /> : state.homeFloor === 2 ? <Croissant size={19} /> : state.homeFloor === 1 ? <Monitor size={19} /> : state.fridgeOpen ? <Refrigerator size={19} /> : <Home size={19} />}</span>
             <div><small>{homeInfo.kicker}</small><strong>{homeInfo.title}</strong><p>{homeInfo.text}</p></div>
           </aside>}
 
@@ -313,7 +330,7 @@ export default function App() {
           <div className="modal-tabs"><button className={guideTab === 'controls' ? 'active' : ''} onClick={() => setGuideTab('controls')}><Keyboard size={16} />Kontroller</button><button className={guideTab === 'world' ? 'active' : ''} onClick={() => setGuideTab('world')}><Compass size={16} />Livet i Gråmyren</button></div>
           {guideTab === 'controls' ? <div className="guide-content"><div className="control-list">{[
             ['WASD', 'Gå eller kör', 'Piltangenterna går också, men flyttar siktet när geväret är höjt.'], ['SHIFT', 'Spring', 'När det är lite bråttom därifrån.'], ['E', 'Interagera', 'Gå in i huset, hämta geväret eller låna. Vid en älg tar E fram siktet.'], ['Q', 'Sikta med geväret', 'Hämta geväret först. Q eller högerklick tar fram/lägger ner det.'], ['F', 'Skjut / slå', 'Skjuter när du siktar med geväret. Annars tecknade slagsmål.'], ['V', 'Byt figur', 'Spela som Leffe eller Bill.'], ['SPACE', 'Skjut / bromsa', 'Med siktet framme skjuter du. I bilen bromsar du.'], ['H', 'Tuta', 'bilens viktigaste funktion.'], ['M / I', 'Karta / uppdrag', 'Hitta rätt eller hitta på något.'],
-          ].map(([key, title, text]) => <div className="guide-control" key={key}><Key wide>{key}</Key><span><strong>{title}</strong><small>{text}</small></span></div>)}</div><div className="guide-camera"><Mouse size={23} strokeWidth={1.4} /><div><strong>Se dig omkring</strong><p>Utan siktet: dra för att vrida kameran och scrolla för att zooma. Med siktet: placera det med musen eller piltangenterna först. Vänsterklick, F eller mellanslag skjuter du sedan. På pekskärm pekar eller drar du siktet och trycker Skjut. Esc pausar.</p></div></div><button className="guide-touch-button" onClick={() => { setShowTouch(true); engine.current?.start(); closeModal(); }}><Keyboard size={16} />På mobil visas knapparna automatiskt. Visa touchkontroller här<ArrowRight size={15} /></button></div> : <div className="world-guide"><div><Store size={24} /><h3>Myrboden</h3><p>Gå fram till entrén och tryck E. Inne i den fiktiva butiken finns köttdisken till vänster. Försök ta ett paket med E och ta det hem. Marta kan stoppa er: då lämnas köttet tillbaka och ni får försöka igen. Shift springer. Ingen snabbresa med köttpåsen.</p></div><div><CarFront size={24} /><h3>Blå faran · fyrdörrars sedan</h3><p>Gå fram till den blå bilen och tryck E. Bill hänger med. Kör på grusvägen eller ta den tveksamma vägen genom skogen.</p></div><div><Refrigerator size={24} /><h3>Gammalt men hemtrevligt</h3><p>Huset har nedsuttna soffor, en tjock-tv framför soffan, blekta tapeter och en diskho full med smutsig disk. Gå fram till det lilla gamla kylskåpet och tryck E för att öppna. På hyllan står en tub örtkräm och en halv gurka. E stänger igen. Samma E-knapp fungerar på pekskärmen.</p></div><div><Monitor size={24} /><h3>Bills rum på övervåningen</h3><p>Tv-rummet och matplatsen är avskärmade med väggar och öppna dörrpassager. Gå in på matplatsen och fram till trätrappan längs vänstra väggen. E går upp. På övervåningen finns Bills sovrum med en gammal beige dator, tjockskärm, tangentbord och mus. E startar och stänger av datorn. Gå tillbaka till trappan och tryck E för att gå ner.</p></div><div><Home size={24} /><h3>Geväret står hemma</h3><p>Gå till verandan på det röda huset och tryck E för att gå in. Geväret står längst in till vänster. Gå nära och hämta det med E. Det följer med när du byter figur och sparas till nästa gång. Gå tillbaka till dörren och tryck E för att gå ut.</p></div><div><TreePine size={24} /><h3>Skogens konung</h3><p>Utan jaktgeväret går det inte att jaga. När det är hämtat: ta dig till jaktmarken och kliv ur. Tryck Q eller Sikta, placera siktet på älgen och vänsterklicka, tryck mellanslag eller Skjut. En synlig kula lämnar pipan. Bara en verklig träff räknas; missar och hinder ger ingen belöning. Ingen automatisk siktning. Du måste själv placera siktet innan skottet kan avlossas. F skjuter när geväret är höjt; sänk det med Q eller E för att slåss igen. Geväret är bara för tecknad älgjakt.</p></div><div><Backpack size={24} /><h3>Reparationer och omvägar</h3><p>Rurik arbetar i sin verkstad. Prata med E, slåss med F eller ta verktygslådan från bordet. Kom undan för att klara uppdraget.</p></div><div><BriefcaseBusiness size={24} /><h3>Besök som inte bjudits in</h3><p>Mätarlaget vill lägga en stig genom gården efter tre minuters speltid. Du kan också framkalla besöket under Uppdrag. Tre tecknade träffar per mätare räcker.</p></div><div className="guide-save-note"><CheckCheck size={20} /><span><strong>Inga konton. Inget krångel.</strong><p>Pengar, uppdragssteg, jaktgevär och vald figur sparas i den här webbläsaren. Du startar alltid hemma. Nollställ under Inställningar.</p></span></div></div>}
+          ].map(([key, title, text]) => <div className="guide-control" key={key}><Key wide>{key}</Key><span><strong>{title}</strong><small>{text}</small></span></div>)}</div><div className="guide-camera"><Mouse size={23} strokeWidth={1.4} /><div><strong>Se dig omkring</strong><p>Utan siktet: dra för att vrida kameran och scrolla för att zooma. Med siktet: placera det med musen eller piltangenterna först. Vänsterklick, F eller mellanslag skjuter du sedan. På pekskärm pekar eller drar du siktet och trycker Skjut. Esc pausar.</p></div></div><button className="guide-touch-button" onClick={() => { setShowTouch(true); engine.current?.start(); closeModal(); }}><Keyboard size={16} />På mobil visas knapparna automatiskt. Visa touchkontroller här<ArrowRight size={15} /></button></div> : <div className="world-guide"><div><Store size={24} /><h3>Myrboden</h3><p>Gå fram till entrén och tryck E. Inne i den fiktiva butiken finns köttdisken till vänster. Försök ta ett paket med E och ta det hem. Marta kan stoppa er: då lämnas köttet tillbaka och ni får försöka igen. Shift springer. Ingen snabbresa med köttpåsen.</p></div><div><CarFront size={24} /><h3>Blå faran · fyrdörrars sedan</h3><p>Gå fram till den blå bilen och tryck E. Bill hänger med. Kör på grusvägen eller ta den tveksamma vägen genom skogen.</p></div><div><Refrigerator size={24} /><h3>Gammalt men hemtrevligt</h3><p>Huset har nedsuttna soffor, en tjock-tv framför soffan, blekta tapeter och en diskho full med smutsig disk. Gå fram till det lilla gamla kylskåpet och tryck E för att öppna. På hyllan står en tub örtkräm och en halv gurka. E stänger igen. Samma E-knapp fungerar på pekskärmen.</p></div><div><Monitor size={24} /><h3>Bills rum på övervåningen</h3><p>Tv-rummet och matplatsen är avskärmade med väggar och öppna dörrpassager. Gå in på matplatsen och fram till trätrappan längs vänstra väggen. E går upp. På övervåningen finns Bills sovrum med en gammal beige dator, tjockskärm, tangentbord och mus. E startar och stänger av datorn. Gå tillbaka till trappan och tryck E för att gå ner.</p></div><div><Home size={24} /><h3>Geväret står hemma</h3><p>Gå till verandan på det röda huset och tryck E för att gå in. Geväret står längst in till vänster. Gå nära och hämta det med E. Det följer med när du byter figur och sparas till nästa gång. Gå tillbaka till dörren och tryck E för att gå ut.</p></div><div><TreePine size={24} /><h3>Skogens konung</h3><p>Utan jaktgeväret går det inte att jaga. När det är hämtat: ta dig till jaktmarken och kliv ur. Tryck Q eller Sikta, placera siktet på älgen och vänsterklicka, tryck mellanslag eller Skjut. En synlig kula lämnar pipan. Bara en verklig träff räknas; missar och hinder ger ingen belöning. Ingen automatisk siktning. Du måste själv placera siktet innan skottet kan avlossas. F skjuter när geväret är höjt; sänk det med Q eller E för att slåss igen. Geväret är bara för tecknad älgjakt.</p></div><div><Backpack size={24} /><h3>Reparationer och omvägar</h3><p>Rurik arbetar i sin verkstad. Prata med E, slåss med F eller ta verktygslådan från bordet. Kom undan för att klara uppdraget.</p></div><div><BriefcaseBusiness size={24} /><h3>Besök som inte bjudits in</h3><p>Skattemasarna dyker upp redan efter tretton sekunder: deras bil rullar in på gården i ett kort klipp, inspektörerna stämmer av era inkomster och åker sedan vidare. Mätarlaget vill lägga en stig genom gården efter tre minuters speltid. Du kan också framkalla det besöket under Uppdrag. Tre tecknade träffar per mätare räcker.</p></div><div className="guide-save-note"><CheckCheck size={20} /><span><strong>Inga konton. Inget krångel.</strong><p>Pengar, uppdragssteg, jaktgevär och vald figur sparas i den här webbläsaren. Du startar alltid hemma. Nollställ under Inställningar.</p></span></div></div>}
           <div className="original-note"><Leaf size={16} /><p>Gråmyren är en påhittad plats med egna figurer, egen butik och egen musik. Alla upptåg stannar i spelet.</p></div>
         </>}
 

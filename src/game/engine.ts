@@ -1,13 +1,17 @@
 import * as THREE from 'three';
 import { animateCharacter, createCar, createCharacter, createShoppingBag, material, mesh, type CharacterModel, type CharacterKind, type CarModel } from './models';
-import { createWorld, groundHeight, type World } from './world';
+import { createWorld, type World } from './world';
+import { buildColliderTable, collidesAt, type ColliderTable } from './colliders';
+import { groundHeight, isInsideHome, isInsideShop, nearBreadMachine, nearComputer, nearFridge, nearLadder, nearRifleRack, nearStairs, walkableHeight } from './terrain';
+import { advanceProgress, applyShotImpact, bailiffChasedOff, canUseRifle, carEntryWaypoint, caughtInShop, clerkNotices, createSkatteVisit, pickUpRifle, respawnPenalty, shopRiskStep, skatteVisitAborted, skatteVisitStep, takeMeat, takeToolbox, trackMission, SHOP_CLERK_ANGER_SECONDS, SHOP_CLERK_CATCH_DISTANCE, SHOP_CLERK_FORGET_DISTANCE, SHOP_GRACE_SECONDS, SKATTE_CUTSCENE_SECONDS, type ProgressContext, type SkatteVisit } from './rules';
+import { restoreSave, serializeSave, SAVE_KEY } from './save';
 import { GameAudio } from './audio';
 import { outdoorReflections, skyDome } from './look';
 import { GameInput } from './input';
 import { positionFollowCamera } from './camera';
 import { createHuntingRifle } from './equipment';
 import { HuntingProjectiles, RIFLE_MUZZLE, SHOT_INTERVAL, type ShotImpact } from './hunting';
-import { DESTINATIONS, INITIAL_SNAPSHOT, MISSIONS, MISSION_IDS, SHOP, HOME, type PlayerId, type DestinationId, type GameCallbacks, type GameSnapshot, type MissionId, type WorldLabel } from './types';
+import { DESTINATIONS, INITIAL_SNAPSHOT, MISSIONS, SHOP, HOME, type PlayerId, type DestinationId, type GameCallbacks, type GameSnapshot, type HomeFloor, type MissionId, type WorldLabel } from './types';
 
 interface Actor {
   id: string;
@@ -20,12 +24,62 @@ interface Actor {
   cooldown: number;
   punch: number;
   speed: number;
+  /** Tillfälligt mål som går före det vanliga AI-målet, t.ex. Skattemasarna på väg till bilen. */
+  goalOverride: THREE.Vector3 | null;
 }
 interface Particle { object: THREE.Mesh; velocity: THREE.Vector3; life: number; total: number; }
 interface Speech { id: string; text: string; position: THREE.Vector3; actor?: Actor; until: number; }
-const SAVE_KEY = 'gramyren-adventure-v1';
+/** Största simuleringssteg i sekunder; längre bildrutor delas upp. */
+export const SIMULATION_STEP = 0.05;
+/** Mest speltid som simuleras per bildruta; därutöver går spelet långsammare.
+ *  Tre steg räcker för att en tappad bildruta ska hämtas in, men håller stegen
+ *  korta nog (under en meter) för att styrningen ska kännas exakt även när
+ *  maskinen bara orkar några bildrutor per sekund. */
+export const MAX_FRAME_TIME = 0.15;
 const up = new THREE.Vector3(0, 1, 0);
-const distance = (a: THREE.Vector3, b: THREE.Vector3) => Math.hypot(a.x - b.x, a.z - b.z);
+// Återanvända vektorer för bildruteloopen. Simuleringen ska inte skapa nya objekt
+// per bildruta (scripts/perf-smoke-test.mjs mäter det); varje användning är kort
+// och synkron, så en handfull räcker. Blanda aldrig två som lever samtidigt.
+const scratchMove = new THREE.Vector3(), scratchLocal = new THREE.Vector3(), scratchCandidate = new THREE.Vector3();
+const scratchBefore = new THREE.Vector3(), scratchGoal = new THREE.Vector3(), scratchStep = new THREE.Vector3();
+const scratchTarget = new THREE.Vector3(), scratchOffset = new THREE.Vector3(), scratchFocus = new THREE.Vector3();
+const scratchLabel = new THREE.Vector3(), scratchProject = new THREE.Vector3(), scratchBurst = new THREE.Vector3();
+const INTRO_TARGET = new THREE.Vector3(-1.8, 1.2, .6);
+const FLEE_GOAL = new THREE.Vector3(20, 0, 62);
+/** Klippets kameravinkel: kameran ligger på den röjda grusvägen, klar sikt hela vägen. */
+const SKATTE_CAMERA_YAW = -0.1;
+/** Skattemasarnas bil: en egen grå bil som följer grusvägen in på gården. */
+const SKATTE_PATH = [
+  new THREE.Vector3(17.2, 0, 43), new THREE.Vector3(15.3, 0, 31), new THREE.Vector3(11.6, 0, 21.5),
+  new THREE.Vector3(9.5, 0, 13.5), new THREE.Vector3(10.6, 0, 9.2),
+];
+const SKATTE_CAR_DOOR = new THREE.Vector3(11.4, 0, 8.6);
+const scratchSkatteNext = new THREE.Vector3(), scratchSkatteBefore = new THREE.Vector3();
+/** Catmull-Rom-punkt längs infarten för parametern u (0..1); skriver till `out`. */
+function sampleSkattePath(u: number, out: THREE.Vector3) {
+  const segments = SKATTE_PATH.length - 1;
+  const scaled = Math.min(1, Math.max(0, u)) * segments;
+  const i = Math.min(segments - 1, Math.floor(scaled));
+  const t = scaled - i;
+  const p0 = SKATTE_PATH[i === 0 ? 0 : i - 1], p1 = SKATTE_PATH[i], p2 = SKATTE_PATH[i + 1], p3 = SKATTE_PATH[Math.min(segments, i + 2)];
+  const t2 = t * t, t3 = t2 * t;
+  out.set(
+    0.5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+    0,
+    0.5 * (2 * p1.z + (-p0.z + p2.z) * t + (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * t2 + (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * t3));
+  return out;
+}
+const COMPANION_WAIT_HOME = new THREE.Vector3(HOME.door.x + 2.6, 0, HOME.door.z + 1.3);
+const COMPANION_WAIT_SHOP = new THREE.Vector3(SHOP.door.x + 2.7, 0, SHOP.door.z + 1.1);
+const STAIRS_BASE = new THREE.Vector3(HOME.stairsBase.x, HOME.groundY, HOME.stairsBase.z);
+const STAIRS_TOP = new THREE.Vector3(HOME.stairsTop.x, HOME.upperY, HOME.stairsTop.z);
+const LADDER_BASE = new THREE.Vector3(HOME.ladderBase.x, HOME.upperY, HOME.ladderBase.z);
+const LADDER_TOP = new THREE.Vector3(HOME.ladderTop.x, HOME.loftY, HOME.ladderTop.z);
+const LOFT_CENTRE_X = (HOME.loft.minX + HOME.loft.maxX) / 2, LOFT_HALF_WIDTH = (HOME.loft.maxX - HOME.loft.minX) / 2;
+/** Punkten `dy` meter ovanför `position`, i en delad vektor. Använd resultatet direkt. */
+const above = (position: THREE.Vector3, dy: number, into = scratchLabel) => { into.copy(position); into.y += dy; return into; };
+// Math.sqrt i stället för Math.hypot: hypot allokerar i V8 och det här anropas varje simuleringssteg.
+const distance = (a: { x: number; z: number }, b: { x: number; z: number }) => { const dx = a.x - b.x, dz = a.z - b.z; return Math.sqrt(dx * dx + dz * dz); };
 const angleLerp = (a: number, b: number, factor: number) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * factor;
 
 export class GameEngine {
@@ -46,11 +100,19 @@ export class GameEngine {
   private aimPoint = new THREE.Vector3();
   private aimRay = new THREE.Raycaster();
   private shotFeedbackTime = 0;
-  private stairTravel: { direction: 'up' | 'down'; elapsed: number; start: THREE.Vector3 } | null = null;
+  private stairTravel: { direction: 'up' | 'down'; kind: 'stairs' | 'ladder'; elapsed: number; start: THREE.Vector3 } | null = null;
   private homeCamera: { elevation: number; distance: number } | null = null;
   private shopGraceUntil = 0;
   private shopCamera: { elevation: number; distance: number } | null = null;
   private bailiffs: Actor[] = [];
+  /** Figurer bilen kan köra på; byggs en gång så att bildruteloopen slipper skapa listor. */
+  private runOverCandidates: Actor[] = [];
+  /** Kolliderare i typade fält, en tabell per våning. */
+  private groundColliders: ColliderTable;
+  private upstairsColliders: ColliderTable;
+  private loftColliders: ColliderTable;
+  /** Återanvänds varje steg av updateProgress i stället för ett nytt objekt per bildruta. */
+  private progressContext: ProgressContext;
   private ring: THREE.Mesh;
   private input = new GameInput();
   private callbacks: GameCallbacks;
@@ -71,6 +133,8 @@ export class GameEngine {
   private cameraYaw = 0.61;
   private cameraElevation = 0.57;
   private cameraDistance = 15.8;
+  /** Nedtonade rörelser (prefers-reduced-motion): färre partiklar, ingen kränging, stramare kamera. */
+  private reducedMotion = false;
   private cameraTarget = new THREE.Vector3(-3, 1.6, -3);
   private cameraOffset = new THREE.Vector3();
   private dragging = false;
@@ -81,6 +145,18 @@ export class GameEngine {
   private punchTimer = 0;
   private bailiffArrival = -1;
   private bailiffFled = 0;
+  /** Skattemasarnas besök: bil, inspektörer och fas i det korta klippet. */
+  private skatteCar: CarModel;
+  private skatte: Actor[] = [];
+  private skatteVisit: SkatteVisit = createSkatteVisit();
+  private skatteFocus = new THREE.Vector3();
+  private cutsceneFocus: THREE.Vector3 | null = null;
+  private cutsceneSnap = false;
+  /** Var på infarten bilen står just nu (0 = vägen, 1 = gården). */
+  private skattePathU = 0;
+  /** Bilens väg ut igen längs infarten; -1 när den inte lämnar. */
+  private skatteCarExit = -1;
+  private skatteLine = 0;
   private toolboxTaken = false;
   private ready = false;
   private needsRender = true;
@@ -143,6 +219,10 @@ export class GameEngine {
     this.officialCar.root.visible = false;
     this.officialCar.root.position.set(16, 0, 37); this.officialCar.root.rotation.y = Math.PI + 0.16;
     this.scene.add(this.officialCar.root);
+    this.skatteCar = createCar('#8a9199', true, 'skattemasarnas bil', 'GM 312', 'SKATTEKOLL');
+    this.skatteCar.root.visible = false;
+    sampleSkattePath(0, this.skatteCar.root.position); this.skatteCar.root.rotation.y = Math.PI + 0.15;
+    this.scene.add(this.skatteCar.root);
     this.avatars = {
       leffe: this.createActor('leffe', 6.1, 9.2),
       bill: this.createActor('bill', 8.5, 8.15),
@@ -161,10 +241,17 @@ export class GameEngine {
       this.rifles[avatar].visible = false;
     }
     this.bailiffs = [this.createActor('bailiff', 12, 12, 'matare-1'), this.createActor('bailiff', 14, 10, 'matare-2')];
+    this.skatte = [this.createActor('inspector', 10.2, 5.4, 'skatte-1'), this.createActor('inspector', 12.1, 3.6, 'skatte-2')];
+    this.runOverCandidates = [this.rurik, this.shopkeeper, ...this.bailiffs, ...this.skatte];
+    this.groundColliders = buildColliderTable(this.world.colliders);
+    this.upstairsColliders = buildColliderTable(this.world.home.upstairs.colliders);
+    this.loftColliders = buildColliderTable(this.world.home.loft.colliders);
+    this.progressContext = { player: this.playerPosition, rurik: this.rurik.model.root.position, toolboxTaken: false, claimed: this.rewardClaimed };
     this.bailiffs.forEach(a => a.model.root.visible = false);
+    this.skatte.forEach(a => a.model.root.visible = false);
     this.hunting = new HuntingProjectiles(this.world,
-      () => [this.companion, this.rurik, this.shopkeeper, ...this.bailiffs].map(actor => ({ root: actor.model.root })),
-      () => [this.car.root, this.officialCar.root], impact => this.onShotImpact(impact));
+      () => [this.companion, this.rurik, this.shopkeeper, ...this.bailiffs, ...this.skatte].map(actor => ({ root: actor.model.root })),
+      () => [this.car.root, this.officialCar.root, this.skatteCar.root], impact => this.onShotImpact(impact));
     this.scene.add(this.hunting.root);
 
     this.ring = new THREE.Mesh(new THREE.RingGeometry(0.72, 0.81, 40), new THREE.MeshBasicMaterial({ color: '#ecd28e', transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false }));
@@ -194,7 +281,7 @@ export class GameEngine {
     const model = createCharacter(kind);
     model.root.position.set(x, this.walkableHeight(x, z), z);
     this.scene.add(model.root);
-    return { id, model, health: 3, home: new THREE.Vector3(x, 0, z), angry: 0, stunned: 0, flee: false, cooldown: 0, punch: 0, speed: 0 };
+    return { id, model, health: 3, home: new THREE.Vector3(x, 0, z), angry: 0, stunned: 0, flee: false, cooldown: 0, punch: 0, speed: 0, goalOverride: null };
   }
 
   private get player() { return this.avatars[this.state.character]; }
@@ -340,10 +427,7 @@ export class GameEngine {
   setMusicVolume(value: number) { this.audio.setMusicVolume(value); }
   setDialogueOpen(open: boolean) { this.audio.setDialogueOpen(open); }
 
-  private canUseRifle() {
-    return this.state.started && this.state.hasRifle && !this.state.inCar && !this.state.onStairs
-      && !this.isInsideHome(this.playerPosition) && !this.isInsideShop(this.playerPosition) && !this.state.carryingMeat;
-  }
+  private canUseRifle() { return canUseRifle(this.state, this.playerPosition); }
 
   private aimingDistance() { return this.cameraDistance * Math.max(1, Math.min(1.45, .7 / this.camera.aspect)); }
 
@@ -401,9 +485,10 @@ export class GameEngine {
     this.aimRay.setFromCamera(this.aimNDC, this.camera);
     const ray = this.aimRay.ray;
     const hit = this.hunting.trace(ray.origin, ray.direction, 160);
-    this.aimPoint.copy(hit ? hit.point : ray.origin.clone().addScaledVector(ray.direction, 160));
+    if (hit) this.aimPoint.copy(hit.point); else this.aimPoint.copy(ray.origin).addScaledVector(ray.direction, 160);
     const p = this.playerPosition;
-    if (Math.hypot(this.aimPoint.x - p.x, this.aimPoint.z - p.z) > .05) this.player.model.root.rotation.y = Math.atan2(this.aimPoint.x - p.x, this.aimPoint.z - p.z);
+    const dx = this.aimPoint.x - p.x, dz = this.aimPoint.z - p.z;
+    if (dx * dx + dz * dz > .05 * .05) this.player.model.root.rotation.y = Math.atan2(dx, dz);
   }
 
   shoot() {
@@ -429,21 +514,23 @@ export class GameEngine {
   }
 
   private onShotImpact(impact: ShotImpact) {
-    if (impact.kind === 'elk' && impact.elk?.alive) {
+    const outcome = applyShotImpact(this.state, impact.kind, impact.elk?.alive === true, this.rewardClaimed);
+    if (outcome.hit && impact.elk) {
       const elk = impact.elk;
       elk.alive = false; elk.model.root.visible = false; elk.respawnAt = this.activeTime + 80;
       this.burst(impact.point, '#dfce99', 24);
-      this.state.shotsHit++; this.state.shotFeedback = 'hit';
-      this.state.money += 50; this.state.wanted = Math.max(1, this.state.wanted);
-      this.complete('hunt');
+      if (outcome.rewarded) this.announceReward('hunt');
       this.save();
       this.callbacks.onToast({ title: 'Träff! Jaktlycka! +50 kr', detail: 'Kulan träffade älgen. Bara tecknad, blodfri jakt.', kind: 'success' });
-    } else {
-      this.state.shotFeedback = impact.kind === 'obstacle' ? 'blocked' : impact.kind === 'person' ? 'person' : 'miss';
-      if (impact.kind !== 'miss' && impact.kind !== 'person') this.burst(impact.point, '#cbbd92', 5);
-    }
+    } else if (impact.kind !== 'miss' && impact.kind !== 'person') this.burst(impact.point, '#cbbd92', 5);
     this.shotFeedbackTime = 1.6;
     this.emit();
+  }
+
+  /** Följer webbläsarens prefers-reduced-motion. Spelet fungerar likadant, men rör sig lugnare. */
+  setReducedMotion(value: boolean) {
+    this.reducedMotion = value;
+    if (value) this.car.root.rotation.z = 0;
   }
 
   setQuality(high: boolean) {
@@ -478,8 +565,7 @@ export class GameEngine {
   }
 
   trackMission(id: MissionId) {
-    this.state.activeMission = id;
-    this.state.waypoint = (id === 'shop' && this.state.carryingMeat) || (id === 'hunt' && !this.state.hasRifle) ? 'home' : MISSIONS[id].destination;
+    trackMission(this.state, id);
     this.callbacks.onToast({ title: `Följer: ${MISSIONS[id].title}`, detail: 'Platsen är markerad på kartan.', kind: 'info' });
     this.audio.play('click');
     this.save(); this.emit();
@@ -498,7 +584,7 @@ export class GameEngine {
     }
     const dest = DESTINATIONS.find(d => d.id === id)!;
     this.cancelHunting();
-    this.stairTravel = null; this.state.onStairs = false; this.state.homeFloor = 0;
+    this.stairTravel = null; this.state.onStairs = false; this.state.onLadder = false; this.state.homeFloor = 0;
     this.start();
     this.input.clear(); this.stopCameraDrag();
     this.carVelocity = 0;
@@ -536,53 +622,53 @@ export class GameEngine {
       this.emit(); return;
     }
     const p = this.playerPosition;
+    if (this.state.homeFloor === 2) {
+      if (nearBreadMachine(p, this.state.homeFloor)) { this.toggleBreadMachine(); return; }
+      if (nearLadder(p, this.state.homeFloor)) { this.beginStairTravel('ladder'); return; }
+      this.callbacks.onToast({ title: 'Loftet', detail: 'Bakmaskinen står vid gaveln: E stänger av den. Loftstegen vid räcket tar dig ner till Bills rum.', kind: 'info' });
+      return;
+    }
     if (this.state.homeFloor === 1) {
-      if (this.nearComputer(p)) {
+      if (nearComputer(p, this.state.homeFloor)) {
         this.state.computerOn = !this.state.computerOn;
         this.world.home.upstairs.computer.setPowered(this.state.computerOn);
         this.audio.play('click'); this.emit(); return;
       }
-      if (this.nearStairs(p)) { this.beginStairTravel(); return; }
-      this.callbacks.onToast({ title: 'Bills rum', detail: 'Gå fram till datorn och tryck E, eller gå tillbaka till trätrappan för att komma ner.', kind: 'info' });
+      if (nearLadder(p, this.state.homeFloor)) { this.beginStairTravel('ladder'); return; }
+      if (nearStairs(p, this.state.homeFloor)) { this.beginStairTravel('stairs'); return; }
+      this.callbacks.onToast({ title: 'Bills rum', detail: 'Gå fram till datorn och tryck E, klättra upp på loftet via stegen, eller gå tillbaka till trätrappan för att komma ner.', kind: 'info' });
       return;
     }
-    if (this.nearStairs(p)) { this.beginStairTravel(); return; }
-    if (this.isInsideHome(p) && !this.state.hasRifle && Math.hypot(p.x - HOME.rifle.x, p.z - HOME.rifle.z) < 2.4) {
-      this.state.hasRifle = true;
+    if (nearStairs(p, this.state.homeFloor)) { this.beginStairTravel('stairs'); return; }
+    if (!this.state.hasRifle && nearRifleRack(p)) {
+      pickUpRifle(this.state);
       this.world.home.rifle.visible = false;
-      this.state.progress.hunt = Math.max(1, this.state.progress.hunt);
-      this.state.activeMission = 'hunt'; this.state.waypoint = 'forest';
       this.updateEquipment(); this.audio.play('click');
       this.say(this.player, 'Så där! Nu har vi det viktigaste.');
       this.callbacks.onToast({ title: 'Jaktgeväret är med!', detail: 'Geväret delas av vännerna. Ta er till jaktmarken, välj Sikta, sikta på älgen och tryck Skjut. Kulan måste träffa.', kind: 'success' });
       this.save(); this.emit(); return;
     }
-    if (this.nearFridge(p)) {
+    if (nearFridge(p, this.state.homeFloor)) {
       this.state.fridgeOpen = !this.state.fridgeOpen;
       this.audio.play('click');
       this.emit(); return;
     }
-    if (this.isInsideHome(p) && Math.hypot(p.x - HOME.entry.x, p.z - HOME.entry.z) < 2.65) {
+    if (isInsideHome(p) && Math.hypot(p.x - HOME.entry.x, p.z - HOME.entry.z) < 2.65) {
       p.set(HOME.door.x, 0, HOME.door.z + 0.65);
       this.companion.model.root.position.set(HOME.door.x + 2.6, 0, HOME.door.z + 1.3);
       this.updateShop(0); this.emit(); return;
     }
-    if (!this.isInsideHome(p) && Math.hypot(p.x - HOME.door.x, p.z - HOME.door.z) < 2.6) {
+    if (!isInsideHome(p) && Math.hypot(p.x - HOME.door.x, p.z - HOME.door.z) < 2.6) {
       p.set(HOME.entry.x, 0.565, HOME.entry.z);
       this.companion.model.root.position.set(HOME.door.x + 2.6, 0, HOME.door.z + 1.3);
       this.updateShop(0);
       if (!this.state.hasRifle) this.callbacks.onToast({ title: 'Hemma hos vännerna', detail: 'Jaktgeväret står i stället längst in till vänster. Gå nära och tryck E för att ta det.', kind: 'info' });
       this.emit(); return;
     }
-    if (this.isInsideShop(p) && !this.state.carryingMeat && this.state.progress.shop < 3 && Math.hypot(p.x - SHOP.meat.x, p.z - SHOP.meat.z) < 3.15) {
-      this.state.carryingMeat = true;
-      this.state.progress.shop = 2;
-      this.state.activeMission = 'shop';
-      this.state.waypoint = 'home';
-      this.state.shopRisk = 22;
-      this.state.wanted = Math.max(2, this.state.wanted);
-      this.shopGraceUntil = this.activeTime + 2.35;
-      this.shopkeeper.angry = 45;
+    if (isInsideShop(p) && !this.state.carryingMeat && this.state.progress.shop < 3 && Math.hypot(p.x - SHOP.meat.x, p.z - SHOP.meat.z) < 3.15) {
+      takeMeat(this.state);
+      this.shopGraceUntil = this.activeTime + SHOP_GRACE_SECONDS;
+      this.shopkeeper.angry = SHOP_CLERK_ANGER_SECONDS;
       this.world.shop.loot.visible = false;
       this.updateEquipment();
       this.say(this.shopkeeper, 'Hörrni! Det där är inte ett smakprov!');
@@ -590,12 +676,12 @@ export class GameEngine {
       this.callbacks.onToast({ title: 'Köttet ligger i påsen!', detail: 'Marta kommer! Spring ut och ta dig hem till gården. Ingen snabbresa med köttpåsen.', kind: 'warning' });
       this.save(); this.emit(); return;
     }
-    if (this.isInsideShop(p) && Math.hypot(p.x - SHOP.entry.x, p.z - SHOP.entry.z) < 3.4) {
+    if (isInsideShop(p) && Math.hypot(p.x - SHOP.entry.x, p.z - SHOP.entry.z) < 3.4) {
       p.set(SHOP.door.x, 0, SHOP.door.z + 1.6);
       this.companion.model.root.position.set(SHOP.door.x + 2.7, 0, SHOP.door.z + 2.8);
       this.updateShop(0); this.emit(); return;
     }
-    if (!this.isInsideShop(p) && Math.hypot(p.x - SHOP.door.x, p.z - SHOP.door.z) < 3.5) {
+    if (!isInsideShop(p) && Math.hypot(p.x - SHOP.door.x, p.z - SHOP.door.z) < 3.5) {
       p.set(SHOP.entry.x, 0, SHOP.entry.z);
       this.companion.model.root.position.set(SHOP.door.x + 2.7, 0, SHOP.door.z + 1.1);
       this.updateShop(0);
@@ -604,8 +690,7 @@ export class GameEngine {
     }
     if (!this.toolboxTaken && distance(p, this.world.toolbox.position) < 3.0) {
       this.toolboxTaken = true; this.world.toolbox.visible = false;
-      this.state.progress.rurik = Math.max(this.state.progress.rurik, 2);
-      this.state.wanted = Math.max(2, this.state.wanted);
+      takeToolbox(this.state);
       this.rurik.angry = 40;
       this.say(this.rurik, 'Hörru! Den där är MIN!');
       this.audio.play('warning');
@@ -619,8 +704,8 @@ export class GameEngine {
       this.state.inCar = true;
       this.player.model.root.visible = false; this.companion.model.root.visible = false;
       this.companion.stunned = 0;
-      if (this.state.activeMission === 'hunt') this.state.waypoint = this.state.hasRifle ? 'forest' : 'home';
-      else if (this.state.activeMission === 'shop') this.state.waypoint = this.state.carryingMeat ? 'home' : 'market';
+      const waypoint = carEntryWaypoint(this.state);
+      if (waypoint) this.state.waypoint = waypoint;
       this.callbacks.onToast({ title: 'Blå faran · blå sedan', detail: this.state.activeMission === 'hunt' && !this.state.hasRifle ? 'Geväret ligger fortfarande i huset. Hämta det innan ni ger er ut på jakt.' : 'WASD kör · Mellanslag bromsar · H tutar · E kliver ur', kind: 'info' });
       this.cameraYaw = this.car.root.rotation.y + Math.PI;
       this.audio.play('click');
@@ -686,16 +771,23 @@ export class GameEngine {
       target.angry = 30; this.state.wanted = Math.max(2, this.state.wanted);
       this.say(target, 'Det här är en matbutik, inte en boxningsklubb!');
     } else if (target === this.companion) this.say(target, target.id === 'bill' ? 'Aj! Vi är ju på samma lag!' : 'Men skärp dig, Bill!');
+    else if (target.id.startsWith('skatte')) this.say(target, 'Det här kommer med i protokollet!');
     else this.say(target, 'Det här står inte i blanketten!');
     if (target.health <= 0) {
       if (target.id.startsWith('matare')) {
         target.flee = true; this.bailiffFled++;
-        this.state.progress.bailiff = Math.min(3, 1 + this.bailiffFled);
         this.say(target, 'Vi får rita om kartan!');
-        if (this.bailiffFled >= 2) {
-          this.state.bailiffsActive = false;
-          this.complete('bailiff');
+        if (bailiffChasedOff(this.state, this.bailiffFled, this.rewardClaimed)) {
+          this.audio.play('coin'); this.save();
           this.callbacks.onToast({ title: 'Stigen tar en annan väg!', detail: 'Mätarlaget lämnade gården. +200 kr', kind: 'success' });
+        }
+      } else if (target.id.startsWith('skatte')) {
+        target.flee = true; target.goalOverride = null;
+        this.say(target, 'Vi noterar det här!');
+        if (this.skatte.every(a => a.flee) && skatteVisitAborted(this.skatteVisit)) {
+          this.cutsceneFocus = null;
+          if (this.skatteCar.root.visible) this.skatteCarExit = this.skattePathU;
+          this.callbacks.onToast({ title: 'Skattemasarna avbröt besöket', detail: 'De springer till bilen. Det här kommer med i nästa deklaration.', kind: 'warning' });
         }
       } else {
         target.stunned = 7;
@@ -726,33 +818,24 @@ export class GameEngine {
     this.emit();
   }
 
-  private complete(id: MissionId) {
-    this.state.progress[id] = 3;
-    if (!this.rewardClaimed.has(id)) {
-      this.state.money += MISSIONS[id].reward;
-      this.rewardClaimed.add(id);
-      this.audio.play('coin');
-      if (id !== 'bailiff') this.callbacks.onToast({ title: `Uppdrag klart: ${MISSIONS[id].title}`, detail: `+${MISSIONS[id].reward} kr i fickan. Vad hittar ni på härnäst?`, kind: 'success' });
-      this.save();
-    }
+  /** Ljud, toast och sparning när en belöning just betalats ut (själva regeln ligger i rules.ts). */
+  private announceReward(id: MissionId) {
+    this.audio.play('coin');
+    this.callbacks.onToast({ title: `Uppdrag klart: ${MISSIONS[id].title}`, detail: `+${MISSIONS[id].reward} kr i fickan. Vad hittar ni på härnäst?`, kind: 'success' });
+    this.save();
   }
 
-  private collides(position: THREE.Vector3, radius: number, includeCar: boolean, floor: 0 | 1 = 0) {
+  private collides(position: THREE.Vector3, radius: number, includeCar: boolean, floor: HomeFloor = 0) {
     if (Math.abs(position.x) > 89 || Math.abs(position.z) > 89) return true;
     if (floor === 1 && (Math.abs(position.x - HOME.center.x) > 5.44 - radius || Math.abs(position.z - HOME.center.z) > 3.94 - radius)) return true;
+    // Loftet är ett halvplan: utanför plankorna finns bara luften ovanför Bills rum.
+    if (floor === 2 && (Math.abs(position.x - LOFT_CENTRE_X) > LOFT_HALF_WIDTH - radius || Math.abs(position.z - HOME.center.z) > HOME.loft.halfDepth - radius)) return true;
     // The sedan can park outside, but it cannot be driven through the shop doorway.
     if (radius > 1 && Math.abs(position.x - HOME.center.x) < 5.7 + radius && Math.abs(position.z - HOME.center.z) < 4.2 + radius) return true;
     if (radius > 1 && Math.abs(position.x - SHOP.center.x) < 7.4 + radius && position.z > SHOP.center.z - 5.5 - radius && position.z < SHOP.center.z + 5.3 + radius) return true;
-    const colliders = floor === 1 ? this.world.home.upstairs.colliders : this.world.colliders;
-    for (const collider of colliders) {
-      if (collider.type === 'circle') {
-        if ((position.x - collider.x) ** 2 + (position.z - collider.z) ** 2 < (radius + collider.radius) ** 2) return true;
-      } else {
-        if (Math.abs(position.x - collider.x) < collider.w * 0.5 + radius && Math.abs(position.z - collider.z) < collider.d * 0.5 + radius) return true;
-      }
-    }
+    if (collidesAt(floor === 2 ? this.loftColliders : floor === 1 ? this.upstairsColliders : this.groundColliders, position.x, position.z, radius)) return true;
     if (includeCar && floor === 0) {
-      const local = position.clone().sub(this.car.root.position).applyAxisAngle(up, -this.car.root.rotation.y);
+      const local = scratchLocal.copy(position).sub(this.car.root.position).applyAxisAngle(up, -this.car.root.rotation.y);
       if (Math.abs(local.x) < 1.04 + radius && Math.abs(local.z) < 2.48 + radius) return true;
     }
     return false;
@@ -761,13 +844,14 @@ export class GameEngine {
   private move(object: THREE.Object3D, delta: THREE.Vector3, radius: number, includeCar = false) {
     const beforeX = object.position.x, beforeZ = object.position.z;
     const floor = object === this.player.model.root ? this.state.homeFloor : 0;
-    const candidate = object.position.clone();
+    const candidate = scratchCandidate.copy(object.position);
     candidate.x += delta.x;
     if (!this.collides(candidate, radius, includeCar, floor)) object.position.x = candidate.x;
     candidate.copy(object.position); candidate.z += delta.z;
     if (!this.collides(candidate, radius, includeCar, floor)) object.position.z = candidate.z;
     object.position.y = this.walkableHeight(object.position.x, object.position.z, floor);
-    return Math.hypot(object.position.x - beforeX, object.position.z - beforeZ);
+    const movedX = object.position.x - beforeX, movedZ = object.position.z - beforeZ;
+    return Math.sqrt(movedX * movedX + movedZ * movedZ);
   }
 
   private updatePlayer(dt: number) {
@@ -799,29 +883,33 @@ export class GameEngine {
       this.carVelocity = THREE.MathUtils.clamp(this.carVelocity, -8.2, 20.5);
       this.carSteering = THREE.MathUtils.lerp(this.carSteering, -horizontal * 0.49, 1 - Math.exp(-dt * 7));
       if (Math.abs(this.carVelocity) > 0.2) this.car.root.rotation.y += this.carSteering * Math.min(1, Math.abs(this.carVelocity) / 5) * Math.sign(this.carVelocity) * dt * 1.80;
-      const delta = new THREE.Vector3(Math.sin(this.car.root.rotation.y), 0, Math.cos(this.car.root.rotation.y)).multiplyScalar(this.carVelocity * dt);
-      const before = this.car.root.position.clone();
+      const delta = scratchMove.set(Math.sin(this.car.root.rotation.y), 0, Math.cos(this.car.root.rotation.y)).multiplyScalar(this.carVelocity * dt);
+      const before = scratchBefore.copy(this.car.root.position);
       this.move(this.car.root, delta, 1.20);
       if (delta.length() > 0.025 && before.distanceTo(this.car.root.position) < delta.length() * 0.3) {
-        if (Math.abs(this.carVelocity) > 5) { this.audio.play('hit'); this.burst(this.car.root.position.clone().add(new THREE.Vector3(0, 0.7, 0)), '#c4b788', 6); }
+        if (Math.abs(this.carVelocity) > 5) { this.audio.play('hit'); this.burst(above(this.car.root.position, 0.7, scratchBurst), '#c4b788', 6); }
         this.carVelocity *= -0.14;
       }
-      this.car.root.rotation.z = THREE.MathUtils.lerp(this.car.root.rotation.z, this.carSteering * this.carVelocity * -0.007, dt * 7);
+      // Karossen kränger i kurvor – utom när spelaren bett om lugnare rörelser.
+      this.car.root.rotation.z = this.reducedMotion ? 0 : THREE.MathUtils.lerp(this.car.root.rotation.z, this.carSteering * this.carVelocity * -0.007, dt * 7);
       for (const lamp of this.car.brakeLights) (lamp.material as THREE.MeshStandardMaterial).emissiveIntensity = this.input.has('Space') || forward < 0 ? 0.95 : 0.15;
-      this.car.frontWheels.forEach(w => w.rotation.y = this.carSteering);
-      this.car.wheels.forEach(w => w.children.forEach(c => { c.rotation.x += this.carVelocity * dt * 0.9; }));
+      for (const wheel of this.car.frontWheels) wheel.rotation.y = this.carSteering;
+      const spin = this.carVelocity * dt * 0.9;
+      for (const wheel of this.car.wheels) for (const part of wheel.children) part.rotation.x += spin;
       this.player.model.root.position.copy(this.car.root.position);
       this.companion.model.root.position.copy(this.car.root.position);
       this.audio.engine(this.carVelocity, true);
-      for (const actor of [this.rurik, this.shopkeeper, ...this.bailiffs]) {
-        if (actor.model.root.visible && !actor.flee && !actor.stunned && Math.abs(this.carVelocity) > 4 && distance(this.car.root.position, actor.model.root.position) < 2.3) {
-          this.hitActor(actor, 3); this.carVelocity *= 0.5;
+      if (Math.abs(this.carVelocity) > 4) {
+        for (const actor of this.runOverCandidates) {
+          if (actor.model.root.visible && !actor.flee && !actor.stunned && distance(this.car.root.position, actor.model.root.position) < 2.3) {
+            this.hitActor(actor, 3); this.carVelocity *= 0.5;
+          }
         }
       }
     } else {
       const running = this.input.has('ShiftLeft') || this.input.has('ShiftRight');
       const speed = this.state.aiming ? 2.4 : running ? 7.9 : 4.35;
-      const desired = new THREE.Vector3();
+      const desired = scratchMove;
       let travelled = 0;
       if (forward || horizontal) {
         desired.set(-Math.sin(this.cameraYaw) * forward + Math.cos(this.cameraYaw) * horizontal, 0, -Math.cos(this.cameraYaw) * forward - Math.sin(this.cameraYaw) * horizontal).normalize();
@@ -835,7 +923,7 @@ export class GameEngine {
       this.audio.engine(0, false);
     }
     this.ring.visible = !this.state.inCar;
-    this.ring.position.copy(this.playerPosition).add(new THREE.Vector3(0, 0.04, 0));
+    above(this.playerPosition, 0.04, this.ring.position);
     this.ring.rotation.z = this.elapsed * 0.3;
     if (this.activeTime - this.lastDamage > 12) this.state.health = Math.min(100, this.state.health + dt * 1.5);
   }
@@ -857,24 +945,22 @@ export class GameEngine {
     let goal: THREE.Vector3 | null = null;
     let speed = 3.5;
     if (actor.flee) {
-      goal = new THREE.Vector3(20, 0, 62); speed = 7.2;
+      goal = FLEE_GOAL; speed = 7.2;
       if (distance(current, goal) < 4) { actor.model.root.visible = false; return; }
     } else if (actor === this.companion && this.state.insideHome) {
-      const waiting = new THREE.Vector3(HOME.door.x + 2.6, 0, HOME.door.z + 1.3);
-      if (distance(current, waiting) > 1.0) { goal = waiting; speed = 4.6; }
+      if (distance(current, COMPANION_WAIT_HOME) > 1.0) { goal = COMPANION_WAIT_HOME; speed = 4.6; }
     } else if (actor === this.companion && this.state.insideShop) {
-      const waiting = new THREE.Vector3(SHOP.door.x + 2.7, 0, SHOP.door.z + 1.1);
-      if (distance(current, waiting) > 1.1) { goal = waiting; speed = 4.6; }
+      if (distance(current, COMPANION_WAIT_SHOP) > 1.1) { goal = COMPANION_WAIT_SHOP; speed = 4.6; }
     } else if (actor === this.companion) {
       if (!this.state.inCar && distance(current, this.playerPosition) > 4.2) {
         goal = this.playerPosition; speed = distance(current, goal) > 12 ? 8.5 : 4.6;
       }
       if (!this.state.inCar && distance(current, this.playerPosition) > 40) {
-        current.copy(this.playerPosition).add(new THREE.Vector3(-2.4, 0, 1));
+        current.copy(this.playerPosition); current.x -= 2.4; current.z += 1;
       }
     } else if (actor === this.shopkeeper && this.state.carryingMeat && actor.angry > 0) {
       const d = distance(current, this.playerPosition);
-      if (d < 1.90 && Math.abs(current.y - this.playerPosition.y) < 1.5 && this.activeTime > this.shopGraceUntil && !this.state.inCar) { this.caughtInShop(); return; }
+      if (d < SHOP_CLERK_CATCH_DISTANCE && Math.abs(current.y - this.playerPosition.y) < 1.5 && this.activeTime > this.shopGraceUntil && !this.state.inCar) { this.caughtInShop(); return; }
       if (d > 1.6 && d < 34) { goal = this.playerPosition; speed = 4.9; }
     } else if ((actor.angry > 0 || (actor.id.startsWith('matare') && this.state.bailiffsActive)) && !actor.flee) {
       const d = distance(current, this.playerPosition);
@@ -884,23 +970,25 @@ export class GameEngine {
         this.state.health -= actor === this.rurik ? 10 : 7;
         this.lastDamage = this.activeTime;
         this.audio.play('hit');
-        this.burst(this.playerPosition.clone().add(new THREE.Vector3(0, 1.8, 0)), '#e8ca91', 6);
+        this.burst(above(this.playerPosition, 1.8, scratchBurst), '#e8ca91', 6);
         if (this.state.health <= 0) this.respawn();
       }
+    } else if (actor.goalOverride) {
+      goal = actor.goalOverride; speed = 3.6;
     } else if (distance(current, actor.home) > 2) { goal = actor.home; speed = 2.0; }
     if (goal) {
       if (actor === this.shopkeeper) {
-        const inside = this.isInsideShop(current), targetInside = this.isInsideShop(goal);
+        const inside = isInsideShop(current), targetInside = isInsideShop(goal);
         if (inside && !targetInside) {
-          if (Math.abs(current.x - SHOP.entry.x) > 0.6 && current.z < 20.7) goal = new THREE.Vector3(SHOP.entry.x, 0, Math.min(current.z, 19.5));
-          else goal = new THREE.Vector3(SHOP.door.x, 0, SHOP.door.z + 1.7);
+          if (Math.abs(current.x - SHOP.entry.x) > 0.6 && current.z < 20.7) goal = scratchGoal.set(SHOP.entry.x, 0, Math.min(current.z, 19.5));
+          else goal = scratchGoal.set(SHOP.door.x, 0, SHOP.door.z + 1.7);
         } else if (!inside && targetInside) {
           goal = Math.abs(current.x - SHOP.door.x) > 0.6 || current.z > SHOP.door.z + 1.9
-            ? new THREE.Vector3(SHOP.door.x, 0, SHOP.door.z + 1.7)
-            : new THREE.Vector3(SHOP.entry.x, 0, 17.0);
+            ? scratchGoal.set(SHOP.door.x, 0, SHOP.door.z + 1.7)
+            : scratchGoal.set(SHOP.entry.x, 0, 17.0);
         }
       }
-      const delta = goal.clone().sub(current); delta.y = 0;
+      const delta = scratchStep.copy(goal).sub(current); delta.y = 0;
       actor.model.root.rotation.y = angleLerp(actor.model.root.rotation.y, Math.atan2(delta.x, delta.z), 1 - Math.exp(-dt * 6));
       delta.normalize().multiplyScalar(speed * dt);
       const travelled = this.move(actor.model.root, delta, 0.45, true);
@@ -911,31 +999,20 @@ export class GameEngine {
 
   private respawn() {
     this.cancelHunting();
-    this.stairTravel = null; this.state.onStairs = false; this.state.homeFloor = 0;
-    this.state.health = 100; this.state.money = Math.max(0, this.state.money - 25);
-    if (this.state.carryingMeat) { this.state.carryingMeat = false; this.state.progress.shop = 1; }
-    this.state.shopRisk = 0; this.shopkeeper.angry = 0; this.shopkeeper.model.root.position.copy(this.shopkeeper.home);
+    this.stairTravel = null;
+    respawnPenalty(this.state);
+    this.shopkeeper.angry = 0; this.shopkeeper.model.root.position.copy(this.shopkeeper.home);
     this.world.shop.loot.visible = this.state.progress.shop < 3; this.updateEquipment();
-    this.state.inCar = false; this.state.wanted = 0;
     this.player.model.root.visible = true; this.companion.model.root.visible = true;
     this.player.model.root.position.set(-5, 0, 4); this.companion.model.root.position.set(-3, 0, 5);
     this.rurik.angry = 0; this.rurik.model.root.position.copy(this.rurik.home);
     this.bailiffs.forEach(a => { if (!a.flee) { a.model.root.position.copy(a.home); a.cooldown = 10; } });
+    this.skatte.forEach(a => { if (!a.flee) { a.model.root.position.copy(a.home); a.cooldown = 10; } });
     this.callbacks.onToast({ title: 'En ofrivillig tupplur', detail: 'Tillbaka på gården, 25 kr fattigare. Alla är hela igen.', kind: 'warning' });
     this.save();
   }
 
-  private walkableHeight(x: number, z: number, floor: 0 | 1 = 0) {
-    if (Math.abs(x - HOME.center.x) < 5.5 && Math.abs(z - HOME.center.z) < 4.05) return floor === 1 ? HOME.upperY : HOME.groundY;
-    if (x > -8.9 && x < -5.05 && z >= -1.95 && z < 0.47) return 0.70;
-    if (Math.abs(x - SHOP.center.x) < 7.03 && z > SHOP.center.z - 5.2 && z < SHOP.center.z + 5.35) return 0.155;
-    if (Math.abs(x - SHOP.center.x) < 11.5 && z >= SHOP.center.z + 5.35 && z < SHOP.center.z + 16.9) return 0.09;
-    return groundHeight(x, z);
-  }
-
-  private isInsideShop(position: THREE.Vector3) {
-    return Math.abs(position.x - SHOP.center.x) < 7.03 && position.z > SHOP.center.z - 5.2 && position.z < SHOP.center.z + 5.35;
-  }
+  private walkableHeight(x: number, z: number, floor: HomeFloor = 0) { return walkableHeight(x, z, floor); }
 
   private updateEquipment() {
     for (const avatar of ['leffe', 'bill'] as PlayerId[]) {
@@ -952,36 +1029,18 @@ export class GameEngine {
         this.player.model.arms[0].rotation.x = -1.26;
         this.player.model.arms[1].rotation.x = -1.40;
       } else {
-        rifle.position.set(0.18, 0.73, -0.31); rifle.rotation.set(0, 0, -0.37);
+        // Utanpå varselvästens ryggstycke (yttre yta z ≈ −0.35), inte inuti det.
+        rifle.position.set(0.18, 0.73, -0.40); rifle.rotation.set(0, 0, -0.37);
       }
     }
   }
 
-  private isInsideHome(position: THREE.Vector3) {
-    return Math.abs(position.x - HOME.center.x) < 5.51 && position.z > -10.01 && position.z < -1.92;
-  }
-
-  private nearFridge(position: THREE.Vector3) {
-    // Use the front of the appliance, never through the outside wall or counter.
-    return this.state.homeFloor === 0 && this.isInsideHome(position) && position.z > HOME.fridge.z + 0.55
-      && Math.hypot(position.x - HOME.fridge.x, position.z - HOME.fridge.z - 0.65) < 2.05;
-  }
-
-  private nearStairs(position: THREE.Vector3) {
-    const target = this.state.homeFloor === 1 ? HOME.stairsTop : HOME.stairsBase;
-    return this.isInsideHome(position) && Math.hypot(position.x - target.x, position.z - target.z) < 1.32;
-  }
-
-  private nearComputer(position: THREE.Vector3) {
-    return this.state.homeFloor === 1 && this.isInsideHome(position) && position.z > HOME.computer.z + 0.65
-      && Math.hypot(position.x - HOME.computer.x, position.z - HOME.computer.z - 0.75) < 1.85;
-  }
-
-  private beginStairTravel() {
+  /** Trätrappan går mellan botten- och övervåningen, loftstegen mellan Bills rum och loftet. */
+  private beginStairTravel(kind: 'stairs' | 'ladder') {
     this.cancelHunting();
-    const direction = this.state.homeFloor === 0 ? 'up' : 'down';
-    this.stairTravel = { direction, elapsed: 0, start: this.playerPosition.clone() };
-    this.state.onStairs = true; this.state.fridgeOpen = false;
+    const direction = (kind === 'stairs' ? this.state.homeFloor === 0 : this.state.homeFloor === 1) ? 'up' : 'down';
+    this.stairTravel = { direction, kind, elapsed: 0, start: this.playerPosition.clone() };
+    this.state.onStairs = true; this.state.onLadder = kind === 'ladder'; this.state.fridgeOpen = false;
     this.input.clear(); this.stopCameraDrag(); this.punchTimer = 0; this.huntingTimer = 0;
     this.cameraYaw = 0; this.cameraElevation = 0.87; this.cameraDistance = 14.8;
     this.audio.play('step'); this.emit();
@@ -990,34 +1049,59 @@ export class GameEngine {
   private updateStairTravel(dt: number) {
     const travel = this.stairTravel!;
     travel.elapsed += dt;
-    const base = new THREE.Vector3(HOME.stairsBase.x, HOME.groundY, HOME.stairsBase.z);
-    const top = new THREE.Vector3(HOME.stairsTop.x, HOME.upperY, HOME.stairsTop.z);
-    const from = travel.direction === 'up' ? base : top, to = travel.direction === 'up' ? top : base;
+    const ladder = travel.kind === 'ladder';
+    const lower = ladder ? LADDER_BASE : STAIRS_BASE, upper = ladder ? LADDER_TOP : STAIRS_TOP;
+    const from = travel.direction === 'up' ? lower : upper, to = travel.direction === 'up' ? upper : lower;
+    const lowerFloor: HomeFloor = ladder ? 1 : 0, upperFloor: HomeFloor = ladder ? 2 : 1;
+    const duration = ladder ? 2.2 : 2.85;
     if (travel.elapsed < 0.35) this.playerPosition.lerpVectors(travel.start, from, travel.elapsed / 0.35);
     else {
-      const t = THREE.MathUtils.clamp((travel.elapsed - 0.35) / 2.85, 0, 1);
+      const t = THREE.MathUtils.clamp((travel.elapsed - 0.35) / duration, 0, 1);
       this.playerPosition.lerpVectors(from, to, t);
-      const heightFraction = THREE.MathUtils.clamp((HOME.center.z + 3.06 - this.playerPosition.z) / 3.84, 0, 1);
-      this.playerPosition.y = HOME.groundY + Math.ceil(heightFraction * 14) / 14 * (HOME.upperY - HOME.groundY);
-      if (travel.direction === 'down' && t > 0.12) this.state.homeFloor = 0;
-      if (travel.direction === 'up' && t > 0.9) this.state.homeFloor = 1;
+      if (ladder) {
+        // Pinne för pinne uppför stegen: åtta steg på 2,3 meter.
+        const climbed = travel.direction === 'up' ? t : 1 - t;
+        this.playerPosition.y = HOME.upperY + Math.ceil(climbed * 8) / 8 * (HOME.loftY - HOME.upperY);
+      } else {
+        const heightFraction = THREE.MathUtils.clamp((HOME.center.z + 3.06 - this.playerPosition.z) / 3.84, 0, 1);
+        this.playerPosition.y = HOME.groundY + Math.ceil(heightFraction * 14) / 14 * (HOME.upperY - HOME.groundY);
+      }
+      if (travel.direction === 'down' && t > 0.12) this.state.homeFloor = lowerFloor;
+      if (travel.direction === 'up' && t > 0.9) this.state.homeFloor = upperFloor;
       if (t === 1) {
         this.playerPosition.copy(to);
-        this.state.homeFloor = travel.direction === 'up' ? 1 : 0;
-        this.state.onStairs = false; this.stairTravel = null; this.input.clear(); this.stopCameraDrag();
-        this.cameraElevation = this.state.homeFloor === 1 ? 0.86 : 0.90;
-        this.cameraDistance = this.state.homeFloor === 1 ? 14.5 : 13.8;
+        this.state.homeFloor = travel.direction === 'up' ? upperFloor : lowerFloor;
+        this.state.onStairs = false; this.state.onLadder = false; this.stairTravel = null; this.input.clear(); this.stopCameraDrag();
+        this.cameraElevation = this.state.homeFloor === 0 ? 0.90 : 0.86;
+        this.cameraDistance = this.state.homeFloor === 2 ? 13.6 : this.state.homeFloor === 1 ? 14.5 : 13.8;
         this.updateHome(); this.emit();
       }
     }
-    this.player.model.root.rotation.y = travel.direction === 'up' ? Math.PI : 0;
+    // Trappan går rakt in i huset (−z); stegen lutar mot loftet åt +x och klättras med ansiktet mot pinnarna.
+    this.player.model.root.rotation.y = ladder ? Math.PI / 2 : travel.direction === 'up' ? Math.PI : 0;
     animateCharacter(this.player.model, this.elapsed, 2.8, 0, 0, dt);
-    this.ring.position.copy(this.playerPosition).add(new THREE.Vector3(0, 0.035, 0));
+    above(this.playerPosition, 0.035, this.ring.position);
     if (this.activeTime - this.lastStep > 0.24) { this.audio.play('step'); this.lastStep = this.activeTime; }
   }
 
+  private toggleBreadMachine() {
+    this.state.breadMachineOn = !this.state.breadMachineOn;
+    this.world.home.loft.setRunning(this.state.breadMachineOn);
+    this.audio.play('click');
+    const bill = this.avatars.bill, leffe = this.avatars.leffe;
+    if (!this.state.breadMachineOn) {
+      this.say(bill, 'Oj. Den skulle bara gå över natten…');
+      this.say(leffe, 'Bill. Det var i julas.');
+      this.callbacks.onToast({ title: 'Bakmaskinen är avstängd', detail: 'Den har gått sedan förra julen. Limpan är numera en tegelsten och loftet luktar bränt bröd i ett år till.', kind: 'success' });
+    } else {
+      this.say(bill, 'Bara en limpa till. Jag lovar.');
+      this.callbacks.onToast({ title: 'Bakmaskinen är igång igen', detail: 'Den röda lampan blinkar och det ryker. Leffe suckar.', kind: 'info' });
+    }
+    this.save(); this.emit();
+  }
+
   private updateHome() {
-    const inside = !this.state.inCar && this.isInsideHome(this.playerPosition);
+    const inside = !this.state.inCar && isInsideHome(this.playerPosition);
     if (inside !== this.state.insideHome) {
       if (inside) {
         this.homeCamera = { elevation: this.cameraElevation, distance: this.cameraDistance };
@@ -1029,22 +1113,24 @@ export class GameEngine {
     }
     this.state.insideHome = inside;
     if (!inside) {
-      this.state.fridgeOpen = false; this.state.homeFloor = 0; this.state.onStairs = false;
+      this.state.fridgeOpen = false; this.state.homeFloor = 0; this.state.onStairs = false; this.state.onLadder = false;
       this.stairTravel = null; this.state.computerOn = false; this.world.home.upstairs.computer.setPowered(false);
     }
     this.world.home.shell.visible = !inside;
     this.world.home.interior.visible = inside;
     this.world.home.staircase.visible = inside;
-    this.world.home.upstairs.root.visible = inside && this.state.homeFloor === 1;
+    // Övervåningen syns även från loftet (loftet är ett halvplan ovanför Bills rum), loftet bara uppifrån.
+    this.world.home.upstairs.root.visible = inside && this.state.homeFloor >= 1;
+    this.world.home.loft.root.visible = inside && this.state.homeFloor === 2;
   }
 
   private updateShop(dt: number) {
     this.updateHome();
     if (!this.state.onStairs) this.playerPosition.y = this.walkableHeight(this.playerPosition.x, this.playerPosition.z, this.state.homeFloor);
-    const inside = !this.state.inCar && this.isInsideShop(this.playerPosition);
+    const inside = !this.state.inCar && isInsideShop(this.playerPosition);
     if (inside !== this.state.insideShop) {
       if (inside) {
-        this.shopCamera = { elevation: this.cameraElevation, distance: this.cameraDistance };
+        this.shopCamera = { elevation: this.cameraElevation, distance: this.cameraDistance }; // tillåten allokering: bara när man kliver in i butiken
         this.cameraYaw = 0; this.cameraElevation = 0.91; this.cameraDistance = 14.8;
       } else if (this.shopCamera) {
         this.cameraElevation = this.shopCamera.elevation; this.cameraDistance = this.shopCamera.distance;
@@ -1054,20 +1140,14 @@ export class GameEngine {
       this.world.shop.structure.visible = !inside;
     }
     this.updateEquipment();
-    if (!this.state.carryingMeat) { this.state.shopRisk = Math.max(0, this.state.shopRisk - dt * 20); return; }
-    const away = Math.hypot(this.playerPosition.x - SHOP.center.x, this.playerPosition.z - SHOP.center.z);
-    const clerkDistance = distance(this.playerPosition, this.shopkeeper.model.root.position);
-    if (away > 29) this.shopkeeper.angry = 0;
-    const noticed = this.shopkeeper.stunned <= 0 && this.shopkeeper.angry > 0 && (inside || clerkDistance < 7);
-    this.state.shopRisk = THREE.MathUtils.clamp(this.state.shopRisk + dt * (noticed ? 15 : -20), 0, 100);
-    if (this.state.shopRisk >= 100 && inside && this.activeTime > this.shopGraceUntil) this.caughtInShop();
+    if (this.state.carryingMeat && distance(this.playerPosition, SHOP.center) > SHOP_CLERK_FORGET_DISTANCE) this.shopkeeper.angry = 0;
+    const noticed = this.state.carryingMeat && clerkNotices(this.shopkeeper.angry, this.shopkeeper.stunned, inside, distance(this.playerPosition, this.shopkeeper.model.root.position));
+    if (shopRiskStep(this.state, dt, noticed, inside, this.activeTime > this.shopGraceUntil) === 'caught') this.caughtInShop();
   }
 
   private caughtInShop() {
-    if (!this.state.carryingMeat) return;
-    this.state.carryingMeat = false; this.state.shopRisk = 0; this.state.progress.shop = 1;
-    this.state.money = Math.max(0, this.state.money - 20); this.state.wanted = Math.max(0, this.state.wanted - 1);
-    this.state.waypoint = 'market'; this.world.shop.loot.visible = true; this.updateEquipment();
+    if (!caughtInShop(this.state)) return;
+    this.world.shop.loot.visible = true; this.updateEquipment();
     this.player.model.root.position.set(SHOP.door.x, 0, SHOP.door.z + 2.7);
     this.companion.model.root.position.set(SHOP.door.x + 2.7, 0, SHOP.door.z + 3.0);
     this.shopkeeper.model.root.position.copy(this.shopkeeper.home); this.shopkeeper.angry = 0; this.shopkeeper.cooldown = 2;
@@ -1078,39 +1158,34 @@ export class GameEngine {
     this.save(); this.emit();
   }
 
+  /** Uppdragsövergångar räknas ut i rules.ts; här kopplas de till toasts, repliker och rekvisita. */
   private updateProgress() {
-    const p = this.playerPosition;
-    if (Math.hypot(p.x - SHOP.center.x, p.z - SHOP.center.z) < 17 && this.state.progress.shop === 0) {
-      this.state.progress.shop = 1;
-      this.callbacks.onToast({ title: 'Myrboden', detail: 'Parkera bilen och gå fram till entrén. E öppnar butiksäventyret.', kind: 'info' });
-      this.save();
-    }
-    if (this.state.carryingMeat && Math.hypot(p.x - 2, p.z - 6) < 14) {
-      this.state.carryingMeat = false; this.state.shopRisk = 0;
-      this.shopkeeper.angry = 0; this.state.wanted = Math.max(0, this.state.wanted - 2);
-      this.state.health = Math.min(100, this.state.health + 25);
-      this.updateEquipment(); this.world.shop.loot.visible = false;
-      this.complete('shop');
-      this.say(this.player, 'Det blir visst middag ändå!');
-    }
-    if (this.state.hasRifle && distance(p, new THREE.Vector3(-25, 0, -43)) < 16 && this.state.progress.hunt === 1) {
-      this.state.progress.hunt = 2;
-      this.callbacks.onToast({ title: 'Framme vid jaktmarken', detail: 'Q eller Sikta tar fram geväret. Placera siktet på älgen och klicka, tryck mellanslag eller Skjut. Du kan missa!' , kind: 'success' });
-      this.save();
-    }
-    if (distance(p, new THREE.Vector3(36, 0, -22)) < 14 && this.state.progress.rurik === 0) {
-      this.state.progress.rurik = 1;
-      this.callbacks.onToast({ title: 'Välkommen till Rurik', detail: 'Prata med E, bråka med F. Verktygslådan står på bordet.', kind: 'info' });
-      this.save();
-    }
-    if (this.toolboxTaken && this.state.progress.rurik === 2 && distance(p, new THREE.Vector3(36, 0, -22)) > 19 && distance(p, this.rurik.model.root.position) > 12) {
-      this.complete('rurik');
-      this.rurik.angry = 0;
-      this.state.wanted = Math.max(0, this.state.wanted - 1);
-    }
-    if (this.state.waypoint) {
-      const dest = DESTINATIONS.find(d => d.id === this.state.waypoint)!;
-      if (Math.hypot(p.x - dest.x, p.z - dest.z) < 6) this.state.waypoint = null;
+    // Belöningar annonseras bara när de betalas ut just nu; två uppslag i stället för en kopia av mängden.
+    const shopClaimed = this.rewardClaimed.has('shop'), rurikClaimed = this.rewardClaimed.has('rurik');
+    const ctx = this.progressContext;
+    ctx.player = this.playerPosition; ctx.toolboxTaken = this.toolboxTaken;
+    const events = advanceProgress(this.state, ctx);
+    for (const event of events) {
+      switch (event) {
+        case 'shop-discovered':
+          this.callbacks.onToast({ title: 'Myrboden', detail: 'Parkera bilen och gå fram till entrén. E öppnar butiksäventyret.', kind: 'info' });
+          this.save(); break;
+        case 'meat-delivered':
+          this.shopkeeper.angry = 0;
+          this.updateEquipment(); this.world.shop.loot.visible = false;
+          if (!shopClaimed) this.announceReward('shop');
+          this.say(this.player, 'Det blir visst middag ändå!'); break;
+        case 'hunt-arrived':
+          this.callbacks.onToast({ title: 'Framme vid jaktmarken', detail: 'Q eller Sikta tar fram geväret. Placera siktet på älgen och klicka, tryck mellanslag eller Skjut. Du kan missa!', kind: 'success' });
+          this.save(); break;
+        case 'rurik-discovered':
+          this.callbacks.onToast({ title: 'Välkommen till Rurik', detail: 'Prata med E, bråka med F. Verktygslådan står på bordet.', kind: 'info' });
+          this.save(); break;
+        case 'rurik-escaped':
+          this.rurik.angry = 0;
+          if (!rurikClaimed) this.announceReward('rurik'); break;
+        case 'waypoint-reached': break;
+      }
     }
   }
 
@@ -1121,9 +1196,10 @@ export class GameEngine {
       this.officialCar.root.position.set(THREE.MathUtils.lerp(16, 10, t), 0, THREE.MathUtils.lerp(36, 8, t));
       if (this.bailiffArrival <= 0) {
         this.state.progress.bailiff = Math.max(1, this.state.progress.bailiff);
-        this.bailiffs.forEach((a, i) => {
+        for (let i = 0; i < this.bailiffs.length; i++) {
+          const a = this.bailiffs[i];
           a.model.root.visible = true; a.model.root.position.set(11.9 + i * 1.3, 0, 7.0 - i * 2.5); a.health = 3; a.flee = false;
-        });
+        }
         this.say(this.bailiffs[0], 'Enligt vår karta går stigen här!');
         this.callbacks.onToast({ title: 'Mätarlaget är på gården', detail: 'Gå nära mätarna och tryck F för att jaga bort dem.', kind: 'warning' });
       }
@@ -1139,36 +1215,138 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Flyttar Skattemasarnas bil längs infarten till parametern u (0 = vägen,
+   * 1 = gården). Hjulen snurrar med farten och framhjulen styr i svängarna,
+   * så bilen kör som en bil i stället för att glida som en klump.
+   */
+  private moveSkatteCarAlongPath(u: number, dt: number, reverse = false) {
+    scratchSkatteBefore.copy(this.skatteCar.root.position);
+    this.skattePathU = u;
+    sampleSkattePath(u, this.skatteCar.root.position);
+    sampleSkattePath(u < 0.97 ? u + 0.03 : u - 0.03, scratchSkatteNext);
+    const dirSign = u < 0.97 ? 1 : -1;
+    const heading = Math.atan2(dirSign * (scratchSkatteNext.x - this.skatteCar.root.position.x), dirSign * (scratchSkatteNext.z - this.skatteCar.root.position.z));
+    const turn = Math.atan2(Math.sin(heading - this.skatteCar.root.rotation.y), Math.cos(heading - this.skatteCar.root.rotation.y));
+    this.skatteCar.root.rotation.y = angleLerp(this.skatteCar.root.rotation.y, heading, 1 - Math.exp(-dt * 3.2));
+    for (const wheel of this.skatteCar.frontWheels) wheel.rotation.y = THREE.MathUtils.clamp(turn * 1.6, -0.38, 0.38);
+    const spin = (reverse ? -1 : 1) * distance(scratchSkatteBefore, this.skatteCar.root.position) / 0.45;
+    for (const wheel of this.skatteCar.wheels) for (const part of wheel.children) part.rotation.x += spin;
+  }
+
+  /**
+   * Skattemasarnas besök — det korta klippet: bilen rullar in på gården 13
+   * sekunder efter start, inspektörerna kliver ur medan kameran följer dem,
+   * stämmer av era inkomster en stund och åker sedan vidare. Ingen peng
+   * byter händ; bara tid, repliker och en kameraåkning.
+   */
+  private updateSkatte(dt: number) {
+    const event = skatteVisitStep(this.skatteVisit, this.activeTime, dt);
+    if (event === 'cutscene-start') {
+      this.skatteCar.root.visible = true;
+      this.skatteCarExit = -1;
+      this.moveSkatteCarAlongPath(0, dt);
+      this.skatteLine = 0;
+      this.audio.play('warning');
+      this.callbacks.onToast({ title: 'Oväntat besök!', detail: 'Skattemasarna kommer för att stämma av era inkomster.', kind: 'warning' });
+      // Klippet klipper direkt till bilen; med nedtonade rörelser stannar kameran hos spelaren.
+      if (!this.reducedMotion) { this.cutsceneFocus = this.skatteFocus; this.cutsceneSnap = true; }
+    } else if (event === 'arrived') {
+      this.cutsceneFocus = null;
+    } else if (event === 'leave') {
+      this.say(this.skatte[0], 'Tack för att vi störde. Vi återkommer vid nästa deklaration.');
+      for (const a of this.skatte) if (!a.flee) a.goalOverride = SKATTE_CAR_DOOR;
+    } else if (event === 'done') {
+      this.cutsceneFocus = null;
+      this.skatteCarExit = this.skattePathU;
+      for (const a of this.skatte) { a.model.root.visible = false; a.goalOverride = null; }
+    }
+    const phase = this.skatteVisit.phase;
+    if (phase === 'cutscene') {
+      const raw = Math.min(1, this.skatteVisit.timer / SKATTE_CUTSCENE_SECONDS);
+      // Mjuk start och inbromsning: bilen rullar fram som en bil.
+      this.moveSkatteCarAlongPath(raw * raw * (3 - 2 * raw), dt);
+      if (this.skatteVisit.timer > SKATTE_CUTSCENE_SECONDS - 1.7 && !this.skatte[0].model.root.visible) {
+        for (let i = 0; i < this.skatte.length; i++) {
+          const a = this.skatte[i];
+          a.model.root.visible = true;
+          a.model.root.position.set(SKATTE_CAR_DOOR.x + 1.1 + i * 1.15, 0, SKATTE_CAR_DOOR.z - 1.2 - i * 2.3);
+          a.health = 3; a.flee = false; a.stunned = 0;
+        }
+        this.say(this.skatte[1], 'God dag! Vi är från Skattemasarna.');
+      }
+      // Kameran glider från bilen till inspektörerna när de kliver ur.
+      if (this.skatte[0].model.root.visible) {
+        this.skatteFocus.set((this.skatte[0].model.root.position.x + this.skatte[1].model.root.position.x) / 2, 1.7,
+          (this.skatte[0].model.root.position.z + this.skatte[1].model.root.position.z) / 2);
+      } else {
+        this.skatteFocus.set(this.skatteCar.root.position.x, 1.5, this.skatteCar.root.position.z);
+      }
+    } else if (phase === 'visit') {
+      const timer = this.skatteVisit.timer;
+      if (this.skatteLine === 0 && timer > 4.2) { this.skatteLine = 1; this.say(this.skatte[1], 'Vi har några frågor om era inkomster.'); }
+      else if (this.skatteLine === 1 && timer > 9.2) { this.skatteLine = 2; this.say(this.skatte[0], 'Allt ni tjänar ska med i deklarationen. Även köttet.'); }
+    } else if (phase === 'leave') {
+      for (const a of this.skatte) {
+        if (a.flee || !a.goalOverride) continue;
+        if (distance(a.model.root.position, a.goalOverride) < 1.5) { a.model.root.visible = false; a.goalOverride = null; }
+      }
+    }
+    // Sedan backar bilen ut längs infarten och försvinner ner på vägen.
+    if (this.skatteCarExit >= 0) {
+      this.skatteCarExit = Math.max(0, this.skatteCarExit - dt * 0.16);
+      this.moveSkatteCarAlongPath(this.skatteCarExit, dt, true);
+      if (this.skatteCarExit === 0) { this.skatteCar.root.visible = false; this.skatteCarExit = -1; }
+    }
+  }
+
   private updateEnvironment(dt: number) {
     const water = this.world.water.material as THREE.MeshStandardMaterial;
     if (water.bumpMap) water.bumpMap.offset.set(this.elapsed * .005, this.elapsed * .003);
     const fridge = this.world.home.fridge;
     fridge.door.rotation.y = THREE.MathUtils.lerp(fridge.door.rotation.y, this.state.fridgeOpen ? -1.94 : 0, 1 - Math.exp(-dt * 7.5));
     fridge.contents.visible = Math.abs(fridge.door.rotation.y) > 0.16;
-    this.world.smoke.forEach((p, i) => {
+    // Vanliga loopar i stället för forEach med pilfunktioner: inga nya closures per bildruta.
+    const { smoke, clouds, birds } = this.world;
+    for (let i = 0; i < smoke.length; i++) {
+      const p = smoke[i];
       const phase = (this.elapsed * 0.3 + i * 0.7) % 5.6;
       p.position.set(-12.6 + phase * 0.45, 8.7 + phase * 1.04, -6.8 + Math.sin(phase) * 0.15);
       p.scale.setScalar(0.5 + phase * 0.20);
       (p.material as THREE.MeshStandardMaterial).opacity = (1 - phase / 5.6) * 0.20;
-    });
-    this.world.clouds.forEach((c, i) => { c.position.x += dt * (0.09 + i * 0.005); if (c.position.x > 145) c.position.x = -145; });
-    this.world.birds.forEach((b, i) => {
+    }
+    const loft = this.world.home.loft;
+    if (loft.root.visible && this.state.breadMachineOn) {
+      // Bakmaskinen på loftet: lampan blinkar och det stiger tunn rök ur locket.
+      loft.led.emissiveIntensity = 0.5 + 0.9 * (Math.sin(this.elapsed * 6) > 0 ? 1 : 0);
+      for (let i = 0; i < loft.smoke.length; i++) {
+        const puff = loft.smoke[i];
+        const phase = (this.elapsed * 0.45 + i * 0.5) % 2.4;
+        puff.position.set(loft.smokeOrigin.x + Math.sin(phase * 2.1 + i) * 0.06, loft.smokeOrigin.y + phase * 0.42, loft.smokeOrigin.z + Math.cos(phase * 1.7) * 0.05);
+        puff.scale.setScalar(0.6 + phase * 0.55);
+        (puff.material as THREE.MeshStandardMaterial).opacity = (1 - phase / 2.4) * 0.28;
+      }
+    }
+    for (let i = 0; i < clouds.length; i++) { const c = clouds[i]; c.position.x += dt * (0.09 + i * 0.005); if (c.position.x > 145) c.position.x = -145; }
+    for (let i = 0; i < birds.length; i++) {
+      const b = birds[i];
       b.position.x = Math.sin(this.elapsed * 0.027 + i * 0.11) * 35;
       b.position.z = -33 + Math.cos(this.elapsed * 0.027 + i * 0.11) * 18;
       b.rotation.y = this.elapsed * 0.027 + i * 0.11 + Math.PI / 2;
-      b.children.forEach((w, j) => w.rotation.z = Math.sin(this.elapsed * 5.5 + i) * 0.46 * (j === 0 ? -1 : 1));
-    });
-    this.world.elk.forEach(e => {
+      const flap = Math.sin(this.elapsed * 5.5 + i) * 0.46;
+      for (let j = 0; j < b.children.length; j++) b.children[j].rotation.z = flap * (j === 0 ? -1 : 1);
+    }
+    for (const e of this.world.elk) {
       if (!e.alive) {
         if (this.activeTime > e.respawnAt) { e.alive = true; e.model.root.visible = true; }
-        return;
+        continue;
       }
       const a = this.elapsed * 0.032 + e.phase;
       e.model.root.position.x = e.origin.x + Math.sin(a) * 2.1;
       e.model.root.position.z = e.origin.z + Math.cos(a) * 1.8;
       e.model.root.rotation.y = Math.atan2(Math.cos(a), -Math.sin(a));
-      e.model.legs.forEach((leg, i) => leg.rotation.x = Math.sin(this.elapsed * 1.8 + i * 2.0) * 0.085);
-    });
+      for (let i = 0; i < e.model.legs.length; i++) e.model.legs[i].rotation.x = Math.sin(this.elapsed * 1.8 + i * 2.0) * 0.085;
+    }
     if (this.state.sound && this.elapsed - this.lastBird > 5.5) { this.audio.play('bird'); this.lastBird = this.elapsed + Math.random() * 3; }
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i]; p.life -= dt;
@@ -1178,10 +1356,12 @@ export class GameEngine {
       p.object.rotation.x += dt * 3; p.object.rotation.y += dt * 4;
       p.object.scale.setScalar(p.life / p.total);
     }
-    this.speech = this.speech.filter(s => s.until > this.elapsed);
+    // Plocka bort utgångna repliker på plats; en ny lista varje bildruta vore onödigt skräp.
+    for (let i = this.speech.length - 1; i >= 0; i--) if (this.speech[i].until <= this.elapsed) this.speech.splice(i, 1);
   }
 
   private burst(position: THREE.Vector3, color: string, count: number) {
+    if (this.reducedMotion) count = Math.min(count, 2);
     for (let i = 0; i < count; i++) {
       const p = mesh(new THREE.IcosahedronGeometry(0.07 + Math.random() * 0.13, 0), new THREE.MeshBasicMaterial({ color }), false);
       p.position.copy(position);
@@ -1200,15 +1380,24 @@ export class GameEngine {
     // The body may lean in a turn, but its contact shadow stays flat on the road.
     this.car.shadow.rotation.z = -this.car.root.rotation.z;
     this.officialCar.shadow.rotation.z = -this.officialCar.root.rotation.z;
-    const desiredTarget = this.state.started ? this.playerPosition.clone().add(new THREE.Vector3(0, this.state.inCar ? 1.25 : 1.3, 0)) : new THREE.Vector3(-1.8, 1.2, .6);
-    this.cameraTarget.lerp(desiredTarget, 1 - Math.exp(-dt * (this.state.started ? 5 : 1)));
-    if (this.state.inCar && !this.dragging && Math.abs(this.carVelocity) > 1.8) {
+    const desiredTarget = this.cutsceneFocus ?? (this.state.started ? above(this.playerPosition, this.state.inCar ? 1.25 : 1.3, scratchTarget) : INTRO_TARGET);
+    // Med nedtonade rörelser följer kameran stramare och zoomar utan långa svep.
+    // Klippets första bildruta klipper direkt till bilen i stället för att glida dit.
+    const ease = this.reducedMotion ? 4 : 1;
+    const snap = this.cutsceneSnap;
+    this.cutsceneSnap = false;
+    if (snap) this.cameraTarget.copy(desiredTarget);
+    else this.cameraTarget.lerp(desiredTarget, 1 - Math.exp(-dt * ease * (this.state.started ? 5 : 1)));
+    if (this.state.inCar && !this.dragging && !this.cutsceneFocus && Math.abs(this.carVelocity) > 1.8) {
       this.cameraYaw = angleLerp(this.cameraYaw, this.car.root.rotation.y + Math.PI, 1 - Math.exp(-dt * 1.45));
     }
-    const dist = this.state.started ? (this.state.aiming ? this.aimingDistance() : this.cameraDistance + (this.state.inCar ? 4 : 0)) : 44;
-    const elevation = this.state.started ? this.cameraElevation : this.cameraElevation - 0.06;
-    const offset = new THREE.Vector3(Math.sin(this.cameraYaw) * Math.cos(elevation) * dist, Math.sin(elevation) * dist, Math.cos(this.cameraYaw) * Math.cos(elevation) * dist);
-    positionFollowCamera(this.camera.position, this.cameraTarget, this.cameraOffset, offset, dt);
+    if (this.cutsceneFocus && !this.dragging) {
+      this.cameraYaw = angleLerp(this.cameraYaw, SKATTE_CAMERA_YAW, 1 - Math.exp(-dt * 0.9));
+    }
+    const dist = this.cutsceneFocus ? 15 : (this.state.started ? (this.state.aiming ? this.aimingDistance() : this.cameraDistance + (this.state.inCar ? 4 : 0)) : 44);
+    const elevation = this.cutsceneFocus ? 0.31 : (this.state.started ? this.cameraElevation : this.cameraElevation - 0.06);
+    const offset = scratchOffset.set(Math.sin(this.cameraYaw) * Math.cos(elevation) * dist, Math.sin(elevation) * dist, Math.cos(this.cameraYaw) * Math.cos(elevation) * dist);
+    positionFollowCamera(this.camera.position, this.cameraTarget, this.cameraOffset, offset, snap ? 2 : dt * ease);
     this.camera.position.y = Math.max(this.camera.position.y, groundHeight(this.camera.position.x, this.camera.position.z) + 2.4);
     this.camera.lookAt(this.cameraTarget);
     if (this.highQuality) {
@@ -1219,36 +1408,51 @@ export class GameEngine {
       this.shadowLight.position.set(x - 35, 58, z + 45);
       this.shadowLight.target.updateMatrixWorld();
     }
-    const visibleFocus = this.playerPosition.clone().add(new THREE.Vector3(0, this.state.inCar ? 1.1 : 1.5, 0));
+    const visibleFocus = above(this.playerPosition, this.state.inCar ? 1.1 : 1.5, scratchFocus);
     this.world.updateAimingFoliage(this.camera.position, visibleFocus, this.state.aiming ? this.aimPoint : visibleFocus);
+  }
+
+  /** Ett simuleringssteg. Anropas en eller flera gånger per bildruta. */
+  private simulate(dt: number) {
+    this.elapsed += dt;
+    this.updateEnvironment(dt);
+    if (this.state.started) {
+      this.activeTime += dt;
+      this.updatePlayer(dt);
+      this.updateShop(dt);
+      this.updateActor(this.shopkeeper, dt);
+      this.updateActor(this.companion, dt);
+      this.updateActor(this.rurik, dt);
+      for (const bailiff of this.bailiffs) this.updateActor(bailiff, dt);
+      this.updateBailiffs(dt);
+      this.updateSkatte(dt);
+      for (const inspector of this.skatte) this.updateActor(inspector, dt);
+      this.hunting.update(dt);
+      this.updateProgress();
+    } else {
+      animateCharacter(this.player.model, this.elapsed, 0, 0, 0, dt);
+      animateCharacter(this.companion.model, this.elapsed + 1, 0, 0, 0, dt);
+      animateCharacter(this.rurik.model, this.elapsed, 0, 0, 0, dt);
+      animateCharacter(this.shopkeeper.model, this.elapsed, 0, 0, 0, dt);
+      above(this.playerPosition, 0.04, this.ring.position);
+    }
+    this.updateCamera(dt);
   }
 
   private tick = (time: number) => {
     if (this.disposed) return;
-    const dt = Math.min((time - (this.previousTime || time)) / 1000, 0.05);
+    // Speltiden följer klockan även när bildrutorna är långsamma (svag telefon,
+    // programvarurenderad testkörning): en lång bildruta delas i steg om högst
+    // SIMULATION_STEP så att kollisioner och timers räknar lika oavsett bildfrekvens.
+    // Över MAX_FRAME_TIME (t.ex. efter flikbyte) saktar spelet hellre ner än hoppar.
+    let remaining = Math.min((time - (this.previousTime || time)) / 1000, MAX_FRAME_TIME);
     this.previousTime = time;
     if (!this.paused) {
-      this.elapsed += dt;
-      this.updateEnvironment(dt);
-      if (this.state.started) {
-        this.activeTime += dt;
-        this.updatePlayer(dt);
-        this.updateShop(dt);
-        this.updateActor(this.shopkeeper, dt);
-        this.updateActor(this.companion, dt);
-        this.updateActor(this.rurik, dt);
-        this.bailiffs.forEach(a => this.updateActor(a, dt));
-        this.updateBailiffs(dt);
-        this.hunting.update(dt);
-        this.updateProgress();
-      } else {
-        animateCharacter(this.player.model, this.elapsed, 0, 0, 0, dt);
-        animateCharacter(this.companion.model, this.elapsed + 1, 0, 0, 0, dt);
-        animateCharacter(this.rurik.model, this.elapsed, 0, 0, 0, dt);
-        animateCharacter(this.shopkeeper.model, this.elapsed, 0, 0, 0, dt);
-        this.ring.position.copy(this.playerPosition).add(new THREE.Vector3(0, 0.04, 0));
-      }
-      this.updateCamera(dt);
+      do {
+        const dt = Math.min(remaining, SIMULATION_STEP);
+        remaining -= dt;
+        this.simulate(dt);
+      } while (remaining > 0);
     }
     if (!this.paused || this.needsRender) {
       this.renderer.render(this.scene, this.camera);
@@ -1260,7 +1464,7 @@ export class GameEngine {
   };
 
   private project(position: THREE.Vector3) {
-    const projected = position.clone().project(this.camera);
+    const projected = scratchProject.copy(position).project(this.camera);
     return { x: (projected.x * 0.5 + 0.5) * this.element.clientWidth, y: (-projected.y * 0.5 + 0.5) * this.element.clientHeight, visible: projected.z > 0 && projected.z < 1 && Math.abs(projected.x) < 0.96 && Math.abs(projected.y) < 0.95 };
   }
 
@@ -1273,15 +1477,21 @@ export class GameEngine {
     const speaking = new Set(this.speech.map(s => s.actor?.id));
     if (!this.state.inCar) {
       for (const avatar of [this.avatars.leffe, this.avatars.bill]) {
-        if (!speaking.has(avatar.id) && avatar.model.root.visible) add(avatar.id, avatar.id === 'leffe' ? 'Leffe' : 'Bill', avatar.model.root.position.clone().add(new THREE.Vector3(0, 3.45, 0)), 'name');
+        if (!speaking.has(avatar.id) && avatar.model.root.visible) add(avatar.id, avatar.id === 'leffe' ? 'Leffe' : 'Bill', above(avatar.model.root.position, 3.45), 'name');
       }
+    }
+    if (this.state.insideHome && this.state.homeFloor === 2) {
+      add('ladder-down', 'Stegen ner · E', new THREE.Vector3(HOME.ladderTop.x, HOME.loftY + 1.35, HOME.ladderTop.z + 0.1), 'target');
+      add('bread-machine', this.state.breadMachineOn ? 'Bills bakmaskin · igång sedan i julas' : 'Bills bakmaskin · avstängd', new THREE.Vector3(HOME.breadMachine.x, HOME.loftY + 1.95, HOME.breadMachine.z), 'target');
+      return labels;
     }
     if (this.state.insideHome && this.state.homeFloor === 1) {
       add('stairs-down', 'Trappan ner · E', new THREE.Vector3(HOME.stairsTop.x, HOME.upperY + 1.20, HOME.stairsTop.z + 0.15), 'target');
       add('bill-computer', this.state.computerOn ? 'Bills dator · på' : 'Bills gamla dator · E', new THREE.Vector3(HOME.computer.x, HOME.upperY + 2.52, HOME.computer.z), 'target');
+      add('loft-ladder', 'Loftstegen · E', new THREE.Vector3(HOME.ladderBase.x, HOME.upperY + 2.30, HOME.ladderBase.z), 'target');
       return labels;
     }
-    if (distance(this.playerPosition, this.car.root.position) < 22 && !this.state.inCar) add('sedan', 'Blå faran · sedan', this.car.root.position.clone().add(new THREE.Vector3(0, 2.70, 0)), 'car');
+    if (distance(this.playerPosition, this.car.root.position) < 22 && !this.state.inCar) add('sedan', 'Blå faran · sedan', above(this.car.root.position, 2.70), 'car');
     if (this.state.started && Math.hypot(this.playerPosition.x - HOME.center.x, this.playerPosition.z - HOME.center.z) < 28) {
       if (!this.state.insideHome) add('home-door', this.state.hasRifle ? 'Vännernas stuga' : 'Huset · hämta geväret', new THREE.Vector3(HOME.door.x, 4.5, -1.0), 'target');
       if (this.state.insideHome && !this.state.hasRifle) add('rifle', 'Jaktgeväret', new THREE.Vector3(HOME.rifle.x, 2.94, HOME.rifle.z), 'target');
@@ -1293,18 +1503,17 @@ export class GameEngine {
       if (!this.state.insideShop) add('market', 'Myrboden', new THREE.Vector3(SHOP.door.x, 4.6, SHOP.door.z - 1), 'target');
       if (this.state.insideShop && !this.state.carryingMeat && this.state.progress.shop < 3) add('meat', 'Köttdisken', new THREE.Vector3(SHOP.meat.x, 2.3, SHOP.meat.z), 'target');
       if (this.state.insideShop) add('shop-exit', 'Utgång', new THREE.Vector3(SHOP.entry.x, 0.65, SHOP.entry.z + 0.7), 'target');
-      if (!speaking.has('shopkeeper')) add('shopkeeper', this.shopkeeper.angry > 0 ? 'Marta · förbannad' : 'Marta · handlaren', this.shopkeeper.model.root.position.clone().add(new THREE.Vector3(0, 3.25, 0)), 'name');
+      if (!speaking.has('shopkeeper')) add('shopkeeper', this.shopkeeper.angry > 0 ? 'Marta · förbannad' : 'Marta · handlaren', above(this.shopkeeper.model.root.position, 3.25), 'name');
     }
-    if (this.state.started && distance(this.playerPosition, this.rurik.model.root.position) < 18 && !speaking.has('rurik')) add('rurik', this.rurik.angry > 0 ? 'Rurik · förbannad' : 'Rurik', this.rurik.model.root.position.clone().add(new THREE.Vector3(0, 3.25, 0)), 'name');
-    if (this.state.started && !this.toolboxTaken && distance(this.playerPosition, this.world.toolbox.position) < 18) add('toolbox', 'Ruriks verktygslåda', this.world.toolbox.position.clone().add(new THREE.Vector3(0, 1.4, 0)), 'target');
+    if (this.state.started && distance(this.playerPosition, this.rurik.model.root.position) < 18 && !speaking.has('rurik')) add('rurik', this.rurik.angry > 0 ? 'Rurik · förbannad' : 'Rurik', above(this.rurik.model.root.position, 3.25), 'name');
+    if (this.state.started && !this.toolboxTaken && distance(this.playerPosition, this.world.toolbox.position) < 18) add('toolbox', 'Ruriks verktygslåda', above(this.world.toolbox.position, 1.4), 'target');
     if (this.state.started) for (const elk of this.world.elk) {
-      if (elk.alive && distance(this.playerPosition, elk.model.root.position) < 25) add(`elk-${elk.phase}`, 'Skogens konung', elk.model.root.position.clone().add(new THREE.Vector3(0, 4.8, 0)), 'target');
+      if (elk.alive && distance(this.playerPosition, elk.model.root.position) < 25) add(`elk-${elk.phase}`, 'Skogens konung', above(elk.model.root.position, 4.8), 'target');
     }
-    for (const b of this.bailiffs) if (b.model.root.visible && !speaking.has(b.id) && distance(this.playerPosition, b.model.root.position) < 25) add(b.id, b.flee ? 'På väg härifrån' : 'Mätarlaget', b.model.root.position.clone().add(new THREE.Vector3(0, 3.3, 0)), 'target');
+    for (const b of this.bailiffs) if (b.model.root.visible && !speaking.has(b.id) && distance(this.playerPosition, b.model.root.position) < 25) add(b.id, b.flee ? 'På väg härifrån' : 'Mätarlaget', above(b.model.root.position, 3.3), 'target');
+    for (const s of this.skatte) if (s.model.root.visible && !speaking.has(s.id) && distance(this.playerPosition, s.model.root.position) < 25) add(s.id, s.flee ? 'På väg härifrån' : 'Skattemasarna', above(s.model.root.position, 3.3), 'target');
     for (const s of this.speech) {
-      const pos = s.actor ? s.actor.model.root.position.clone() : s.position.clone();
-      pos.y += this.state.inCar && s.actor === this.player ? 3.3 : 3.7;
-      add(s.id, s.text, pos, 'speech');
+      add(s.id, s.text, above(s.actor ? s.actor.model.root.position : s.position, this.state.inCar && s.actor === this.player ? 3.3 : 3.7), 'speech');
     }
     return labels;
   }
@@ -1314,18 +1523,24 @@ export class GameEngine {
     if (this.state.aiming) return 'Lägg ner geväret';
     if (this.state.inCar) return 'Kliv ur bilen';
     const p = this.playerPosition;
-    if (this.state.homeFloor === 1) {
-      if (this.nearComputer(p)) return this.state.computerOn ? 'Stäng av Bills dator' : 'Starta Bills dator';
-      return this.nearStairs(p) ? 'Gå nerför trätrappan' : null;
+    const floor = this.state.homeFloor;
+    if (floor === 2) {
+      if (nearBreadMachine(p, floor)) return this.state.breadMachineOn ? 'Stäng av bakmaskinen' : 'Sätt på bakmaskinen igen';
+      return nearLadder(p, floor) ? 'Klättra ner från loftet' : null;
     }
-    if (this.nearStairs(p)) return 'Gå upp till Bills rum';
-    if (this.isInsideHome(p) && !this.state.hasRifle && Math.hypot(p.x - HOME.rifle.x, p.z - HOME.rifle.z) < 2.4) return 'Ta jaktgeväret';
-    if (this.nearFridge(p)) return this.state.fridgeOpen ? 'Stäng kylskåpet' : 'Öppna kylskåpet';
-    if (this.isInsideHome(p) && Math.hypot(p.x - HOME.entry.x, p.z - HOME.entry.z) < 2.65) return 'Gå ut ur huset';
-    if (!this.isInsideHome(p) && Math.hypot(p.x - HOME.door.x, p.z - HOME.door.z) < 2.6) return 'Gå in i huset';
-    if (this.isInsideShop(p) && !this.state.carryingMeat && this.state.progress.shop < 3 && Math.hypot(p.x - SHOP.meat.x, p.z - SHOP.meat.z) < 3.15) return 'Försök sno köttpaketet';
-    if (this.isInsideShop(p) && Math.hypot(p.x - SHOP.entry.x, p.z - SHOP.entry.z) < 3.4) return 'Gå ut från Myrboden';
-    if (!this.isInsideShop(p) && Math.hypot(p.x - SHOP.door.x, p.z - SHOP.door.z) < 3.5) return 'Gå in på Myrboden';
+    if (floor === 1) {
+      if (nearComputer(p, floor)) return this.state.computerOn ? 'Stäng av Bills dator' : 'Starta Bills dator';
+      if (nearLadder(p, floor)) return 'Klättra upp på loftet';
+      return nearStairs(p, floor) ? 'Gå nerför trätrappan' : null;
+    }
+    if (nearStairs(p, floor)) return 'Gå upp till Bills rum';
+    if (!this.state.hasRifle && nearRifleRack(p)) return 'Ta jaktgeväret';
+    if (nearFridge(p, floor)) return this.state.fridgeOpen ? 'Stäng kylskåpet' : 'Öppna kylskåpet';
+    if (isInsideHome(p) && Math.hypot(p.x - HOME.entry.x, p.z - HOME.entry.z) < 2.65) return 'Gå ut ur huset';
+    if (!isInsideHome(p) && Math.hypot(p.x - HOME.door.x, p.z - HOME.door.z) < 2.6) return 'Gå in i huset';
+    if (isInsideShop(p) && !this.state.carryingMeat && this.state.progress.shop < 3 && Math.hypot(p.x - SHOP.meat.x, p.z - SHOP.meat.z) < 3.15) return 'Försök sno köttpaketet';
+    if (isInsideShop(p) && Math.hypot(p.x - SHOP.entry.x, p.z - SHOP.entry.z) < 3.4) return 'Gå ut från Myrboden';
+    if (!isInsideShop(p) && Math.hypot(p.x - SHOP.door.x, p.z - SHOP.door.z) < 3.5) return 'Gå in på Myrboden';
     if (!this.toolboxTaken && distance(p, this.world.toolbox.position) < 3.0) return 'Låna verktygslådan';
     if (this.world.elk.some(e => e.alive && distance(p, e.model.root.position) < 16)) return this.state.hasRifle ? 'Sikta med geväret' : 'Jaktgeväret saknas';
     if (distance(p, this.car.root.position) < 4.6) return 'Hoppa in i bilen';
@@ -1338,13 +1553,14 @@ export class GameEngine {
   private location() {
     const p = this.playerPosition;
     if (this.state.onStairs) return 'Trätrappan · mellan våningarna';
-    if (this.state.insideHome) return this.state.homeFloor === 1 ? 'Bills rum · övervåningen' : 'Inne i vännernas stuga';
+    if (this.state.insideHome) return this.state.homeFloor === 2 ? 'Loftet · under taket' : this.state.homeFloor === 1 ? 'Bills rum · övervåningen' : 'Inne i vännernas stuga';
     if (Math.hypot(p.x - SHOP.center.x, p.z - SHOP.center.z) < 21) return this.state.insideShop ? 'Inne på Myrboden' : 'Myrboden';
-    if (p.z < -35 && distance(p, new THREE.Vector3(48, 0, -49)) < 22) return 'Myrsjön';
-    if (distance(p, new THREE.Vector3(36, 0, -24)) < 19) return 'Reparationsboden';
-    if (distance(p, new THREE.Vector3(-27, 0, -44)) < 21) return 'Jaktmarken';
-    if (distance(p, new THREE.Vector3(48, 0, -49)) < 22) return 'Myrsjön';
-    if (distance(p, new THREE.Vector3(-5, 0, 0)) < 29) return 'Hemma på gården';
+    const near = (x: number, z: number, radius: number) => Math.hypot(p.x - x, p.z - z) < radius;
+    if (p.z < -35 && near(48, -49, 22)) return 'Myrsjön';
+    if (near(36, -24, 19)) return 'Reparationsboden';
+    if (near(-27, -44, 21)) return 'Jaktmarken';
+    if (near(48, -49, 22)) return 'Myrsjön';
+    if (near(-5, 0, 29)) return 'Hemma på gården';
     return 'De djupa skogarna';
   }
 
@@ -1362,7 +1578,8 @@ export class GameEngine {
     this.state.aim = { x: (this.aimNDC.x + 1) / 2, y: (1 - this.aimNDC.y) / 2 };
     this.state.shotCooldown = this.huntingTimer;
     this.state.projectiles = this.hunting.snapshot;
-    this.state.huntTargets = this.world.elk.filter(e => e.alive).map(e => ({ id: e.phase, ...this.project(e.model.root.position.clone().add(new THREE.Vector3(0, 1.82, 0))) }));
+    this.state.huntTargets = [];
+    for (const e of this.world.elk) if (e.alive) this.state.huntTargets.push({ id: e.phase, ...this.project(above(e.model.root.position, 1.82)) });
     this.state.cameraYaw = this.cameraYaw;
     this.state.cameraDistance = this.camera.position.distanceTo(this.cameraTarget);
     this.state.walkSpeed = this.state.inCar ? 0 : this.player.speed;
@@ -1373,42 +1590,23 @@ export class GameEngine {
 
   private save() {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 3, hasRifle: this.state.hasRifle, carryingMeat: this.state.carryingMeat, money: this.state.money, progress: this.state.progress, character: this.state.character, activeMission: this.state.activeMission, toolboxTaken: this.toolboxTaken }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify(serializeSave(this.state, this.toolboxTaken)));
       this.state.saved = true;
     } catch { this.state.saved = false; }
   }
 
   private load() {
-    try {
-      const data = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-      if (!data || ![1, 2, 3].includes(data.version)) return;
-      if (typeof data.money === 'number' && Number.isFinite(data.money) && data.money >= 0 && data.money <= 1000000) this.state.money = Math.floor(data.money);
-      if (data.character === 'leffe' || data.character === 'bill') this.state.character = data.character;
-      for (const id of MISSION_IDS) {
-        const value = data.progress?.[id];
-        if (Number.isInteger(value) && value >= 0 && value <= 3) this.state.progress[id] = value;
-        if (this.state.progress[id] === 3) this.rewardClaimed.add(id);
-      }
-      this.state.hasRifle = data.version >= 3 && data.hasRifle === true;
-      // Old, unfinished hunts started with a car rather than a rifle. Preserve
-      // completed rewards but require the new pickup for every unarmed hunter.
-      if (this.state.progress.hunt < 3) {
-        if (!this.state.hasRifle) this.state.progress.hunt = 0;
-        else this.state.progress.hunt = Math.max(1, this.state.progress.hunt);
-      }
-      this.world.home.rifle.visible = !this.state.hasRifle;
-      // An unfinished encounter restarts cleanly, rather than saving absent NPCs.
-      if (this.state.progress.bailiff < 3) this.state.progress.bailiff = 0;
-      if (MISSION_IDS.includes(data.activeMission)) this.state.activeMission = data.activeMission;
-      if (data.version === 1) this.state.activeMission = 'shop';
-      this.state.carryingMeat = data.carryingMeat === true && this.state.progress.shop === 2;
-      if (this.state.progress.shop === 2 && !this.state.carryingMeat) this.state.progress.shop = 1;
-      this.world.shop.loot.visible = !this.state.carryingMeat && this.state.progress.shop < 3;
-      this.updateEquipment();
-      this.toolboxTaken = data.toolboxTaken === true;
-      this.world.toolbox.visible = !this.toolboxTaken;
-      this.state.saved = true;
-    } catch { /* Invalid or blocked storage never prevents playing. */ }
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch { return; /* Blockerad lagring hindrar aldrig spelet. */ }
+    const restored = restoreSave(raw, this.state);
+    if (!restored) return;
+    for (const id of restored.claimed) this.rewardClaimed.add(id);
+    this.toolboxTaken = restored.toolboxTaken;
+    this.world.home.rifle.visible = !this.state.hasRifle;
+    this.world.home.loft.setRunning(this.state.breadMachineOn);
+    this.world.shop.loot.visible = !this.state.carryingMeat && this.state.progress.shop < 3;
+    this.world.toolbox.visible = !this.toolboxTaken;
+    this.updateEquipment();
   }
 
   reset() {
@@ -1418,14 +1616,18 @@ export class GameEngine {
     this.state = structuredClone(INITIAL_SNAPSHOT);
     this.state.ready = true; this.state.sound = sound; this.state.music = music;
     this.huntingTimer = 0; this.homeCamera = null; this.stairTravel = null;
-    this.world.home.staircase.visible = false; this.world.home.upstairs.root.visible = false;
-    this.world.home.upstairs.computer.setPowered(false);
+    this.world.home.staircase.visible = false; this.world.home.upstairs.root.visible = false; this.world.home.loft.root.visible = false;
+    this.world.home.upstairs.computer.setPowered(false); this.world.home.loft.setRunning(true);
     this.world.home.rifle.visible = true; this.world.home.shell.visible = true; this.world.home.interior.visible = false;
     this.world.home.fridge.door.rotation.y = 0; this.world.home.fridge.contents.visible = false;
     this.activeTime = 0; this.rewardClaimed.clear(); this.toolboxTaken = false;
     this.world.toolbox.visible = true; this.bailiffArrival = -1; this.bailiffFled = 0;
     this.bailiffs.forEach(a => { a.model.root.visible = false; a.flee = false; a.health = 3; a.stunned = 0; a.angry = 0; });
     this.officialCar.root.visible = false;
+    this.skatteVisit = createSkatteVisit(); this.skatteLine = 0; this.cutsceneFocus = null; this.cutsceneSnap = false;
+    this.skattePathU = 0; this.skatteCarExit = -1;
+    this.skatte.forEach(a => { a.model.root.visible = false; a.flee = false; a.health = 3; a.stunned = 0; a.angry = 0; a.goalOverride = null; });
+    this.skatteCar.root.visible = false; sampleSkattePath(0, this.skatteCar.root.position);
     this.shopkeeper.model.root.position.copy(this.shopkeeper.home); this.shopkeeper.angry = 0; this.shopkeeper.health = 3; this.shopkeeper.stunned = 0;
     this.world.shop.structure.visible = true; this.world.shop.loot.visible = true; this.shopGraceUntil = 0; this.shopCamera = null; this.updateEquipment();
     this.rurik.model.root.position.copy(this.rurik.home); this.rurik.health = 3; this.rurik.angry = 0; this.rurik.stunned = 0;

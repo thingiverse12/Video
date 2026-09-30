@@ -3,7 +3,7 @@ name: Netlify preview
 'on':
   push:
     branches:
-      - arena/01a0e99b-video
+      - arena/01a0e9e1-video
     paths:
       - .github/netlify-preview-request.json
       - .github/netlify-preview-public.pem
@@ -32,7 +32,7 @@ jobs:
     name: Build and publish a temporary Netlify preview
     if: >-
       github.repository == 'thingiverse12/Video' &&
-      github.ref == 'refs/heads/arena/01a0e99b-video' &&
+      github.ref == 'refs/heads/arena/01a0e9e1-video' &&
       (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[netlify-preview]'))
     runs-on: ubuntu-latest
     timeout-minutes: 12

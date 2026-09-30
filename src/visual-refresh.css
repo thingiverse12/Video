@@ -41,7 +41,7 @@ body { background: radial-gradient(ellipse at 15% 0%, #fffaf0 0%, #f5f2e9 48%, #
 .welcome-panel { width: 440px; top: 20%; left: 42px; color: #fff9eb; }
 .welcome-eyebrow { font-size: 9px; letter-spacing: 2px; color: #e4d9b4; margin-bottom: 17px; }
 .welcome-eyebrow>span { background: #e4a66e; box-shadow: 0 0 0 4px #e4a66e18; }
-.welcome-panel h1 { font-size: 82px; font-weight: 800; line-height: .96; letter-spacing: -.8px; color: #fff8e8; text-shadow: 0 6px 28px #091f2535; }
+.welcome-panel h1 { font-size: clamp(54px, min(6.4vw, 8.6vh), 82px); font-weight: 800; line-height: .96; letter-spacing: -.8px; color: #fff8e8; text-shadow: 0 6px 28px #091f2535; }
 .welcome-panel h1>span { color: #edc28e; white-space: nowrap; }
 .welcome-panel>p { color: #e4e8d3; line-height: 1.85; font-size: 13px; margin-top: 21px; }
 .welcome-badges { display: flex; gap: 7px; margin-top: 19px; }
@@ -102,6 +102,9 @@ body { background: radial-gradient(ellipse at 15% 0%, #fffaf0 0%, #f5f2e9 48%, #
 .shot-feedback.hit { color: #f2d193; }
 .shot-feedback.miss,.shot-feedback.blocked,.shot-feedback.person { color: #bill8d; }
 .hunting-controls { background: #faf6e9f5; border: 1px solid #fffbe2aa; border-radius: 11px; box-shadow: 0 8px 24px #173a3030; }
+/* Utan gevär på jaktmarken låg panelen "Hämta geväret i huset först" rakt över E-knappen
+   (båda centrerade nertill); på skrivbord får den plats ovanför i stället. */
+@media (pointer: fine) and (min-width: 701px) { .hunting-controls.missing-rifle { bottom: 154px; } }
 .hunting-steps { color: #7b8c6e; }
 .shoot-button { background: #d78b55; box-shadow: inset 0 1px 0 #fff0be45; }
 .shoot-button:hover { background: #c57746; }
@@ -142,8 +145,8 @@ body { background: radial-gradient(ellipse at 15% 0%, #fffaf0 0%, #f5f2e9 48%, #
 .toast strong { color: #395942; }.toast p { color: #829171; }
 .site-footer { color: #8a957f; font-size: 7px; }
 .site-footer button { color: #82916f; }
-@media(min-width:1600px){.welcome-panel{width:500px;left:48px}.welcome-panel h1{font-size:95px}.welcome-panel>p{font-size:14px}.welcome-badges>span{font-size:9px}}
-@media(max-width:1000px) and (min-width:701px){.welcome-panel{left:30px;width:360px}.welcome-panel h1{font-size:69px}.welcome-panel>p{font-size:12px}.welcome-badges{gap:5px}.welcome-badges>span{padding:6px;font-size:7px}.objective-card{width:215px}.objective-card h2{font-size:28px}}
+@media(min-width:1600px){.welcome-panel{width:500px;left:48px}.welcome-panel h1{font-size:clamp(60px,min(6vw,9.5vh),95px)}.welcome-panel>p{font-size:14px}.welcome-badges>span{font-size:9px}}
+@media(max-width:1000px) and (min-width:701px){.welcome-panel{left:30px;width:360px}.welcome-panel h1{font-size:clamp(50px,min(6.6vw,8.6vh),69px)}.welcome-panel>p{font-size:12px}.welcome-badges{gap:5px}.welcome-badges>span{padding:6px;font-size:7px}.objective-card{width:215px}.objective-card h2{font-size:28px}}
 @media(max-width:700px){
   .site-header{height:73px;padding:0 14px;gap:5px}.brand-wordmark{font-size:23px}.brand-wordmark small{font-size:5.5px;letter-spacing:1.05px}.brand-emblem{box-shadow:0 3px 9px #974e2820}
   .header-tools{gap:0}.header-tools .icon-button{width:29px;min-width:29px;height:35px}
@@ -167,6 +170,16 @@ body { background: radial-gradient(ellipse at 15% 0%, #fffaf0 0%, #f5f2e9 48%, #
 }
 @media(max-width:390px){.site-header{padding-left:12px;padding-right:12px}.main-nav>button{padding-left:6px;padding-right:6px}.welcome-badges{gap:4px}.welcome-badges>span{padding:5px;font-size:6.5px}.character-card{width:171px}}
 @media(prefers-reduced-motion:reduce){.start-button,.character-card,.icon-button{transition:none}}
+/* Låga skärmar (vanliga laptopar: 1366×768, 1280×800, 1600×900). Välkomstpanelen
+   och figurkortet delar vänsterkolumnen; utan det här hamnade startknappen under
+   kortet och gick inte att klicka. Rubriken skalar med höjden (ovan) och de
+   dekorativa märkena tas bort så att knappen alltid får plats ovanför kortet. */
+@media(max-height:900px) and (min-width:701px){
+  .welcome-badges{display:none}
+  .welcome-panel>p{margin-top:14px;line-height:1.7}
+  .start-button{margin-top:18px}
+  .welcome-footnote{margin-top:10px}
+}
 
 @media(max-width:700px){.is-playing .objective-card{width:148px;right:16px;top:74px}}
 

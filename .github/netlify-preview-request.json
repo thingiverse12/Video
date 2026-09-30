@@ -1,7 +1,7 @@
 {
   "mode": "anonymous-preview",
-  "branch": "arena/01a0e99b-video",
-  "requestId": "6e029671-fd6b-4e90-86fd-5ca418c8d351",
-  "requestedAt": "2026-09-28T20:06:16.883Z",
-  "purpose": "Publish the game with its server-side /api/ai endpoint for the current Arena session branch"
+  "branch": "arena/01a0e9e1-video",
+  "requestId": "3ab1093a-a93b-4236-9f3c-9d7e6e44eab2",
+  "requestedAt": "2026-09-29T13:52:10.675Z",
+  "purpose": "Publicera spelet från den här Arena-sessionens gren som en anonym Netlify-förhandsvisning på användarens begäran"
 }

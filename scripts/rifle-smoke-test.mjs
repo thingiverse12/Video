@@ -105,7 +105,7 @@ try {
   await approachRifle(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Spelguide', exact: true }).click();
-  await page.getByRole('button', { name: /pekskärm/ }).click();
+  await page.getByRole('button', { name: /touchkontroller här/ }).click();
   await page.locator('.touch-actions button').filter({ hasText: /^E/ }).click();
   await waitText(page, '.equipment-status', 'Gevär med');
   assert.equal((await save()).character, 'bill');

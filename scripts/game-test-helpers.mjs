@@ -64,10 +64,19 @@ export async function lowQuality(page) {
 
 /** Aim at the rendered torso projection with normal pointer input, then fire.
  * The coordinates are read-only view data, not a target/kill setter. */
+// En älg räknas som siktbar först när den är en bit in i bilden: spelets eget
+// visible-fält gäller ända ut till kanten, men där ligger HUD-panelerna över
+// kanvasen och fångar muspekaren, så siktet skulle aldrig placeras.
+const centredTarget = () => {
+  const stage = document.querySelector('.game-stage');
+  const w = stage.clientWidth, h = stage.clientHeight;
+  return JSON.parse(stage.dataset.huntTargets).find(e => e.visible && e.x > w * .18 && e.x < w * .82 && e.y > h * .12 && e.y < h * .88) ?? null;
+};
+
 export async function aimAtElk(page, touch = false) {
-  await page.waitForFunction(() => JSON.parse(document.querySelector('.game-stage').dataset.huntTargets).some(e => e.visible));
+  await page.waitForFunction(centredTarget);
   const canvas = await page.locator('.world-canvas').boundingBox();
-  const target = await page.locator('.game-stage').evaluate(el => JSON.parse(el.dataset.huntTargets).find(e => e.visible));
+  const target = await page.evaluate(centredTarget);
   const point = { x: canvas.x + target.x, y: canvas.y + target.y };
   if (touch) await page.touchscreen.tap(point.x, point.y);
   else await page.mouse.move(point.x, point.y);
@@ -77,7 +86,7 @@ export async function aimAtElk(page, touch = false) {
 export async function shootElk(page, touch = false) {
   // Arrival in a car can leave the camera looking away from the clearing.
   // Look north with the ordinary camera drag rather than rotating/aiming the game internally.
-  const visible = await page.locator('.game-stage').evaluate(el => JSON.parse(el.dataset.huntTargets).some(e => e.visible));
+  const visible = await page.evaluate(centredTarget);
   if (!visible) {
     if (await page.locator('.game-stage').getAttribute('data-aiming') === 'true') await page.keyboard.press('q');
     const yaw = Number(await page.locator('.game-stage').getAttribute('data-camera-yaw'));
@@ -100,7 +109,14 @@ export async function shootElk(page, touch = false) {
   const before = Number(await page.locator('.game-stage').getAttribute('data-shots-hit'));
   for (let attempt = 0; attempt < 3; attempt++) {
     let point = await aimAtElk(page, touch); // The sight must be placed before firing unlocks.
-    await page.waitForFunction(() => !document.querySelector('.shoot-button')?.disabled);
+    try {
+      await page.waitForFunction(() => !document.querySelector('.shoot-button')?.disabled);
+    } catch (error) {
+      // Skriv ut spelläget så att en timeout går att felsöka i efterhand.
+      const stage = await page.locator('.game-stage').evaluate(el => ({ ...el.dataset })).catch(() => null);
+      console.error('Skjutknappen låstes aldrig upp. Siktpunkt:', point, 'spelläge:', stage);
+      throw error;
+    }
     point = await aimAtElk(page, touch);
     if (process.env.SCREENSHOTS && attempt === 0) {
       const { mkdir } = await import('node:fs/promises');
@@ -111,7 +127,9 @@ export async function shootElk(page, touch = false) {
     if (touch) await page.getByRole('button', { name: 'Skjut', exact: true }).tap();
     else await page.mouse.click(point.x, point.y);
     try {
-      await page.waitForFunction(before => +document.querySelector('.game-stage').dataset.shotsHit > before, before, { timeout: 12000 });
+      // Kulan färdas i speltid; under programvarurendering (1–2 s per bildruta) kan
+      // träffen dröja närmare en halv minut i klocktid, därav den rymliga gränsen.
+      await page.waitForFunction(before => +document.querySelector('.game-stage').dataset.shotsHit > before, before, { timeout: 30000 });
       return;
     } catch (error) { if (attempt === 2) throw error; }
   }

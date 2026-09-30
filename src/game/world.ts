@@ -1,3 +1,4 @@
+import { groundHeight, LAKE, lakeRadius, ROAD_POINTS } from './terrain';
 import * as THREE from 'three';
 import { mergeStaticMeshes } from './optimize';
 import { firCanopy, meadowGrass, summerFlowers, surfaceTexture, texturedMaterial, groundDecal } from './look';
@@ -6,7 +7,8 @@ import { SHOP, HOME } from './types';
 import { createHomeInterior } from './home';
 import { beam, box, createElk, createHouse, createLogPile, createToolbox, cylinder, material, mesh, sign } from './models';
 
-export type Collider = { type: 'circle'; x: number; z: number; radius: number } | { type: 'box'; x: number; z: number; w: number; d: number };
+import type { Collider } from './colliders';
+export type { Collider };
 export interface ElkEntity { model: ReturnType<typeof createElk>; origin: THREE.Vector3; alive: boolean; respawnAt: number; phase: number; }
 export interface World {
   root: THREE.Group;
@@ -31,34 +33,29 @@ function randomGenerator(seed: number) {
   };
 }
 
-export function groundHeight(x: number, z: number) {
-  const distance = Math.sqrt(x * x + z * z);
-  const factor = Math.max(0, Math.min(1, (distance - 66) / 35));
-  return factor * (Math.sin(x * 0.04) * 3.4 + Math.cos(z * 0.057) * 2.4 + 3);
-}
-
-export const ROAD_POINTS = [
-  [[17, 52], [15, 30], [7, 12], [7, 2], [13, -8], [26, -15], [35, -17], [53, -22], [66, -40]],
-  [[7, 3], [3, -12], [-6, -23], [-18, -31], [-26, -42], [-27, -54], [-38, -68]],
-  [[30, -16], [33, -26], [37, -35], [39, -45]],
-  [[14, 27], [23, 27], [32, 29], [40, 28]],
-];
+// Markhöjd och vägar ligger i terrain.ts (ren modul utan THREE) och
+// återexporteras här för äldre importvägar.
+export { groundHeight, ROAD_POINTS };
 
 export function createWorld(): World {
   const rand = randomGenerator(43181);
   const root = new THREE.Group();
   const colliders: Collider[] = [];
-  const terrainGeo = new THREE.PlaneGeometry(230, 230, 75, 75);
+  const terrainGeo = new THREE.PlaneGeometry(230, 230, 92, 92);
   terrainGeo.rotateX(-Math.PI / 2);
   const pos = terrainGeo.getAttribute('position');
   const colors = new Float32Array(pos.count * 3);
   const col = new THREE.Color();
+  const sand = new THREE.Color('#bcb58b');
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i);
     pos.setY(i, groundHeight(x, z));
     col.set('#779664');
     const light = 0.97 + rand() * 0.055 + Math.sin(x * 0.063 + Math.sin(z * .045)) * 0.05 + Math.cos(z * .071) * .035;
     col.multiplyScalar(light);
+    // Sandig strand och sjöbotten kring Myrsjön, i stället för en platt dekal som hamnade ovanpå vattnet.
+    const shore = lakeRadius(x, z);
+    if (shore < 1.3) col.lerp(sand, 1 - THREE.MathUtils.smoothstep(shore, 0.98, 1.3));
     colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
   }
   terrainGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -150,18 +147,18 @@ export function createWorld(): World {
   }
 
   // Scandinavian spruce forest: four instanced meshes for hundreds of trees.
-  const treeData: { x: number; z: number; scale: number; rot: number; hue: number }[] = [];
+  const treeData: { x: number; z: number; base: number; scale: number; rot: number; hue: number }[] = [];
   for (let i = 0; i < 920; i++) {
     const x = (rand() - 0.5) * 198, z = (rand() - 0.5) * 198;
     if (clearing(x, z)) continue;
     const size = 0.65 + rand() * 1.0;
-    treeData.push({ x, z, scale: size, rot: rand() * Math.PI * 2, hue: rand() });
+    treeData.push({ x, z, base: groundHeight(x, z), scale: size, rot: rand() * Math.PI * 2, hue: rand() });
     if (Math.abs(x) < 85 && Math.abs(z) < 85) colliders.push({ type: 'circle', x, z, radius: 0.35 * size });
   }
   // Deliberate silhouettes frame the yard without obscuring the playable centre.
   for (const [x, z, s] of [[-27, -8, 1.65], [-29, 9, 1.4], [18, -18, 1.45], [-21, -25, 1.7], [25, 16, 1.2], [-34, 20, 1.3]]) {
     if (Math.hypot(x - SHOP.center.x, z - 21) < 20) continue;
-    treeData.push({ x, z, scale: s, rot: rand() * 6, hue: rand() });
+    treeData.push({ x, z, base: groundHeight(x, z), scale: s, rot: rand() * 6, hue: rand() });
     colliders.push({ type: 'circle', x, z, radius: 0.4 * s });
   }
   const dummy = new THREE.Object3D();
@@ -175,14 +172,16 @@ export function createWorld(): World {
   ].map(l => {
     const obj = new THREE.InstancedMesh(firCanopy(l.r, l.h), new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, roughness: .95 }), treeData.length);
     obj.castShadow = true; obj.receiveShadow = true; root.add(obj);
-    return { ...l, obj };
+    // reach: kronans radie kring sin mittpunkt, räknad en gång i stället för per bildruta.
+    return { ...l, obj, reach: Math.hypot(l.r, l.h / 2) };
   });
+  const maxReach = Math.max(...layers.map(l => l.reach)) * 1.75 + .45;
   treeData.forEach((t, i) => {
-    dummy.position.set(t.x, groundHeight(t.x, t.z) + 3.1 * t.scale, t.z);
+    dummy.position.set(t.x, t.base + 3.1 * t.scale, t.z);
     dummy.rotation.set(0, t.rot, 0); dummy.scale.setScalar(t.scale); dummy.updateMatrix();
     trunk.setMatrixAt(i, dummy.matrix);
     for (const layer of layers) {
-      dummy.position.y = groundHeight(t.x, t.z) + layer.y * t.scale;
+      dummy.position.y = t.base + layer.y * t.scale;
       dummy.updateMatrix(); layer.obj.setMatrixAt(i, dummy.matrix);
       col.set(layer.color).multiplyScalar(0.85 + t.hue * 0.30);
       layer.obj.setColorAt(i, col);
@@ -222,41 +221,53 @@ export function createWorld(): World {
   const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
   const sightLine = new THREE.Line3(), playerLine = new THREE.Line3();
   const crownCentre = new THREE.Vector3(), nearestCrown = new THREE.Vector3();
+  /** Sant om en krona med mittpunkt crownCentre och radie radius skär kamera–spelare- eller siktlinjen. */
+  const crownBlocks = (radius: number) =>
+    crownCentre.distanceToSquared(playerLine.closestPointToPoint(crownCentre, true, nearestCrown)) < radius * radius
+    || crownCentre.distanceToSquared(sightLine.closestPointToPoint(crownCentre, true, nearestCrown)) < radius * radius;
+  // Körs varje bildruta: indexerade loopar utan closures eller nya vektorer, och
+  // träd långt från linjerna avfärdas med en billig rutkontroll innan linjematten.
   const updateAimingFoliage = (camera: THREE.Vector3, focus: THREE.Vector3, aim: THREE.Vector3 | null) => {
     if (!aim && !hiddenCrowns.size && !hiddenBirches.size) return;
     playerLine.set(camera, focus);
     sightLine.set(camera, aim ?? focus);
+    const far = aim ?? focus;
+    const minX = Math.min(camera.x, focus.x, far.x) - maxReach, maxX = Math.max(camera.x, focus.x, far.x) + maxReach;
+    const minZ = Math.min(camera.z, focus.z, far.z) - maxReach, maxZ = Math.max(camera.z, focus.z, far.z) + maxReach;
     let changed = false;
-    treeData.forEach((tree, index) => {
-      const base = groundHeight(tree.x, tree.z);
-      const hidden = !!aim && layers.some(layer => {
-        crownCentre.set(tree.x, base + layer.y * tree.scale, tree.z);
-        const radius = Math.hypot(layer.r, layer.h / 2) * tree.scale + .45;
-        return crownCentre.distanceToSquared(playerLine.closestPointToPoint(crownCentre, true, nearestCrown)) < radius * radius
-          || crownCentre.distanceToSquared(sightLine.closestPointToPoint(crownCentre, true, nearestCrown)) < radius * radius;
-      });
-      if (hidden === hiddenCrowns.has(index)) return;
+    for (let index = 0; index < treeData.length; index++) {
+      const tree = treeData[index];
+      let hidden = false;
+      if (aim && tree.x > minX && tree.x < maxX && tree.z > minZ && tree.z < maxZ) {
+        for (let l = 0; l < layers.length && !hidden; l++) {
+          const layer = layers[l];
+          crownCentre.set(tree.x, tree.base + layer.y * tree.scale, tree.z);
+          hidden = crownBlocks(layer.reach * tree.scale + .45);
+        }
+      }
+      if (hidden === hiddenCrowns.has(index)) continue;
       if (hidden) hiddenCrowns.add(index); else hiddenCrowns.delete(index);
       dummy.rotation.set(0, tree.rot, 0);
       dummy.scale.setScalar(hidden ? 0 : tree.scale);
-      for (const layer of layers) {
-        dummy.position.set(tree.x, base + layer.y * tree.scale, tree.z);
-        dummy.updateMatrix(); layer.obj.setMatrixAt(index, dummy.matrix);
+      for (let l = 0; l < layers.length; l++) {
+        dummy.position.set(tree.x, tree.base + layers[l].y * tree.scale, tree.z);
+        dummy.updateMatrix(); layers[l].obj.setMatrixAt(index, dummy.matrix);
       }
       changed = true;
-    });
-    if (changed) for (const layer of layers) layer.obj.instanceMatrix.needsUpdate = true;
+    }
+    if (changed) for (let l = 0; l < layers.length; l++) layers[l].obj.instanceMatrix.needsUpdate = true;
     let birchChanged = false;
-    birchPositions.forEach(([x, z, scale], index) => {
+    for (let index = 0; index < birchPositions.length; index++) {
+      const birch = birchPositions[index];
+      const x = birch[0], z = birch[1], scale = birch[2];
       crownCentre.set(x, 6.9 * scale, z);
       const radius = 3.35 * scale;
-      const hidden = !!aim && (crownCentre.distanceToSquared(playerLine.closestPointToPoint(crownCentre, true, nearestCrown)) < radius * radius
-        || crownCentre.distanceToSquared(sightLine.closestPointToPoint(crownCentre, true, nearestCrown)) < radius * radius);
-      if (hidden === hiddenBirches.has(index)) return;
+      const hidden = !!aim && x > minX && x < maxX && z > minZ && z < maxZ && crownBlocks(radius);
+      if (hidden === hiddenBirches.has(index)) continue;
       if (hidden) hiddenBirches.add(index); else hiddenBirches.delete(index);
       for (let j = 0; j < 5; j++) birchLeaves.setMatrixAt(index * 5 + j, hidden ? hiddenMatrix : birchMatrices[index * 5 + j]);
       birchChanged = true;
-    });
+    }
     if (birchChanged) birchLeaves.instanceMatrix.needsUpdate = true;
   };
 
@@ -291,7 +302,7 @@ export function createWorld(): World {
   root.add(home);
   mergeStaticMeshes(home);
   const homeRoom = createHomeInterior();
-  root.add(homeRoom.interior, homeRoom.staircase, homeRoom.upstairs.root);
+  root.add(homeRoom.interior, homeRoom.staircase, homeRoom.upstairs.root, homeRoom.loft.root);
   colliders.push(
     { type: 'box', x: -15.5, z: -6, w: 0.24, d: 8.25 },
     { type: 'box', x: -4.5, z: -6, w: 0.24, d: 8.25 },
@@ -426,18 +437,19 @@ export function createWorld(): World {
     elk.push({ model, origin: new THREE.Vector3(x, 0, z), alive: true, respawnAt: 0, phase });
   }
 
-  // Myrsjön: a glassy lake, reed beds, and a timber jetty.
-  patch(55, -52, 20.5, 16.2, '#bcb58b');
+  // Myrsjön: en blank sjö i en sänka (se groundHeight), vassruggar och en timmerbrygga.
+  // Vattenytan ligger strax under den platta marknivån; marken sluttar ner genom ytan så att
+  // strandlinjen blir mjuk i stället för en kant där vattnet svävar ovanpå gräset.
   const water = mesh(new THREE.CircleGeometry(1, 50), new THREE.MeshStandardMaterial({ color: '#447f88', bumpMap: surfaceTexture('water'), bumpScale: .16, roughness: .25, metalness: .34, transparent: true, opacity: .94 }), false);
-  water.rotation.x = -Math.PI / 2; water.scale.set(19.2, 14.8, 1); water.position.set(55, 0.09, -52); root.add(water);
+  water.rotation.x = -Math.PI / 2; water.scale.set(LAKE.rx, LAKE.rz, 1); water.position.set(LAKE.x, LAKE.surfaceY, LAKE.z); root.add(water);
   // Water is not walkable; the western bank and jetty remain accessible.
   colliders.push({ type: 'circle', x: 57, z: -53, radius: 13.3 });
   for (let j = 0; j < 8; j++) box(root, 3.3, 0.17, 0.69, '#a79977', 40.2 + j * 0.58, 0.41, -44).rotation.y = Math.PI / 2;
-  for (const x of [40, 44]) for (const z of [-45.4, -42.6]) cylinder(root, 0.10, 0.12, 1.0, '#796f50', x, 0.37, z, 6);
+  for (const x of [40, 44]) for (const z of [-45.4, -42.6]) cylinder(root, 0.10, 0.12, 1.6, '#796f50', x, 0.07, z, 6);
   for (let j = 0; j < 90; j++) {
-    const a = rand() * Math.PI * 2, r = 0.97 + rand() * 0.10;
-    const x = 55 + Math.cos(a) * 19.3 * r, z = -52 + Math.sin(a) * 14.8 * r;
-    cylinder(root, 0.012, 0.026, 0.7 + rand() * 0.7, '#77814c', x, 0.45, z, 4);
+    const a = rand() * Math.PI * 2, r = 0.96 + rand() * 0.10, height = 0.7 + rand() * 0.7;
+    const x = LAKE.x + Math.cos(a) * LAKE.rx * r, z = LAKE.z + Math.sin(a) * LAKE.rz * r;
+    cylinder(root, 0.012, 0.026, height, '#77814c', x, groundHeight(x, z) + height / 2 - 0.05, z, 4);
   }
 
   // Instanced meadow tufts and pale granite: density without thousands of draw calls.
@@ -486,6 +498,6 @@ export function createWorld(): World {
     }
     bird.position.set(3 + i * 2, 19 + i * 0.3, -30 + i); root.add(bird); birds.push(bird);
   }
-  mergeStaticMeshes(root, new Set<THREE.Object3D>([...elk.map(e => e.model.root), toolbox, home, homeRoom.interior, homeRoom.staircase, homeRoom.upstairs.root, shop.structure, shop.loot, ...smoke, ...clouds, water, ...birds]));
+  mergeStaticMeshes(root, new Set<THREE.Object3D>([...elk.map(e => e.model.root), toolbox, home, homeRoom.interior, homeRoom.staircase, homeRoom.upstairs.root, homeRoom.loft.root, shop.structure, shop.loot, ...smoke, ...clouds, water, ...birds]));
   return { root, colliders, elk, toolbox, smoke, clouds, water, birds, shop, updateAimingFoliage, home: { shell: home, ...homeRoom } };
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describeAiConfig, handleAiRequest, readAiConfig, DEFAULT_SYSTEM_PROMPT, MAX_PROMPT_CHARS } from '../server/ai-core.mjs';
+import { clientAddress, createRateLimiter, describeAiConfig, handleAiRequest, readAiConfig, DEFAULT_SYSTEM_PROMPT, MAX_PROMPT_CHARS, RATE_LIMIT_MAX_REQUESTS, REQUEST_TIMEOUT_MS } from '../server/ai-core.mjs';
 
 // No network calls and no real keys: every provider response below is a fixture.
 const FAKE_KEY = 'sk-test-only-not-a-real-key-0123456789';
@@ -168,6 +168,77 @@ async function scanBrowserSources(directory) {
   }
 }
 await scanBrowserSources(join(workspace, 'src'));
+
+// 11. Gräns per anropare: anrop 21 inom en minut får 429; andra anropare och
+// nästa minut påverkas inte. Klockan och räknaren är injicerade, så testet
+// varken väntar eller delar räknare med resten av filen.
+{
+  const limiter = createRateLimiter();
+  const start = 1_700_000_000_000;
+  const quickFetch = fakeFetch({ choices: [{ message: { content: 'Ok.' } }] });
+  const call = (clientIp, now, body = { prompt: 'Hej där' }) => handleAiRequest({ method: 'POST', body, env: { AI_API_KEY: FAKE_KEY, AI_PROVIDER: 'openai' }, fetchImpl: quickFetch, clientIp, limiter, now });
+  let last;
+  for (let i = 1; i <= RATE_LIMIT_MAX_REQUESTS; i++) last = await call('203.0.113.7', start + i * 1000);
+  ok(`${RATE_LIMIT_MAX_REQUESTS} anrop inom en minut går igenom`, last.status === 200);
+  const blocked = await call('203.0.113.7', start + 21_000);
+  ok('anrop 21 inom en minut får 429 rate-limited', blocked.status === 429 && blocked.json.error === 'rate-limited');
+  ok('429 säger på svenska hur länge man ska vänta', /För många anrop/.test(blocked.json.message) && /\d+ sekunder/.test(blocked.json.message));
+  ok('429 har retry-after i sekunder', blocked.headers['retry-after'] === String(blocked.json.retryAfterSeconds) && blocked.json.retryAfterSeconds >= 1 && blocked.json.retryAfterSeconds <= 60);
+  ok('nekade anrop når aldrig leverantören', quickFetch.calls.length === RATE_LIMIT_MAX_REQUESTS);
+  ok('en annan anropare påverkas inte', (await call('198.51.100.9', start + 21_000)).status === 200);
+  ok('GET-status räknas inte mot gränsen', (await handleAiRequest({ method: 'GET', env: {}, clientIp: '203.0.113.7', limiter, now: start + 22_000 })).status === 200);
+  ok('efter en minut släpps samma anropare in igen', (await call('203.0.113.7', start + 61_001)).status === 200);
+  for (let i = 1; i <= RATE_LIMIT_MAX_REQUESTS; i++) await call('192.0.2.1', start + i * 100, '{nope');
+  const afterJunk = await call('192.0.2.1', start + 5000);
+  ok('även ogiltiga anrop räknas, så skräp kan inte hålla funktionen upptagen', afterJunk.status === 429);
+  ok('okänd anropare hamnar i en gemensam hink i stället för att slippa gränsen', limiter.hit('', start).limit === RATE_LIMIT_MAX_REQUESTS && limiter.hit(undefined, start).remaining === RATE_LIMIT_MAX_REQUESTS - 2);
+  const tiny = createRateLimiter({ limit: 1, windowMs: 1000, maxKeys: 3 });
+  for (let i = 0; i < 6; i++) tiny.hit(`ip-${i}`, start + i);
+  ok('räknaren växer inte utan gräns', tiny.size <= 3);
+  ok('statussvaret berättar om gränsen', describeAiConfig(readAiConfig({})).limitPerMinute === RATE_LIMIT_MAX_REQUESTS);
+}
+
+// 12. Tidsgräns: ett hängande leverantörssvar ger 504 i stället för en hängande förfrågan.
+{
+  const hangingFetch = (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
+  });
+  const started = Date.now();
+  const timedOut = await handleAiRequest({ method: 'POST', body: { prompt: 'Hej där' }, env: { AI_API_KEY: FAKE_KEY }, fetchImpl: hangingFetch, timeoutMs: 60, clientIp: '203.0.113.8', limiter: createRateLimiter() });
+  ok('ett hängande svar ger 504 upstream-timeout', timedOut.status === 504 && timedOut.json.error === 'upstream-timeout');
+  ok('504 kommer så snart tidsgränsen gått, inte senare', Date.now() - started < 5000);
+  ok('504 förklarar på svenska utan att nämna nyckeln', /svarade inte inom/.test(timedOut.json.message) && !json(timedOut).includes(FAKE_KEY));
+  ok('tidsgränsen mot leverantören är 15 sekunder', REQUEST_TIMEOUT_MS === 15_000);
+}
+
+// 13. Båda värdadaptrarna skickar med anroparens adress, så gränsen gäller där också.
+{
+  ok('Netlify-rubriken vinner över x-forwarded-for', clientAddress(new Headers({ 'x-nf-client-connection-ip': '203.0.113.1', 'x-forwarded-for': '198.51.100.1' })) === '203.0.113.1');
+  ok('första adressen i x-forwarded-for används (Vercel)', clientAddress({ 'x-forwarded-for': '203.0.113.2, 10.0.0.1' }) === '203.0.113.2');
+  ok('x-real-ip och reservvärde fungerar', clientAddress({ 'x-real-ip': '203.0.113.3' }) === '203.0.113.3' && clientAddress({}, '203.0.113.4') === '203.0.113.4');
+  ok('utan uppgift blir anroparen unknown', clientAddress(undefined) === 'unknown' && clientAddress({}) === 'unknown');
+
+  process.env.AI_API_KEY = FAKE_KEY; process.env.AI_PROVIDER = 'openai';
+  const realFetch2 = globalThis.fetch;
+  globalThis.fetch = fakeFetch({ choices: [{ message: { content: 'Hej.' } }] });
+  try {
+    let netlifyLast;
+    for (let i = 0; i <= RATE_LIMIT_MAX_REQUESTS; i++) {
+      netlifyLast = await netlifyHandler(new Request('https://gramyren.test/api/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: 'Hej där' }) }), { ip: '203.0.113.77' });
+    }
+    ok('Netlify-adaptern nekar anrop 21 från samma IP med 429', netlifyLast.status === 429 && netlifyLast.headers.get('retry-after') !== null);
+    let vercelLast;
+    for (let i = 0; i <= RATE_LIMIT_MAX_REQUESTS; i++) {
+      vercelLast = { statusCode: 0, headers: {}, body: '', setHeader(n, v) { this.headers[n] = v; }, status(c) { this.statusCode = c; return this; }, send(b) { this.body = b; return this; } };
+      await vercelHandler({ method: 'POST', body: { prompt: 'Hej där' }, headers: { 'x-forwarded-for': '203.0.113.88, 10.1.1.1' } }, vercelLast);
+    }
+    ok('Vercel-adaptern nekar anrop 21 från samma IP med 429', vercelLast.statusCode === 429 && typeof vercelLast.headers['retry-after'] === 'string');
+    ok('Vercel-adaptern läser första adressen i x-forwarded-for', JSON.parse(vercelLast.body).error === 'rate-limited');
+  } finally {
+    globalThis.fetch = realFetch2;
+    delete process.env.AI_API_KEY; delete process.env.AI_PROVIDER;
+  }
+}
 
 console.log(`✓ ${checks} kontroller av API-endpointen gick igenom`);
 console.log('✓ Ingen nyckel finns i webbläsarkoden, i svaren eller i felloggen');

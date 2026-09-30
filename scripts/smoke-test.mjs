@@ -115,7 +115,7 @@ try {
   assert.equal(await page.locator('.wallet strong').innerText(), '740');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal overflow on mobile');
   await page.getByRole('button', { name: 'Spelguide', exact: true }).click();
-  await page.getByRole('button', { name: /pekskärm/ }).click();
+  await page.getByRole('button', { name: /touchkontroller här/ }).click();
   assert.equal(await page.locator('.touch-controls.force-visible').count(), 1);
   console.log('✓ Saved state reloads and mobile touch controls are available');
 

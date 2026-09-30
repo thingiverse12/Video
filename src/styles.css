@@ -50,7 +50,7 @@
 
 @media(max-width:700px){.game-stage:has(.touch-controls.force-visible) .interact-prompt{bottom:94px;left:16px;transform:none;max-width:calc(100% - 145px);font-size:8px;gap:6px}.game-stage:has(.touch-controls.force-visible) .interact-prompt>svg{display:none}}
 
-.home-hud.upstairs .home-hud-icon{color:#627b71;background:#e1e7d5}.home-hud.upstairs small{color:#829079}
+.home-hud.upstairs .home-hud-icon{color:#627b71;background:#e1e7d5}.home-hud.upstairs small{color:#829079}.home-hud.loft .home-hud-icon{color:#9a5a2c;background:#f3e4cf}.home-hud.loft small{color:#a3805a}
 
 /* Keep the independent music and effects controls usable on narrow screens. */
 .music-toggle:not(.enabled){color:#969e8b}.music-toggle.enabled{color:#466440;background:#dce7d0}
