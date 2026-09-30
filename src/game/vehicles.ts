@@ -30,7 +30,8 @@ function loft(sections: { z: number; w: number; top: number; bottom: number }[])
 }
 
 /** Original, unbadged blue four-door sedan with a separate boot. */
-export function createCar(color = '#7195b4', official = false, name = official ? 'mätarlagets terrängbil' : 'blå sedan — Blå faran'): CarModel {
+export function createCar(color = '#7195b4', official = false, name = official ? 'mätarlagets terrängbil' : 'blå sedan — Blå faran',
+  plate = official ? 'GM 108' : 'GM 248', mark: string | null = official ? 'FÄLTMÄTNING' : null): CarModel {
   const root = new THREE.Group(); root.name = name;
   const shadow = contactShadow(3.35, 6.45, .38); shadow.rotation.reorder('ZXY'); root.add(shadow);
   // Sun-faded, slightly chalky light blue paint rather than a glossy new finish.
@@ -51,20 +52,20 @@ export function createCar(color = '#7195b4', official = false, name = official ?
     { z: 2.44, w: 0.95, bottom: 0.58, top: 1.10 },
   ]), paint); root.add(body);
   roundedBox(root, 1.92, 0.14, 4.75, dark, 0, 0.55, 0.02, 0.05);
-  // Square four-door cabin, raked rear glass and a clearly separate horizontal boot.
-  // The roof stops before the boot; this is not a long-roof wagon.
+  // Balanced three-box proportions: long bonnet, compact cabin, long flat boot.
+  // The roof stops well before the boot; this is not a long-roof wagon.
   root.add(mesh(loft([
-    { z: -1.72, w: 0.88, bottom: 1.19, top: 1.20 },
-    { z: -1.40, w: 0.85, bottom: 1.19, top: 1.90 },
-    { z: -0.41, w: 0.87, bottom: 1.19, top: 1.93 },
-    { z: 0.35, w: 0.86, bottom: 1.19, top: 1.90 },
-    { z: 1.04, w: 0.92, bottom: 1.16, top: 1.23 },
+    { z: -1.34, w: 0.88, bottom: 1.19, top: 1.20 },
+    { z: -1.02, w: 0.85, bottom: 1.19, top: 1.76 },
+    { z: -0.32, w: 0.87, bottom: 1.19, top: 1.80 },
+    { z: 0.28, w: 0.86, bottom: 1.19, top: 1.76 },
+    { z: 0.85, w: 0.92, bottom: 1.16, top: 1.23 },
   ]), paint));
-  roundedBox(root, 1.67, 0.075, 1.84, paint, 0, 1.92, -0.51, 0.022);
-  roundedBox(root, 1.94, 0.075, 0.74, paint, 0, 1.245, -2.08, 0.012);
+  roundedBox(root, 1.64, 0.075, 1.36, paint, 0, 1.79, -0.37, 0.022);
+  roundedBox(root, 1.94, 0.075, 1.08, paint, 0, 1.245, -1.89, 0.012);
   // Thin shut-lines sit above the body, so the separate boot lid remains visible.
-  beam(root, new THREE.Vector3(-0.78, 1.291, -1.80), new THREE.Vector3(0.78, 1.291, -1.80), .012, '#344d5a');
-  for (const side of [-1, 1]) beam(root, new THREE.Vector3(side * 0.86, 1.291, -1.82), new THREE.Vector3(side * 0.86, 1.291, -2.34), .009, '#344d5a');
+  beam(root, new THREE.Vector3(-0.78, 1.291, -1.36), new THREE.Vector3(0.78, 1.291, -1.36), .012, '#344d5a');
+  for (const side of [-1, 1]) beam(root, new THREE.Vector3(side * 0.86, 1.291, -1.38), new THREE.Vector3(side * 0.86, 1.291, -2.34), .009, '#344d5a');
 
   const glint = new THREE.MeshBasicMaterial({ color: '#d9edf1', transparent: true, opacity: .12, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 
@@ -81,34 +82,34 @@ export function createCar(color = '#7195b4', official = false, name = official ?
     root.add(mesh(reflectionGeometry, glint, false));
     for (let i = 0; i < 4; i++) beam(root, points[i], points[(i + 1) % 4], 0.016, '#263e46', 6);
   };
-  pane([new THREE.Vector3(-0.81, 1.873, 0.378), new THREE.Vector3(0.81, 1.873, 0.378), new THREE.Vector3(0.90, 1.26, 0.994), new THREE.Vector3(-0.90, 1.26, 0.994)]);
-  pane([new THREE.Vector3(-0.78, 1.87, -1.40), new THREE.Vector3(-0.84, 1.27, -1.71), new THREE.Vector3(0.84, 1.27, -1.71), new THREE.Vector3(0.78, 1.87, -1.40)]);
+  pane([new THREE.Vector3(-0.81, 1.735, 0.335), new THREE.Vector3(0.81, 1.735, 0.335), new THREE.Vector3(0.90, 1.26, 0.845), new THREE.Vector3(-0.90, 1.26, 0.845)]);
+  pane([new THREE.Vector3(-0.78, 1.73, -0.995), new THREE.Vector3(-0.84, 1.27, -1.305), new THREE.Vector3(0.84, 1.27, -1.305), new THREE.Vector3(0.78, 1.73, -0.995)]);
   for (const side of [-1, 1]) {
     const panels = [
-      [[0.90, 1.272, 0.973], [0.885, 1.845, 0.323], [0.90, 1.858, -0.44], [0.984, 1.274, -0.44]],
-      [[0.902, 1.852, -0.535], [0.852, 1.853, -1.36], [0.93, 1.274, -1.64], [0.984, 1.274, -0.535]],
+      [[0.90, 1.272, 0.818], [0.885, 1.712, 0.278], [0.90, 1.725, -0.30], [0.984, 1.274, -0.30]],
+      [[0.902, 1.718, -0.40], [0.852, 1.718, -0.93], [0.93, 1.274, -1.245], [0.984, 1.274, -0.40]],
     ];
     for (const panel of panels) pane(panel.map(([x, y, z]) => new THREE.Vector3(x * side, y, z)));
-    for (const [a, b] of [[0.27, -0.41], [-0.57, -1.13]]) beam(root, new THREE.Vector3(side * 0.895, 1.80, a), new THREE.Vector3(side * 0.897, 1.80, b), 0.009, '#bfd0c7', 5);
+    for (const [a, b] of [[0.22, -0.35], [-0.52, -0.90]]) beam(root, new THREE.Vector3(side * 0.895, 1.67, a), new THREE.Vector3(side * 0.897, 1.67, b), 0.009, '#bfd0c7', 5);
     roundedBox(root, 0.045, 0.09, 4.5, bumper, side * 1.005, 0.86, -0.02, 0.015);
     roundedBox(root, 0.020, 0.024, 3.27, chrome, side * 0.995, 1.248, -0.59, 0.008);
-    for (const z of [-0.38, -1.22]) {
+    for (const z of [-0.34, -1.18]) {
       roundedBox(root, 0.065, 0.053, 0.22, dark, side * 1.008, 1.129, z, 0.023);
       roundedBox(root, 0.074, 0.020, 0.18, chrome, side * 1.013, 1.139, z, 0.008);
     }
-    for (const z of [-0.48, -1.33, 0.90]) box(root, 0.016, 0.43, 0.011, dark, side * 1.006, 0.99, z);
-    ellipsoid(root, paint, side * 1.06, 1.40, 0.59, 0.185, 0.109, 0.192, 16);
-    roundedBox(root, 0.019, 0.122, 0.236, glass, side * 1.215, 1.405, 0.581, 0.04);
-    roundedBox(root, 0.037, 0.028, 1.65, chrome, side * 0.80, 1.944, -0.43, 0.009);
+    for (const z of [-0.42, -1.28, 0.78]) box(root, 0.016, 0.43, 0.011, dark, side * 1.006, 0.99, z);
+    ellipsoid(root, paint, side * 1.06, 1.375, 0.44, 0.185, 0.109, 0.192, 16);
+    roundedBox(root, 0.019, 0.122, 0.236, glass, side * 1.215, 1.38, 0.431, 0.04);
+    roundedBox(root, 0.037, 0.028, 1.42, chrome, side * 0.80, 1.815, -0.36, 0.009);
     for (const z of [-1.49, 1.46]) {
       const arch = mesh(new THREE.TorusGeometry(0.486, 0.036, 6, 22, Math.PI), dark);
       arch.rotation.y = side * Math.PI / 2; arch.position.set(side * 1.0, 0.466, z); root.add(arch);
     }
     // Subtle hood creases, body-coloured rather than a flat rectangular bonnet.
-    beam(root, new THREE.Vector3(side * 0.65, 1.224, 1.045), new THREE.Vector3(side * 0.68, 1.11, 2.19), 0.009, official ? '#828d81' : '#6694ad', 5);
+    beam(root, new THREE.Vector3(side * 0.65, 1.222, 0.875), new THREE.Vector3(side * 0.68, 1.11, 2.19), 0.009, official ? '#828d81' : '#6694ad', 5);
   }
   // Wipers, mirrors, rectangular lamps and a plain horizontal grille; no brand mark.
-  for (const side of [-1, 1]) beam(root, new THREE.Vector3(side * 0.47, 1.274, 0.985), new THREE.Vector3(side * 0.05, 1.345, 0.914), 0.011, '#293d3e');
+  for (const side of [-1, 1]) beam(root, new THREE.Vector3(side * 0.47, 1.272, 0.835), new THREE.Vector3(side * 0.05, 1.338, 0.764), 0.011, '#293d3e');
   // Chunky black plastic bumpers wrapping the corners.
   roundedBox(root, 2.02, 0.25, 0.24, bumper, 0, 0.66, 2.44, 0.06);
   for (const side of [-1, 1]) roundedBox(root, 0.08, 0.25, 0.5, bumper, side * 0.99, 0.66, 2.24, 0.03);
@@ -137,8 +138,8 @@ export function createCar(color = '#7195b4', official = false, name = official ?
     const label = mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: makeTextTexture(text, background, ink), roughness: 0.7 }));
     label.position.set(x, y, z); if (back) label.rotation.y = Math.PI; root.add(label); return label;
   };
-  decal(official ? 'GM 108' : 'GM 248', 0, 0.66, 2.565, 0.52, 0.12);
-  decal(official ? 'GM 108' : 'GM 248', 0, 1.0, -2.485, 0.5, 0.13, true);
+  decal(plate, 0, 0.66, 2.565, 0.52, 0.12);
+  decal(plate, 0, 1.0, -2.485, 0.5, 0.13, true);
   const wheels: THREE.Group[] = [], frontWheels: THREE.Group[] = [];
   for (const z of [-1.49, 1.46]) for (const side of [-1, 1]) {
     const wheel = new THREE.Group(); wheel.position.set(side * 1.00, 0.461, z);
@@ -154,8 +155,8 @@ export function createCar(color = '#7195b4', official = false, name = official ?
     }
     root.add(wheel); wheels.push(wheel); if (z > 0) frontWheels.push(wheel);
   }
-  if (official) {
-    const side = decal('FÄLTMÄTNING', 1.013, 1.058, -0.52, 0.76, 0.18, false, '#e6d6a3'); side.rotation.y = Math.PI / 2;
+  if (mark) {
+    const side = decal(mark, 1.013, 1.058, -0.52, 0.76, 0.18, false, '#e6d6a3'); side.rotation.y = Math.PI / 2;
   }
   for (const wheel of wheels) mergeStaticMeshes(wheel);
   mergeStaticMeshes(root, new Set<THREE.Object3D>([...wheels, ...brakeLights]));

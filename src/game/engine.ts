@@ -46,9 +46,29 @@ const scratchTarget = new THREE.Vector3(), scratchOffset = new THREE.Vector3(), 
 const scratchLabel = new THREE.Vector3(), scratchProject = new THREE.Vector3(), scratchBurst = new THREE.Vector3();
 const INTRO_TARGET = new THREE.Vector3(-1.8, 1.2, .6);
 const FLEE_GOAL = new THREE.Vector3(20, 0, 62);
-/** Skattemasarnas bil: samma infart som mätarlagets, men en egen grå bil. */
-const SKATTE_CAR_START = new THREE.Vector3(16, 0, 38), SKATTE_CAR_PARK = new THREE.Vector3(10.6, 0, 9);
+/** Klippets kameravinkel: kameran ligger på den röjda grusvägen, klar sikt hela vägen. */
+const SKATTE_CAMERA_YAW = -0.1;
+/** Skattemasarnas bil: en egen grå bil som följer grusvägen in på gården. */
+const SKATTE_PATH = [
+  new THREE.Vector3(17.2, 0, 43), new THREE.Vector3(15.3, 0, 31), new THREE.Vector3(11.6, 0, 21.5),
+  new THREE.Vector3(9.5, 0, 13.5), new THREE.Vector3(10.6, 0, 9.2),
+];
 const SKATTE_CAR_DOOR = new THREE.Vector3(11.4, 0, 8.6);
+const scratchSkatteNext = new THREE.Vector3(), scratchSkatteBefore = new THREE.Vector3();
+/** Catmull-Rom-punkt längs infarten för parametern u (0..1); skriver till `out`. */
+function sampleSkattePath(u: number, out: THREE.Vector3) {
+  const segments = SKATTE_PATH.length - 1;
+  const scaled = Math.min(1, Math.max(0, u)) * segments;
+  const i = Math.min(segments - 1, Math.floor(scaled));
+  const t = scaled - i;
+  const p0 = SKATTE_PATH[i === 0 ? 0 : i - 1], p1 = SKATTE_PATH[i], p2 = SKATTE_PATH[i + 1], p3 = SKATTE_PATH[Math.min(segments, i + 2)];
+  const t2 = t * t, t3 = t2 * t;
+  out.set(
+    0.5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+    0,
+    0.5 * (2 * p1.z + (-p0.z + p2.z) * t + (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * t2 + (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * t3));
+  return out;
+}
 const COMPANION_WAIT_HOME = new THREE.Vector3(HOME.door.x + 2.6, 0, HOME.door.z + 1.3);
 const COMPANION_WAIT_SHOP = new THREE.Vector3(SHOP.door.x + 2.7, 0, SHOP.door.z + 1.1);
 const STAIRS_BASE = new THREE.Vector3(HOME.stairsBase.x, HOME.groundY, HOME.stairsBase.z);
@@ -131,7 +151,11 @@ export class GameEngine {
   private skatteVisit: SkatteVisit = createSkatteVisit();
   private skatteFocus = new THREE.Vector3();
   private cutsceneFocus: THREE.Vector3 | null = null;
-  private skatteCarLeaving = false;
+  private cutsceneSnap = false;
+  /** Var på infarten bilen står just nu (0 = vägen, 1 = gården). */
+  private skattePathU = 0;
+  /** Bilens väg ut igen längs infarten; -1 när den inte lämnar. */
+  private skatteCarExit = -1;
   private skatteLine = 0;
   private toolboxTaken = false;
   private ready = false;
@@ -195,9 +219,9 @@ export class GameEngine {
     this.officialCar.root.visible = false;
     this.officialCar.root.position.set(16, 0, 37); this.officialCar.root.rotation.y = Math.PI + 0.16;
     this.scene.add(this.officialCar.root);
-    this.skatteCar = createCar('#8a9199', true, 'skattemasarnas bil');
+    this.skatteCar = createCar('#8a9199', true, 'skattemasarnas bil', 'GM 312', 'SKATTEKOLL');
     this.skatteCar.root.visible = false;
-    this.skatteCar.root.position.copy(SKATTE_CAR_START); this.skatteCar.root.rotation.y = Math.PI + 0.16;
+    sampleSkattePath(0, this.skatteCar.root.position); this.skatteCar.root.rotation.y = Math.PI + 0.15;
     this.scene.add(this.skatteCar.root);
     this.avatars = {
       leffe: this.createActor('leffe', 6.1, 9.2),
@@ -762,7 +786,7 @@ export class GameEngine {
         this.say(target, 'Vi noterar det här!');
         if (this.skatte.every(a => a.flee) && skatteVisitAborted(this.skatteVisit)) {
           this.cutsceneFocus = null;
-          if (this.skatteCar.root.visible) this.skatteCarLeaving = true;
+          if (this.skatteCar.root.visible) this.skatteCarExit = this.skattePathU;
           this.callbacks.onToast({ title: 'Skattemasarna avbröt besöket', detail: 'De springer till bilen. Det här kommer med i nästa deklaration.', kind: 'warning' });
         }
       } else {
@@ -1192,6 +1216,25 @@ export class GameEngine {
   }
 
   /**
+   * Flyttar Skattemasarnas bil längs infarten till parametern u (0 = vägen,
+   * 1 = gården). Hjulen snurrar med farten och framhjulen styr i svängarna,
+   * så bilen kör som en bil i stället för att glida som en klump.
+   */
+  private moveSkatteCarAlongPath(u: number, dt: number, reverse = false) {
+    scratchSkatteBefore.copy(this.skatteCar.root.position);
+    this.skattePathU = u;
+    sampleSkattePath(u, this.skatteCar.root.position);
+    sampleSkattePath(u < 0.97 ? u + 0.03 : u - 0.03, scratchSkatteNext);
+    const dirSign = u < 0.97 ? 1 : -1;
+    const heading = Math.atan2(dirSign * (scratchSkatteNext.x - this.skatteCar.root.position.x), dirSign * (scratchSkatteNext.z - this.skatteCar.root.position.z));
+    const turn = Math.atan2(Math.sin(heading - this.skatteCar.root.rotation.y), Math.cos(heading - this.skatteCar.root.rotation.y));
+    this.skatteCar.root.rotation.y = angleLerp(this.skatteCar.root.rotation.y, heading, 1 - Math.exp(-dt * 3.2));
+    for (const wheel of this.skatteCar.frontWheels) wheel.rotation.y = THREE.MathUtils.clamp(turn * 1.6, -0.38, 0.38);
+    const spin = (reverse ? -1 : 1) * distance(scratchSkatteBefore, this.skatteCar.root.position) / 0.45;
+    for (const wheel of this.skatteCar.wheels) for (const part of wheel.children) part.rotation.x += spin;
+  }
+
+  /**
    * Skattemasarnas besök — det korta klippet: bilen rullar in på gården 13
    * sekunder efter start, inspektörerna kliver ur medan kameran följer dem,
    * stämmer av era inkomster en stund och åker sedan vidare. Ingen peng
@@ -1201,13 +1244,13 @@ export class GameEngine {
     const event = skatteVisitStep(this.skatteVisit, this.activeTime, dt);
     if (event === 'cutscene-start') {
       this.skatteCar.root.visible = true;
-      this.skatteCar.root.position.copy(SKATTE_CAR_START);
-      this.skatteCar.root.rotation.y = Math.PI + 0.16;
+      this.skatteCarExit = -1;
+      this.moveSkatteCarAlongPath(0, dt);
       this.skatteLine = 0;
       this.audio.play('warning');
       this.callbacks.onToast({ title: 'Oväntat besök!', detail: 'Skattemasarna kommer för att stämma av era inkomster.', kind: 'warning' });
-      // Klippet sveper med bilen in; med nedtonade rörelser stannar kameran hos spelaren.
-      if (!this.reducedMotion) this.cutsceneFocus = this.skatteFocus;
+      // Klippet klipper direkt till bilen; med nedtonade rörelser stannar kameran hos spelaren.
+      if (!this.reducedMotion) { this.cutsceneFocus = this.skatteFocus; this.cutsceneSnap = true; }
     } else if (event === 'arrived') {
       this.cutsceneFocus = null;
     } else if (event === 'leave') {
@@ -1215,13 +1258,14 @@ export class GameEngine {
       for (const a of this.skatte) if (!a.flee) a.goalOverride = SKATTE_CAR_DOOR;
     } else if (event === 'done') {
       this.cutsceneFocus = null;
-      this.skatteCarLeaving = true;
+      this.skatteCarExit = this.skattePathU;
       for (const a of this.skatte) { a.model.root.visible = false; a.goalOverride = null; }
     }
     const phase = this.skatteVisit.phase;
     if (phase === 'cutscene') {
-      const t = Math.min(1, this.skatteVisit.timer / SKATTE_CUTSCENE_SECONDS);
-      this.skatteCar.root.position.lerpVectors(SKATTE_CAR_START, SKATTE_CAR_PARK, t);
+      const raw = Math.min(1, this.skatteVisit.timer / SKATTE_CUTSCENE_SECONDS);
+      // Mjuk start och inbromsning: bilen rullar fram som en bil.
+      this.moveSkatteCarAlongPath(raw * raw * (3 - 2 * raw), dt);
       if (this.skatteVisit.timer > SKATTE_CUTSCENE_SECONDS - 1.7 && !this.skatte[0].model.root.visible) {
         for (let i = 0; i < this.skatte.length; i++) {
           const a = this.skatte[i];
@@ -1248,10 +1292,11 @@ export class GameEngine {
         if (distance(a.model.root.position, a.goalOverride) < 1.5) { a.model.root.visible = false; a.goalOverride = null; }
       }
     }
-    if (this.skatteCarLeaving) {
-      this.skatteCar.root.rotation.y = angleLerp(this.skatteCar.root.rotation.y, 0.17, dt);
-      this.skatteCar.root.position.z += dt * 4;
-      if (this.skatteCar.root.position.z > 65) { this.skatteCar.root.visible = false; this.skatteCarLeaving = false; }
+    // Sedan backar bilen ut längs infarten och försvinner ner på vägen.
+    if (this.skatteCarExit >= 0) {
+      this.skatteCarExit = Math.max(0, this.skatteCarExit - dt * 0.16);
+      this.moveSkatteCarAlongPath(this.skatteCarExit, dt, true);
+      if (this.skatteCarExit === 0) { this.skatteCar.root.visible = false; this.skatteCarExit = -1; }
     }
   }
 
@@ -1337,15 +1382,22 @@ export class GameEngine {
     this.officialCar.shadow.rotation.z = -this.officialCar.root.rotation.z;
     const desiredTarget = this.cutsceneFocus ?? (this.state.started ? above(this.playerPosition, this.state.inCar ? 1.25 : 1.3, scratchTarget) : INTRO_TARGET);
     // Med nedtonade rörelser följer kameran stramare och zoomar utan långa svep.
+    // Klippets första bildruta klipper direkt till bilen i stället för att glida dit.
     const ease = this.reducedMotion ? 4 : 1;
-    this.cameraTarget.lerp(desiredTarget, 1 - Math.exp(-dt * ease * (this.state.started ? 5 : 1)));
+    const snap = this.cutsceneSnap;
+    this.cutsceneSnap = false;
+    if (snap) this.cameraTarget.copy(desiredTarget);
+    else this.cameraTarget.lerp(desiredTarget, 1 - Math.exp(-dt * ease * (this.state.started ? 5 : 1)));
     if (this.state.inCar && !this.dragging && !this.cutsceneFocus && Math.abs(this.carVelocity) > 1.8) {
       this.cameraYaw = angleLerp(this.cameraYaw, this.car.root.rotation.y + Math.PI, 1 - Math.exp(-dt * 1.45));
     }
-    const dist = this.cutsceneFocus ? 19.5 : (this.state.started ? (this.state.aiming ? this.aimingDistance() : this.cameraDistance + (this.state.inCar ? 4 : 0)) : 44);
-    const elevation = this.cutsceneFocus ? 0.40 : (this.state.started ? this.cameraElevation : this.cameraElevation - 0.06);
+    if (this.cutsceneFocus && !this.dragging) {
+      this.cameraYaw = angleLerp(this.cameraYaw, SKATTE_CAMERA_YAW, 1 - Math.exp(-dt * 0.9));
+    }
+    const dist = this.cutsceneFocus ? 15 : (this.state.started ? (this.state.aiming ? this.aimingDistance() : this.cameraDistance + (this.state.inCar ? 4 : 0)) : 44);
+    const elevation = this.cutsceneFocus ? 0.31 : (this.state.started ? this.cameraElevation : this.cameraElevation - 0.06);
     const offset = scratchOffset.set(Math.sin(this.cameraYaw) * Math.cos(elevation) * dist, Math.sin(elevation) * dist, Math.cos(this.cameraYaw) * Math.cos(elevation) * dist);
-    positionFollowCamera(this.camera.position, this.cameraTarget, this.cameraOffset, offset, dt * ease);
+    positionFollowCamera(this.camera.position, this.cameraTarget, this.cameraOffset, offset, snap ? 2 : dt * ease);
     this.camera.position.y = Math.max(this.camera.position.y, groundHeight(this.camera.position.x, this.camera.position.z) + 2.4);
     this.camera.lookAt(this.cameraTarget);
     if (this.highQuality) {
@@ -1572,9 +1624,10 @@ export class GameEngine {
     this.world.toolbox.visible = true; this.bailiffArrival = -1; this.bailiffFled = 0;
     this.bailiffs.forEach(a => { a.model.root.visible = false; a.flee = false; a.health = 3; a.stunned = 0; a.angry = 0; });
     this.officialCar.root.visible = false;
-    this.skatteVisit = createSkatteVisit(); this.skatteLine = 0; this.cutsceneFocus = null; this.skatteCarLeaving = false;
+    this.skatteVisit = createSkatteVisit(); this.skatteLine = 0; this.cutsceneFocus = null; this.cutsceneSnap = false;
+    this.skattePathU = 0; this.skatteCarExit = -1;
     this.skatte.forEach(a => { a.model.root.visible = false; a.flee = false; a.health = 3; a.stunned = 0; a.angry = 0; a.goalOverride = null; });
-    this.skatteCar.root.visible = false; this.skatteCar.root.position.copy(SKATTE_CAR_START);
+    this.skatteCar.root.visible = false; sampleSkattePath(0, this.skatteCar.root.position);
     this.shopkeeper.model.root.position.copy(this.shopkeeper.home); this.shopkeeper.angry = 0; this.shopkeeper.health = 3; this.shopkeeper.stunned = 0;
     this.world.shop.structure.visible = true; this.world.shop.loot.visible = true; this.shopGraceUntil = 0; this.shopCamera = null; this.updateEquipment();
     this.rurik.model.root.position.copy(this.rurik.home); this.rurik.health = 3; this.rurik.angry = 0; this.rurik.stunned = 0;

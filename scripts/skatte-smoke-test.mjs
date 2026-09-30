@@ -15,7 +15,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 page.setDefaultTimeout(180000);
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
-const waitText = (selector, text, timeout = 180000) => page.waitForFunction(
+const waitText = (selector, text, timeout = 300000) => page.waitForFunction(
   ({ selector, text }) => document.querySelector(selector)?.textContent?.includes(text),
   { selector, text }, { timeout });
 
@@ -43,7 +43,9 @@ try {
   console.log('✓ Inspektörerna är på gården med repliker och etiketter');
 
   // Besöket tar slut på egen hand: avskedsrepliken kommer när de går till bilen.
-  await waitText('.world-labels', 'Vi återkommer vid nästa deklaration');
+  // Hela besöket är ~23 spelsekunder efter inspektörsetiketten; på maskiner med
+  // mjukvarugrafik går speltiden långsamt, så väntetiden måste vara generös.
+  await waitText('.world-labels', 'Vi återkommer vid nästa deklaration', 540000);
   console.log('✓ Besöket avslutas med avskedsreplik');
 
   assert.deepEqual(errors, [], `Fel på sidan: ${errors.join(' | ')}`);
